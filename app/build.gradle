@@ -1,0 +1,129 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'kotlin-kapt'
+    id 'org.jetbrains.kotlin.plugin.compose'
+}
+
+android {
+    namespace = 'com.fslr.pansinayan'
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId "com.fslr.pansinayan"
+        minSdk = 24
+        targetSdk = 34
+        versionCode 1
+        versionName "1.0"
+
+        // Specify ABIs for native libraries
+        ndk {
+            abiFilters 'armeabi-v7a', 'arm64-v8a'
+        }
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+
+    buildFeatures {
+        viewBinding = true
+        compose = true
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion = '1.5.1'
+    }
+
+    // Prevent compression of model files
+    aaptOptions {
+        noCompress "task"
+        noCompress "pt"
+        noCompress "ptl"
+    }
+    
+    // No ONNX/TFLite packaging rules needed for PyTorch-only setup
+
+    // Enable density splits to reduce APK size by delivering only needed densities
+    splits {
+        density {
+            enable true
+        }
+    }
+}
+
+dependencies {
+    // Core Android
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+
+    // CameraX
+    def camerax_version = "1.3.1"
+    implementation "androidx.camera:camera-core:${camerax_version}"
+    implementation "androidx.camera:camera-camera2:${camerax_version}"
+    implementation "androidx.camera:camera-lifecycle:${camerax_version}"
+    implementation "androidx.camera:camera-view:${camerax_version}"
+
+    // PyTorch Mobile (full runtime for .pt models)
+    implementation 'org.pytorch:pytorch_android:2.1.0'
+
+    // MediaPipe (Vision tasks for hand/pose detection)
+    implementation 'com.google.mediapipe:tasks-vision:0.10.11'
+
+    // Coroutines (for async operations)
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
+
+    // Room Database (for persistent history)
+    def room_version = "2.6.1"
+    implementation "androidx.room:room-runtime:$room_version"
+    kapt "androidx.room:room-compiler:$room_version"
+    implementation "androidx.room:room-ktx:$room_version"
+
+    // JSON parsing
+    implementation 'com.google.code.gson:gson:2.10.1'
+
+    // CardView for UI
+    implementation 'androidx.cardview:cardview:1.0.0'
+
+    // Testing
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+
+    // Jetpack Compose dependencies
+    def composeBom = platform('androidx.compose:compose-bom:2024.09.00')
+    implementation composeBom
+    androidTestImplementation composeBom
+
+    implementation libs.androidx.ui
+    implementation libs.androidx.material3
+    implementation libs.androidx.ui.tooling.preview
+    debugImplementation libs.androidx.ui.tooling
+    debugImplementation libs.androidx.ui.test.manifest
+
+    // Networking for online mode
+    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
+    implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'com.squareup.okhttp3:logging-interceptor:4.12.0'
+}
+
+// No TensorFlow Lite resolution strategy needed
