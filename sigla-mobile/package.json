@@ -1,0 +1,28 @@
+{
+  "name": "sigla-mobile",
+  "version": "1.10.0",
+  "private": true,
+  "scripts": {
+    "start": "react-native start",
+    "bundle": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output app/src/main/assets/index.android.bundle --assets-dest app/src/main/res",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "nativewind": "^2.0.11",
+    "react": "18.3.1",
+    "react-native": "0.76.6"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/runtime": "^7.25.6",
+    "@react-native-community/cli": "^15.0.1",
+    "@react-native-community/cli-platform-android": "^15.0.1",
+    "@react-native/metro-config": "^0.76.6",
+    "@types/react": "^18.3.12",
+    "@types/react-native": "^0.73.0",
+    "metro-config": "^0.81.0",
+    "tailwindcss": "3.3.2",
+    "typescript": "^5.6.3"
+  }
+}

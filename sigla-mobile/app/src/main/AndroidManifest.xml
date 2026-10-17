@@ -59,15 +59,24 @@
         <!-- Launcher: continues the system splash into the brand intro, then
              hands off to Home. -->
         <activity
-            android:name=".SplashActivity"
+            android:name=".SiglaReactActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.Sigla.Starting">
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
+            android:theme="@style/Theme.Sigla">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".SplashActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Sigla.Starting" />
 
         <activity
             android:name=".HomeActivity"

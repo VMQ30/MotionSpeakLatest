@@ -16,6 +16,7 @@ val keystoreProps = Properties().apply {
 android {
     namespace = "com.example.sigla"
     compileSdk = 34
+    buildToolsVersion = "35.0.0"
 
     defaultConfig {
         applicationId = "com.example.sigla"
@@ -33,7 +34,7 @@ android {
         // real device; only an x86 emulator loses the ability to install this
         // build (use an arm64 emulator image, or a real phone, instead).
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
         }
     }
 
@@ -126,6 +127,10 @@ dependencies {
     // DrawerLayout
     implementation("androidx.drawerlayout:drawerlayout:1.2.0")
     
+    // React Native
+    implementation("com.facebook.react:react-android:0.76.6")
+    implementation("com.facebook.react:hermes-android:0.76.6")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
