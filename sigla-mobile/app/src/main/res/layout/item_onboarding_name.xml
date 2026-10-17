@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Final onboarding step: "What should we call you?" (spec §5). Everything,
+     the field included, sits in the top half of the screen on purpose: a
+     keyboard covers roughly the bottom 40%, so the field stays visible while
+     typing without the page having to move (see adjustPan in the manifest,
+     which only shifts the window if a short screen would still cover it). -->
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/sg_bg">
+
+    <!-- 88dp top margin clears the brand header drawn over every page. -->
+    <FrameLayout
+        android:id="@+id/nameIcon"
+        android:layout_width="88dp"
+        android:layout_height="88dp"
+        android:layout_marginTop="88dp"
+        android:background="@drawable/bg_sg_circle_tint"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_gravity="center"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_onboard_name"
+            android:tint="@color/sg_brand_text" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/tvNameEyebrow"
+        style="@style/Sigla.Text.Caption"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/sg_space_24"
+        android:fontFamily="@font/poppins_semibold"
+        android:letterSpacing="0.12"
+        android:textAllCaps="true"
+        android:textColor="@color/sg_brand_text"
+        android:text="One last thing"
+        app:layout_constraintTop_toBottomOf="@id/nameIcon"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <TextView
+        android:id="@+id/tvNameTitle"
+        style="@style/Sigla.Text.Display"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="28dp"
+        android:layout_marginTop="@dimen/sg_space_8"
+        android:layout_marginEnd="28dp"
+        android:gravity="center"
+        android:text="What should we call you?"
+        app:layout_constraintTop_toBottomOf="@id/tvNameEyebrow"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <TextView
+        android:id="@+id/tvNameSubtitle"
+        style="@style/Sigla.Text.Body"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="28dp"
+        android:layout_marginTop="@dimen/sg_space_8"
+        android:layout_marginEnd="28dp"
+        android:gravity="center"
+        android:lineSpacingMultiplier="1.35"
+        android:textColor="@color/sg_text_secondary"
+        android:text="So Home can greet you by name. You can change it anytime in Settings."
+        app:layout_constraintTop_toBottomOf="@id/tvNameTitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:layout_marginStart="28dp"
+        android:layout_marginTop="@dimen/sg_space_24"
+        android:layout_marginEnd="28dp"
+        android:background="@drawable/bg_sg_search"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="@dimen/sg_space_20"
+        app:layout_constraintTop_toBottomOf="@id/tvNameSubtitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etUserName"
+            style="@style/Sigla.Text.Body"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@null"
+            android:hint="Your first name"
+            android:imeOptions="actionDone"
+            android:inputType="textPersonName|textCapWords"
+            android:maxLines="1"
+            android:textColor="@color/sg_text"
+            android:textColorHint="@color/sg_text_secondary" />
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

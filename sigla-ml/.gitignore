@@ -1,0 +1,45 @@
+# Environment
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pth
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv/
+env/
+
+# Models and datasets (too large for git)
+models/
+datasets/
+
+# Row backups written by tools/dedupe_samples.py --backup. These inline the full
+# 30x147 sequence of every deleted row (~33 MB for 335 rows) and are a local
+# recovery artefact, not source. Keep them until the dedupe is confirmed good.
+dedupe_backup*.json
+*_backup.json
+
+# Console output from long tool runs (cross_validate.py etc). The results land in
+# the --out JSON, which IS worth committing; the log is just progress noise.
+*_run.log
+
+# MediaPipe model bundles (downloaded, not committed — see app/models/README.md).
+# The app/models/ dir is tracked for its README; only the .task binaries are ignored.
+!app/models/
+!app/models/README.md
+# app/models/*.task
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

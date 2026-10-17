@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- History row: badge, word + Filipino translation, time, delete button. -->
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    style="@style/Widget.Sigla.Card.Tint"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="@dimen/sg_space_12">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="@dimen/sg_space_12">
+
+        <FrameLayout
+            android:layout_width="@dimen/sg_badge_size"
+            android:layout_height="@dimen/sg_badge_size"
+            android:background="@drawable/bg_sg_circle_tint">
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_gravity="center"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_hand_line"
+                android:tint="@color/sg_brand_text" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="@dimen/sg_space_12"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/tvWord"
+                style="@style/Sigla.Text.BodyStrong"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                tools:text="Good morning" />
+            <TextView
+                android:id="@+id/tvFilipino"
+                style="@style/Sigla.Text.Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:visibility="gone"
+                tools:text="Magandang umaga"
+                tools:visibility="visible" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvTime"
+            style="@style/Sigla.Text.Caption"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/sg_space_8"
+            tools:text="11:02 PM" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnDelete"
+            style="@style/Widget.Sigla.IconButton"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="@dimen/sg_space_8"
+            android:contentDescription="Delete this entry"
+            app:cornerRadius="18dp"
+            app:icon="@drawable/ic_close_line"
+            app:iconSize="16dp"
+            app:iconTint="@color/sg_text_secondary" />
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

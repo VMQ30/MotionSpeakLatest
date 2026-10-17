@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Word Bank (spec §5, mockup tabs-v1). Bottom bar navigation (view_bottom_nav.xml).
+     Grid mode shows the filter pills and category cards; typing a search switches to
+     list mode (word rows). -->
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/sg_bg">
+
+    <LinearLayout
+        android:id="@+id/wordBankContent"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:paddingStart="@dimen/sg_screen_padding"
+        android:paddingTop="@dimen/sg_space_24"
+        android:paddingEnd="@dimen/sg_screen_padding">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    style="@style/Sigla.Text.Title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Word Bank" />
+                <TextView
+                    android:id="@+id/tvWordBankSubtitle"
+                    style="@style/Sigla.Text.Caption"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Filipino Sign Language words" />
+            </LinearLayout>
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDownloadAllVideos"
+                style="@style/Widget.Sigla.IconButton"
+                android:contentDescription="Download all demo videos for offline use"
+                app:icon="@drawable/ic_download_all" />
+        </LinearLayout>
+
+        <!-- Search -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/sg_search_height"
+            android:layout_marginTop="@dimen/sg_space_16"
+            android:background="@drawable/bg_sg_search"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="@dimen/sg_space_16"
+            android:paddingEnd="@dimen/sg_space_16">
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_search_line"
+                android:tint="@color/sg_text_secondary" />
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etSearch"
+                style="@style/Sigla.Text.Body"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginStart="@dimen/sg_space_12"
+                android:background="@null"
+                android:hint="Search words…"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:maxLines="1"
+                android:textColorHint="@color/sg_text_secondary" />
+        </LinearLayout>
+
+        <!-- Grid mode: pills + categories -->
+        <LinearLayout
+            android:id="@+id/categoryGridContainer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/sg_space_8"
+                android:orientation="horizontal">
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/pillAll"
+                    style="@style/Widget.Sigla.Chip"
+                    android:layout_marginEnd="@dimen/sg_space_8"
+                    android:text="All" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/pillWords"
+                    style="@style/Widget.Sigla.Chip"
+                    android:layout_marginEnd="@dimen/sg_space_8"
+                    android:text="Words" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/pillLetters"
+                    style="@style/Widget.Sigla.Chip"
+                    android:text="Letters" />
+            </LinearLayout>
+
+            <TextView
+                style="@style/Sigla.Text.Section"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/sg_space_8"
+                android:layout_marginBottom="@dimen/sg_space_8"
+                android:text="Categories" />
+
+            <!-- -6dp offsets the 6dp margin on each card so the grid lines up with
+                 the screen padding. -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvCategoryGrid"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_marginStart="-6dp"
+                android:layout_marginEnd="-6dp"
+                android:clipToPadding="false"
+                android:paddingBottom="@dimen/sg_bottom_bar_clearance" />
+        </LinearLayout>
+
+        <!-- List mode: search results -->
+        <TextView
+            android:id="@+id/tvEntryCount"
+            style="@style/Sigla.Text.Caption"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/sg_space_16"
+            android:layout_marginBottom="@dimen/sg_space_8"
+            android:visibility="gone"
+            tools:text="Showing 24 words" />
+
+        <FrameLayout
+            android:id="@+id/listContainer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvWords"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:paddingBottom="@dimen/sg_bottom_bar_clearance"
+                android:visibility="gone" />
+            <ProgressBar
+                android:id="@+id/progressLoading"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginBottom="@dimen/sg_bottom_bar_clearance"
+                android:indeterminateTint="@color/sg_brand"
+                android:visibility="gone" />
+            <LinearLayout
+                android:id="@+id/emptyState"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:paddingBottom="@dimen/sg_bottom_bar_clearance"
+                android:orientation="vertical"
+                android:visibility="gone">
+                <TextView
+                    style="@style/Sigla.Text.CardTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="No words found" />
+                <TextView
+                    style="@style/Sigla.Text.Secondary"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sg_space_4"
+                    android:gravity="center"
+                    android:text="Try a different search, or connect to the internet to download the word bank." />
+            </LinearLayout>
+        </FrameLayout>
+    </LinearLayout>
+
+    <include layout="@layout/view_bottom_nav" />
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

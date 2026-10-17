@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- History date header. Entries are grouped by date, most recent at top. -->
+<TextView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/tvDateHeader"
+    style="@style/Sigla.Text.Section"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingTop="@dimen/sg_space_16"
+    android:paddingBottom="@dimen/sg_space_8"
+    tools:text="Today" />

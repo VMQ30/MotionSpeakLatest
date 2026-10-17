@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Word row (spec §5 "Word rows", mockup words-v1 option A). -->
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    style="@style/Widget.Sigla.Card.Tint"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="@dimen/sg_space_12"
+    android:clickable="true"
+    android:stateListAnimator="@animator/press_scale"
+    android:focusable="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:minHeight="76dp"
+        android:orientation="horizontal"
+        android:padding="@dimen/sg_space_12">
+
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/ivWordThumb"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:background="@drawable/bg_sg_thumb"
+            android:importantForAccessibility="no"
+            android:scaleType="centerCrop"
+            app:shapeAppearanceOverlay="@style/ShapeAppearance.Sigla.Thumb" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="@dimen/sg_space_12"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/tvSimpleWord"
+                style="@style/Sigla.Text.BodyStrong"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                tools:text="Good morning" />
+            <TextView
+                android:id="@+id/tvWordFilipino"
+                style="@style/Sigla.Text.Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                tools:text="Magandang umaga" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/ivWordStar"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginStart="@dimen/sg_space_12"
+            android:src="@drawable/ic_star_line"
+            android:tint="@color/sg_text_secondary"
+            tools:ignore="ContentDescription" />
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

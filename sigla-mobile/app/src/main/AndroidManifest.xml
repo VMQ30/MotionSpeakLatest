@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <uses-feature android:name="android.hardware.camera" android:required="true" />
+
+    
+
+    <application
+        android:name=".SiglaApplication"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Sigla"
+        android:usesCleartextTraffic="true"
+        tools:replace="android:allowBackup,android:icon,android:label,android:theme"
+>
+
+        <!--
+            Lets MediaPipe's GPU delegate dlopen the vendor OpenCL driver.
+
+            Since Android 7 (and enforced hard on 12+), an app process can only load
+            vendor native libraries that it declares here, even when the .so is in the
+            platform's public.libraries allowlist. Without this, dlopen("libOpenCL.so")
+            fails with:
+
+                Failed to load OpenCL library with dlopen: dlopen failed:
+                library "libvndksupport.so" not found. Trying ICD loader.
+
+            MediaPipe does NOT surface that as an error — createFromOptions() still
+            succeeds and the helper logs "ready [GPU]", but the graph silently runs on
+            CPU. On this device that was ~109 ms per frame, capping the pipeline near
+            5 fps, which is what made the preview and predictions feel laggy.
+
+            android:required="false" so devices with no OpenCL driver still install and
+            fall back to the CPU path as before.
+        -->
+        <uses-native-library android:name="libOpenCL.so" android:required="false" />
+        <!-- Vendor-specific OpenCL names used by some Arm/Qualcomm/MediaTek stacks. -->
+        <uses-native-library android:name="libOpenCL-car.so" android:required="false" />
+        <uses-native-library android:name="libOpenCL-pixel.so" android:required="false" />
+        <uses-native-library android:name="libGLES_mali.so" android:required="false" />
+
+
+        <!-- launchMode="singleTop" on the sidebar-reachable screens: re-tapping
+             the current screen in the drawer reuses the existing instance
+             instead of stacking (and rebuilding) a second copy of it. -->
+        <!-- Launcher: continues the system splash into the brand intro, then
+             hands off to Home. -->
+        <activity
+            android:name=".SplashActivity"
+            android:exported="true"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Sigla.Starting">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".HomeActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait" />
+
+
+        <activity android:name=".TranslationHistoryActivity" android:exported="false" android:launchMode="singleTop" android:screenOrientation="portrait" />
+        <!-- adjustNothing: the window must NOT resize when the keyboard opens.
+             The CoordinatorLayout root fills the window, and the bottom nav is
+             pinned to ITS bottom edge (not the screen's) — if the window
+             shrinks, the nav shrinks with it and ends up above the keyboard
+             instead of at the true bottom. WordBankActivity insets only its
+             content column edge-to-edge instead (see setupKeyboardInsets). -->
+        <activity android:name=".WordBankActivity" android:exported="false" android:launchMode="singleTop" android:screenOrientation="portrait" android:windowSoftInputMode="adjustNothing" />
+        <activity android:name=".CategoryWordListActivity" android:exported="false" android:screenOrientation="portrait" />
+        <activity android:name=".WordDetailActivity" android:exported="false" android:screenOrientation="portrait" />
+        <!-- No fixed orientation: it turns landscape for a landscape demo clip.
+             configChanges keeps the playing video alive across that rotation. -->
+        <activity android:name=".FullscreenVideoActivity" android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"
+            android:theme="@style/Theme.Sigla.Immersive" />
+        <activity android:name=".SettingsActivity" android:exported="false" android:launchMode="singleTop" android:screenOrientation="portrait" />
+        <!-- adjustPan: never resizes the window (resizing squashed the old hero panel and
+             lifted Skip / Get Started with the keyboard). The name field sits in the
+             top half, so on most phones the keyboard leaves it in view and nothing
+             moves; on a short screen the system shifts the window just enough. -->
+        <activity android:name=".OnboardingActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustPan" />
+        
+
+    </application>
+</manifest>
