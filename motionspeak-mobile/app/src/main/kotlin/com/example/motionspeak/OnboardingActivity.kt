@@ -46,8 +46,8 @@ internal val featurePages = listOf(
         R.drawable.illus_onboard_translate,
         "A phone tracking an open hand and answering with a speech bubble",
         "Translate",
-        "Sign, and SigLa speaks",
-        "Point your camera at someone signing. SigLa reads the sign and says the word out loud, in English or Filipino.",
+        "Sign, and MotionSpeak speaks",
+        "Point your camera at someone signing. MotionSpeak reads the sign and says the word out loud, in English or Filipino.",
     ),
     OnboardingPage(
         R.drawable.illus_onboard_learn,
