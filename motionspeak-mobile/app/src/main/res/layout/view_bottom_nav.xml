@@ -11,7 +11,7 @@
         android:id="@+id/bottomAppBar"
         style="@style/Widget.Sigla.BottomAppBar"
         android:layout_width="match_parent"
-        android:layout_height="@dimen/sg_bottom_bar_height"
+        android:layout_height="@dimen/ms_bottom_bar_height"
         android:layout_gravity="bottom">
 
         <LinearLayout
@@ -63,8 +63,8 @@
         android:elevation="6dp"
         android:contentDescription="Translate"
         app:srcCompat="@drawable/ic_hand_line"
-        app:tint="@color/sg_on_brand"
-        app:backgroundTint="@color/sg_brand"
+        app:tint="@color/ms_on_brand"
+        app:backgroundTint="@color/ms_brand"
         app:fabCustomSize="60dp"
         app:maxImageSize="28dp"
         app:layout_anchor="@id/bottomAppBar" />

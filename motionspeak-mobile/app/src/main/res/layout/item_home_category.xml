@@ -13,7 +13,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="@dimen/sg_space_12">
+        android:padding="@dimen/ms_space_12">
 
         <ImageView
             android:id="@+id/ivCategoryIcon"
@@ -21,14 +21,14 @@
             android:layout_height="24dp"
             android:importantForAccessibility="no"
             android:src="@drawable/ic_tag_line"
-            android:tint="@color/sg_brand_text" />
+            android:tint="@color/ms_brand_text" />
 
         <TextView
             android:id="@+id/tvCategoryName"
             style="@style/Sigla.Text.BodyStrong"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/sg_space_8"
+            android:layout_marginTop="@dimen/ms_space_8"
             android:ellipsize="end"
             android:maxLines="1"
             tools:text="Greetings" />

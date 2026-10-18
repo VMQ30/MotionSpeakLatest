@@ -1,24 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <resources>
-    <color name="sg_brand">#3B82F6</color>
-    <color name="sg_logo_blue">#1A387E</color>
-    <color name="sg_brand_text">#13306B</color>
-    <color name="sg_bg">#F8FAFC</color>
-    <color name="sg_tint">#FFFFFF</color>
-    <color name="sg_bar_bg">#FFFFFF</color>
-    <color name="sg_text">#0F172A </color>
-    <color name="sg_text_secondary">#64748B</color>
-    <color name="sg_divider">#E2E8F0</color>
-    <color name="sg_danger">#EF4444</color>
-    <color name="sg_success">#10B981</color>
-    <color name="sg_on_brand">#FFFFFF</color>
-    <color name="sg_on_brand_secondary">#CCFFFFFF</color>
-    <color name="sg_on_brand_disc">#26FFFFFF</color>
-    <color name="sg_on_dark">#FFFFFF</color>
-    <color name="sg_on_dark_secondary">#CCFFFFFF</color>
-    <color name="sg_nav_bar">#0D1127</color>
+    <color name="ms_brand">#3B82F6</color>
+    <color name="ms_logo_blue">#1A387E</color>
+    <color name="ms_brand_text">#13306B</color>
+    <color name="ms_bg">#F8FAFC</color>
+    <color name="ms_tint">#FFFFFF</color>
+    <color name="ms_bar_bg">#FFFFFF</color>
+    <color name="ms_text">#0F172A </color>
+    <color name="ms_text_secondary">#64748B</color>
+    <color name="ms_divider">#E2E8F0</color>
+    <color name="ms_danger">#EF4444</color>
+    <color name="ms_success">#10B981</color>
+    <color name="ms_on_brand">#FFFFFF</color>
+    <color name="ms_on_brand_secondary">#CCFFFFFF</color>
+    <color name="ms_on_brand_disc">#26FFFFFF</color>
+    <color name="ms_on_dark">#FFFFFF</color>
+    <color name="ms_on_dark_secondary">#CCFFFFFF</color>
+    <color name="ms_nav_bar">#0D1127</color>
     <color name="colorIndicatorInactive">#D7DBE4</color>
-    <color name="sg_illus_soft">#C9D8FA</color>
-    <color name="sg_illus_mid">#9DB8F2</color>
+    <color name="ms_illus_soft">#C9D8FA</color>
+    <color name="ms_illus_mid">#9DB8F2</color>
 </resources>

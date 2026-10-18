@@ -133,10 +133,10 @@ class SettingsActivity : AppCompatActivity() {
         currentVoice = voice
         val male   = findViewById<TextView>(R.id.btnVoiceMale)
         val female = findViewById<TextView>(R.id.btnVoiceFemale)
-        val onColor  = getColor(R.color.sg_on_brand)
-        val offColor = getColor(R.color.sg_brand_text)
-        val onTint   = getColorStateList(R.color.sg_brand)
-        val offTint  = getColorStateList(R.color.sg_tint)
+        val onColor  = getColor(R.color.ms_on_brand)
+        val offColor = getColor(R.color.ms_brand_text)
+        val onTint   = getColorStateList(R.color.ms_brand)
+        val offTint  = getColorStateList(R.color.ms_tint)
 
         if (voice == "MALE") {
             male?.backgroundTintList = onTint

@@ -17,7 +17,7 @@
         android:layout_height="wrap_content"
         android:minHeight="104dp"
         android:orientation="vertical"
-        android:padding="@dimen/sg_space_12">
+        android:padding="@dimen/ms_space_12">
         <ImageView
             android:id="@+id/ivCategoryIcon"
             android:layout_width="24dp"
@@ -29,7 +29,7 @@
             style="@style/Sigla.Text.BodyStrong"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/sg_space_8"
+            android:layout_marginTop="@dimen/ms_space_8"
             android:ellipsize="end"
             android:hyphenationFrequency="none"
             tools:text="Greetings" />

@@ -37,8 +37,8 @@ object BottomNavHelper {
     }
 
     fun setup(activity: Activity, current: Tab) {
-        val on = ContextCompat.getColor(activity, R.color.sg_brand_text)
-        val off = ContextCompat.getColor(activity, R.color.sg_text_secondary)
+        val on = ContextCompat.getColor(activity, R.color.ms_brand_text)
+        val off = ContextCompat.getColor(activity, R.color.ms_text_secondary)
         val semibold = ResourcesCompat.getFont(activity, R.font.poppins_semibold)
         val regular = ResourcesCompat.getFont(activity, R.font.poppins_regular)
         for (t in TABS) {

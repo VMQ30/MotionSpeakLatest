@@ -31,13 +31,13 @@ class CategoryGridAdapter(
     /** Colours resolved once per adapter, not per bind. */
     private class Palette(private val context: Context) {
         private fun c(id: Int) = ContextCompat.getColor(context, id)
-        val brand = c(R.color.sg_brand)
-        val tint = c(R.color.sg_tint)
-        val onBrand = c(R.color.sg_on_brand)
-        val onBrandSecondary = c(R.color.sg_on_brand_secondary)
-        val text = c(R.color.sg_text)
-        val textSecondary = c(R.color.sg_text_secondary)
-        val brandText = c(R.color.sg_brand_text)
+        val brand = c(R.color.ms_brand)
+        val tint = c(R.color.ms_tint)
+        val onBrand = c(R.color.ms_on_brand)
+        val onBrandSecondary = c(R.color.ms_on_brand_secondary)
+        val text = c(R.color.ms_text)
+        val textSecondary = c(R.color.ms_text_secondary)
+        val brandText = c(R.color.ms_brand_text)
     }
 
     private var palette: Palette? = null

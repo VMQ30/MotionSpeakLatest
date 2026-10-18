@@ -691,9 +691,9 @@ class MainActivity : AppCompatActivity() {
     private fun setStatus(text: String, kind: StatusKind) {
         Motion.swapText(binding.tvStatus, text)
         val colour = when (kind) {
-            StatusKind.LOADING -> R.color.sg_text_secondary
-            StatusKind.READY -> R.color.sg_success
-            StatusKind.ERROR -> R.color.sg_danger
+            StatusKind.LOADING -> R.color.ms_text_secondary
+            StatusKind.READY -> R.color.ms_success
+            StatusKind.ERROR -> R.color.ms_danger
         }
         Motion.tintTo(binding.statusDot, ContextCompat.getColor(this, colour))
     }
@@ -971,8 +971,8 @@ class MainActivity : AppCompatActivity() {
         if (feedback.tick) Haptics.tick(binding.btnTapRecord)
         if (feedback.clearResult) clearResult()
 
-        val accent = ContextCompat.getColor(this, R.color.sg_brand)
-        val red = ContextCompat.getColor(this, R.color.sg_danger)
+        val accent = ContextCompat.getColor(this, R.color.ms_brand)
+        val red = ContextCompat.getColor(this, R.color.ms_danger)
         binding.tvTapPrompt.removeCallbacks(hideTapPrompt)
 
         // The button's text is set directly: its alpha belongs to the Ready
@@ -1196,8 +1196,8 @@ class MainActivity : AppCompatActivity() {
 
     /** Filled brand when on, tint when off (chips in the sheet). */
     private fun applyToggleStyle(button: MaterialButton, on: Boolean) {
-        val bg = if (on) R.color.sg_brand else R.color.sg_tint
-        val fg = if (on) R.color.sg_on_brand else R.color.sg_brand_text
+        val bg = if (on) R.color.ms_brand else R.color.ms_tint
+        val fg = if (on) R.color.ms_on_brand else R.color.ms_brand_text
         Motion.tintTo(button, ContextCompat.getColor(this, bg), Motion.QUICK)
         button.setTextColor(ContextCompat.getColor(this, fg))
     }
@@ -1206,10 +1206,10 @@ class MainActivity : AppCompatActivity() {
     private fun applySegmentStyle(button: MaterialButton, on: Boolean) {
         Motion.tintTo(
             button,
-            if (on) ContextCompat.getColor(this, R.color.sg_brand) else Color.TRANSPARENT,
+            if (on) ContextCompat.getColor(this, R.color.ms_brand) else Color.TRANSPARENT,
             Motion.QUICK,
         )
-        button.setTextColor(ContextCompat.getColor(this, if (on) R.color.sg_on_brand else R.color.sg_text_secondary))
+        button.setTextColor(ContextCompat.getColor(this, if (on) R.color.ms_on_brand else R.color.ms_text_secondary))
     }
 
     // Updated to use cached translations from backend

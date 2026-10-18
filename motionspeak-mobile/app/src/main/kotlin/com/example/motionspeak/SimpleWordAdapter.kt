@@ -61,7 +61,7 @@ class SimpleWordAdapter(
         val fav = isFavorite(word.id)
         holder.star.setImageResource(if (fav) R.drawable.ic_star_fill else R.drawable.ic_star_line)
         holder.star.imageTintList = ColorStateList.valueOf(
-            ContextCompat.getColor(context, if (fav) R.color.sg_brand_text else R.color.sg_text_secondary)
+            ContextCompat.getColor(context, if (fav) R.color.ms_brand_text else R.color.ms_text_secondary)
         )
         holder.star.contentDescription = if (fav) "In favorites" else null
 

@@ -7,7 +7,7 @@
     style="@style/Widget.Sigla.Card.Tint"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="@dimen/sg_space_12"
+    android:layout_marginBottom="@dimen/ms_space_12"
     android:clickable="true"
     android:stateListAnimator="@animator/press_scale"
     android:focusable="true">
@@ -18,13 +18,13 @@
         android:gravity="center_vertical"
         android:minHeight="76dp"
         android:orientation="horizontal"
-        android:padding="@dimen/sg_space_12">
+        android:padding="@dimen/ms_space_12">
 
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/ivWordThumb"
             android:layout_width="52dp"
             android:layout_height="52dp"
-            android:background="@drawable/bg_sg_thumb"
+            android:background="@drawable/bg_ms_thumb"
             android:importantForAccessibility="no"
             android:scaleType="centerCrop"
             app:shapeAppearanceOverlay="@style/ShapeAppearance.Sigla.Thumb" />
@@ -33,7 +33,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="@dimen/sg_space_12"
+            android:layout_marginStart="@dimen/ms_space_12"
             android:orientation="vertical">
             <TextView
                 android:id="@+id/tvSimpleWord"
@@ -57,9 +57,9 @@
             android:id="@+id/ivWordStar"
             android:layout_width="20dp"
             android:layout_height="20dp"
-            android:layout_marginStart="@dimen/sg_space_12"
+            android:layout_marginStart="@dimen/ms_space_12"
             android:src="@drawable/ic_star_line"
-            android:tint="@color/sg_text_secondary"
+            android:tint="@color/ms_text_secondary"
             tools:ignore="ContentDescription" />
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>
