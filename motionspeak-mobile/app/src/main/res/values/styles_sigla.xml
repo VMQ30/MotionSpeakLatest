@@ -70,12 +70,15 @@
         <item name="cardElevation">0dp</item>
         <item name="cardCornerRadius">@dimen/sg_radius_md</item>
         <item name="cardBackgroundColor">@color/sg_tint</item>
-        <item name="strokeWidth">0dp</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="strokeColor">@color/sg_divider</item>
     </style>
     <style name="Widget.Sigla.Card.Tint" />
     <style name="Widget.Sigla.Card.Brand">
         <item name="cardCornerRadius">@dimen/sg_radius_lg</item>
         <item name="cardBackgroundColor">@color/sg_brand</item>
+        <item name="strokeColor">@color/sg_divider</item>
+        <item name="strokeWidth">1dp</item>
     </style>
     <style name="Widget.Sigla.Card.Outlined">
         <item name="cardCornerRadius">@dimen/sg_radius_lg</item>

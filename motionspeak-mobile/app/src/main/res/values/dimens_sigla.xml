@@ -10,9 +10,9 @@
     <dimen name="sg_space_32">32dp</dimen>
     <dimen name="sg_screen_padding">20dp</dimen>
 
-    <dimen name="sg_radius_lg">24dp</dimen>
-    <dimen name="sg_radius_md">20dp</dimen>
-    <dimen name="sg_radius_sm">16dp</dimen>
+    <dimen name="sg_radius_lg">8dp</dimen>
+    <dimen name="sg_radius_md">6dp</dimen>
+    <dimen name="sg_radius_sm">4dp</dimen>
 
     <dimen name="sg_text_title">22sp</dimen>
     <dimen name="sg_text_card">17sp</dimen>

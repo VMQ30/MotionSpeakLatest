@@ -41,38 +41,38 @@
 1. **Existing user who turned dark mode on** — after upgrading they must still get dark mode (their stored `true` is kept); only never-touched installs switch to light. Pinned by the device check in Task 1 Step 9.
 2. **First launch with no cached word bank (offline)** — Home must show the "Connect to the internet once…" message, not an empty gap or a crash. Pinned by `homeCategoriesEmptyWhenNoWords` (Task 3) and the device check in Task 8.
 3. **Translations just before/after midnight and across years** — "Today" must count by local calendar date, not "last 24 hours" or day-of-year alone. Pinned by `todayCountsByLocalCalendarDate` (Task 3).
-4. **Name that is only spaces** — must behave like no name (no "Hi   !"). Pinned by `blankNameTreatedAsNoName` (Task 3).
+4. **Name that is only spaces** — must behave like no name (no "Hi !"). Pinned by `blankNameTreatedAsNoName` (Task 3).
 5. **Back button from a tab** — must never dead-end or loop between tabs: Word Bank list → Word Bank grid → Home; History/Settings → Home; Home → leaves the app. Pinned by the device check in Task 6 Step 9.
 
 ---
 
 ## File Structure
 
-| File | Status | Responsibility |
-|---|---|---|
-| `app/src/main/res/values/colors_sigla.xml` | Create | New `sg_*` light colour tokens |
-| `app/src/main/res/values-night/colors_sigla.xml` | Create | `sg_*` dark overrides |
-| `app/src/main/res/values/dimens_sigla.xml` | Create | Spacing, radii, sizes, text sizes |
-| `app/src/main/res/values/styles_sigla.xml` | Create | Text, card, button, bottom bar, tab styles |
-| `app/src/main/res/values/themes.xml` | Modify | Rebrand `Theme.Sigla`; add `Theme.Sigla.Immersive` |
-| `app/src/main/res/values-night/themes.xml` | Create | Dark status-bar icon setting |
-| `app/src/main/res/font/poppins_semibold.ttf` | Add | SemiBold weight |
-| `app/src/main/res/drawable/bg_sg_search.xml`, `bg_sg_circle_tint.xml` | Create | Search pill, round badge |
-| `app/src/main/res/drawable/ic_search_line.xml`, `ic_hand_line.xml`, `ic_chat_line.xml` | Create | Icons in the existing outline style |
-| `app/src/main/kotlin/com/example/sigla/AppSettings.kt` | Modify | Dark default `false`; `userName` |
-| `app/src/main/kotlin/com/example/sigla/HomeContent.kt` | Create | Pure Home logic |
-| `app/src/test/kotlin/com/example/sigla/HomeContentTest.kt` | Create | Tests for Home logic |
-| `app/src/main/res/layout/view_bottom_nav.xml` | Create | Bottom bar + centre button (`<merge>`) |
-| `app/src/main/kotlin/com/example/sigla/BottomNavHelper.kt` | Create | Tab wiring and navigation |
-| `app/src/test/kotlin/com/example/sigla/BottomNavHelperTest.kt` | Create | Tab → screen mapping |
-| `app/src/main/res/layout/activity_home.xml`, `item_home_category.xml`, `item_home_recent.xml` | Create | Home UI |
-| `app/src/main/res/values/strings.xml` | Modify | Word-count plural |
-| `app/src/main/kotlin/com/example/sigla/HomeActivity.kt` | Create | Home screen |
-| `app/src/main/AndroidManifest.xml` | Modify | Launcher → Home; themes |
-| `app/src/main/kotlin/com/example/sigla/OnboardingActivity.kt` | Modify | Finish → Home |
-| `activity_word_bank.xml`, `activity_translation_history.xml`, `activity_settings.xml` + their Activities | Modify | Drawer → bottom bar |
-| `activity_main.xml`, `MainActivity.kt` | Modify | Drawer → back button; onboarding gate removed |
-| `NavigationHelper.kt`, `nav_sidebar.xml` | Delete | Replaced |
+| File                                                                                                     | Status | Responsibility                                     |
+| -------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------- |
+| `app/src/main/res/values/colors_sigla.xml`                                                               | Create | New `sg_*` light colour tokens                     |
+| `app/src/main/res/values-night/colors_sigla.xml`                                                         | Create | `sg_*` dark overrides                              |
+| `app/src/main/res/values/dimens_sigla.xml`                                                               | Create | Spacing, radii, sizes, text sizes                  |
+| `app/src/main/res/values/styles_sigla.xml`                                                               | Create | Text, card, button, bottom bar, tab styles         |
+| `app/src/main/res/values/themes.xml`                                                                     | Modify | Rebrand `Theme.Sigla`; add `Theme.Sigla.Immersive` |
+| `app/src/main/res/values-night/themes.xml`                                                               | Create | Dark status-bar icon setting                       |
+| `app/src/main/res/font/poppins_semibold.ttf`                                                             | Add    | SemiBold weight                                    |
+| `app/src/main/res/drawable/bg_sg_search.xml`, `bg_sg_circle_tint.xml`                                    | Create | Search pill, round badge                           |
+| `app/src/main/res/drawable/ic_search_line.xml`, `ic_hand_line.xml`, `ic_chat_line.xml`                   | Create | Icons in the existing outline style                |
+| `app/src/main/kotlin/com/example/sigla/AppSettings.kt`                                                   | Modify | Dark default `false`; `userName`                   |
+| `app/src/main/kotlin/com/example/sigla/HomeContent.kt`                                                   | Create | Pure Home logic                                    |
+| `app/src/test/kotlin/com/example/sigla/HomeContentTest.kt`                                               | Create | Tests for Home logic                               |
+| `app/src/main/res/layout/view_bottom_nav.xml`                                                            | Create | Bottom bar + centre button (`<merge>`)             |
+| `app/src/main/kotlin/com/example/sigla/BottomNavHelper.kt`                                               | Create | Tab wiring and navigation                          |
+| `app/src/test/kotlin/com/example/sigla/BottomNavHelperTest.kt`                                           | Create | Tab → screen mapping                               |
+| `app/src/main/res/layout/activity_home.xml`, `item_home_category.xml`, `item_home_recent.xml`            | Create | Home UI                                            |
+| `app/src/main/res/values/strings.xml`                                                                    | Modify | Word-count plural                                  |
+| `app/src/main/kotlin/com/example/sigla/HomeActivity.kt`                                                  | Create | Home screen                                        |
+| `app/src/main/AndroidManifest.xml`                                                                       | Modify | Launcher → Home; themes                            |
+| `app/src/main/kotlin/com/example/sigla/OnboardingActivity.kt`                                            | Modify | Finish → Home                                      |
+| `activity_word_bank.xml`, `activity_translation_history.xml`, `activity_settings.xml` + their Activities | Modify | Drawer → bottom bar                                |
+| `activity_main.xml`, `MainActivity.kt`                                                                   | Modify | Drawer → back button; onboarding gate removed      |
+| `NavigationHelper.kt`, `nav_sidebar.xml`                                                                 | Delete | Replaced                                           |
 
 All paths below are relative to `sigla-mobile/` unless absolute.
 
@@ -81,29 +81,32 @@ All paths below are relative to `sigla-mobile/` unless absolute.
 ### Task 1: Design tokens, theme, SemiBold font, dark-mode default
 
 **Files:**
+
 - Create: `app/src/main/res/values/colors_sigla.xml`, `app/src/main/res/values-night/colors_sigla.xml`, `app/src/main/res/values/dimens_sigla.xml`, `app/src/main/res/values/styles_sigla.xml`, `app/src/main/res/values-night/themes.xml`, `app/src/main/res/drawable/bg_sg_search.xml`, `app/src/main/res/drawable/bg_sg_circle_tint.xml`
 - Add: `app/src/main/res/font/poppins_semibold.ttf`
 - Modify: `app/src/main/res/values/themes.xml`, `app/src/main/kotlin/com/example/sigla/AppSettings.kt`, `app/src/main/AndroidManifest.xml` (themes only)
 
 **Interfaces:**
+
 - Produces (used by every later task): colours `sg_brand`, `sg_brand_text`, `sg_bg`, `sg_tint`, `sg_bar_bg`, `sg_text`, `sg_text_secondary`, `sg_divider`, `sg_danger`, `sg_success`, `sg_on_brand`, `sg_on_brand_secondary`; dimens `sg_space_4/8/12/16/20/24/32`, `sg_screen_padding`, `sg_radius_lg/md/sm`, `sg_text_title/card/body/caption/display`, `sg_badge_size`, `sg_search_height`, `sg_touch_min`, `sg_bottom_bar_height`, `sg_bottom_bar_clearance`; styles `Sigla.Text.{Title,Section,CardTitle,Body,BodyStrong,Secondary,Caption,Link,StatValue,StatLabel,Display}`, `Widget.Sigla.{Button,Card.Tint,Card.Brand,Card.Outlined,BottomAppBar,Tab,TabIcon,TabLabel}`; drawables `bg_sg_search`, `bg_sg_circle_tint`; font `@font/poppins_semibold`; theme `Theme.Sigla.Immersive`.
 
 - [ ] **Step 1: Add the SemiBold font**
 
 Run from `sigla-mobile/`:
+
 ```bash
 curl -L -o app/src/main/res/font/poppins_semibold.ttf https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-SemiBold.ttf
 ls -l app/src/main/res/font/poppins_semibold.ttf
 ```
+
 Expected: a file of about 157,000 bytes (not a few hundred bytes of HTML). Poppins is SIL Open Font License, same as the fonts already bundled.
 
 - [ ] **Step 2: Light colour tokens**
 
 Create `app/src/main/res/values/colors_sigla.xml`:
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Revamp design tokens (spec §4). Screens migrate from the older sig_* colours
-     to these; dark values live in values-night/colors_sigla.xml. -->
 <resources>
     <color name="sg_brand">#13306B</color>
     <color name="sg_brand_text">#13306B</color>
@@ -125,6 +128,7 @@ Create `app/src/main/res/values/colors_sigla.xml`:
 - [ ] **Step 3: Dark colour tokens**
 
 Create `app/src/main/res/values-night/colors_sigla.xml`:
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -147,6 +151,7 @@ Create `app/src/main/res/values-night/colors_sigla.xml`:
 - [ ] **Step 4: Dimensions**
 
 Create `app/src/main/res/values/dimens_sigla.xml`:
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -185,6 +190,7 @@ Create `app/src/main/res/values/dimens_sigla.xml`:
 - [ ] **Step 5: Component styles**
 
 Create `app/src/main/res/values/styles_sigla.xml`:
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -307,11 +313,13 @@ Create `app/src/main/res/values/styles_sigla.xml`:
     </style>
 </resources>
 ```
+
 Note: dotted style names (`Sigla.Text.Title`) inherit from their prefix (`Sigla.Text`), so every text style starts from Poppins Regular 13sp `sg_text`.
 
 - [ ] **Step 6: Shape drawables**
 
 Create `app/src/main/res/drawable/bg_sg_search.xml`:
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
@@ -319,7 +327,9 @@ Create `app/src/main/res/drawable/bg_sg_search.xml`:
     <corners android:radius="22dp" />
 </shape>
 ```
+
 Create `app/src/main/res/drawable/bg_sg_circle_tint.xml`:
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
@@ -330,6 +340,7 @@ Create `app/src/main/res/drawable/bg_sg_circle_tint.xml`:
 - [ ] **Step 7: Themes**
 
 Replace the whole content of `app/src/main/res/values/themes.xml` with:
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -358,7 +369,9 @@ Replace the whole content of `app/src/main/res/values/themes.xml` with:
     </style>
 </resources>
 ```
+
 Create `app/src/main/res/values-night/themes.xml`:
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -376,9 +389,11 @@ Create `app/src/main/res/values-night/themes.xml`:
     </style>
 </resources>
 ```
+
 `Theme.Sigla.Immersive` is defined only in `values/` and inherits from whichever `Theme.Sigla` applies, then overrides every value that differs — so it looks the same in both modes.
 
 In `app/src/main/AndroidManifest.xml`:
+
 - On the `<activity android:name=".MainActivity" ...>` element, add `android:theme="@style/Theme.Sigla.Immersive"`.
 - On `<activity android:name=".FullscreenVideoActivity" ...>`, change `android:theme="@style/Theme.Sigla"` to `android:theme="@style/Theme.Sigla.Immersive"`.
 
@@ -387,19 +402,24 @@ In `app/src/main/AndroidManifest.xml`:
 In `app/src/main/kotlin/com/example/sigla/AppSettings.kt`:
 
 In the companion object, after `private const val KEY_TRANSLATION_MODE = "translation_mode"`, add:
+
 ```kotlin
         private const val KEY_USER_NAME = "user_name"
         // Light is the default from the revamp on (spec §4). A stored value always
         // wins, so users who switched dark mode on keep it.
         private const val DEFAULT_DARK_MODE = false
 ```
+
 Change the `isDarkMode` getter from `prefs.getBoolean(KEY_DARK_MODE, true)` to:
+
 ```kotlin
         get() = prefs.getBoolean(KEY_DARK_MODE, DEFAULT_DARK_MODE)
 ```
+
 In `resetToDefault()`, change `.putBoolean(KEY_DARK_MODE, true)` to `.putBoolean(KEY_DARK_MODE, DEFAULT_DARK_MODE)`.
 
 After the `isOnboardingDone` property, add:
+
 ```kotlin
     /**
      * Optional first name for the Home greeting, stored on this phone only.
@@ -421,9 +441,10 @@ Run: `./gradlew testDebugUnitTest assembleDebug`
 Expected: BUILD SUCCESSFUL; 63 tests pass. The app now uses navy for Material defaults (switches, progress bars) and the translator/video keep their dark windows.
 
 Device check (Review Focus 1), with the phone connected:
+
 1. On the phone's current install, switch dark mode **on** in Settings (if it isn't already). Install the new debug APK over it. Open the app → it is still dark.
 2. Only if a spare device or emulator is available: fresh install, open the app → it starts light. Never clear app data on the user's phone to test this (it wipes their history and favorites); if no spare device exists, note "fresh-install check skipped" in the report.
-Record both results in the report.
+   Record both results in the report.
 
 - [ ] **Step 10: Commit**
 
@@ -437,14 +458,17 @@ git commit -m "feat(mobile): revamp design tokens, navy theme, light-by-default"
 ### Task 2: Icons
 
 **Files:**
+
 - Create: `app/src/main/res/drawable/ic_search_line.xml`, `ic_hand_line.xml`, `ic_chat_line.xml`
 
 **Interfaces:**
+
 - Produces: `@drawable/ic_search_line`, `@drawable/ic_hand_line` (centre button, hero card), `@drawable/ic_chat_line` (recent translation badge). Like the existing `ic_*_line` icons they are drawn white and coloured with `app:tint` / `imageTintList`.
 
 - [ ] **Step 1: Search icon**
 
 Create `app/src/main/res/drawable/ic_search_line.xml`:
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
@@ -471,6 +495,7 @@ Create `app/src/main/res/drawable/ic_search_line.xml`:
 - [ ] **Step 2: Hand icon**
 
 Create `app/src/main/res/drawable/ic_hand_line.xml`:
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
@@ -492,6 +517,7 @@ Create `app/src/main/res/drawable/ic_hand_line.xml`:
 - [ ] **Step 3: Chat bubble icon**
 
 Create `app/src/main/res/drawable/ic_chat_line.xml`:
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
@@ -526,10 +552,12 @@ git commit -m "feat(mobile): search, hand and chat outline icons"
 ### Task 3: Home logic (pure Kotlin, TDD)
 
 **Files:**
+
 - Create: `app/src/main/kotlin/com/example/sigla/HomeContent.kt`
 - Create: `app/src/test/kotlin/com/example/sigla/HomeContentTest.kt`
 
 **Interfaces:**
+
 - Consumes: `TranslationEntry(word: String, confidence: Int, gestureType: String, timestamp: Long)` (TranslationHistoryManager.kt), `WordBankWord(id: Int, label: String, …, category: String = "additional words", …)` (ApiService.kt).
 - Produces:
   - `data class Greeting(val title: String, val subtitle: String?)`
@@ -544,6 +572,7 @@ git commit -m "feat(mobile): search, hand and chat outline icons"
 - [ ] **Step 1: Write the failing tests**
 
 Create `app/src/test/kotlin/com/example/sigla/HomeContentTest.kt`:
+
 ```kotlin
 package com.example.sigla
 
@@ -692,6 +721,7 @@ Expected: compilation FAILURE — unresolved `homeGreeting`, `homeStats`, `HomeS
 - [ ] **Step 3: Implement**
 
 Create `app/src/main/kotlin/com/example/sigla/HomeContent.kt`:
+
 ```kotlin
 package com.example.sigla
 
@@ -796,11 +826,13 @@ git commit -m "feat(mobile): Home greeting, stats and category logic"
 ### Task 4: Bottom bar component
 
 **Files:**
+
 - Create: `app/src/main/res/layout/view_bottom_nav.xml`
 - Create: `app/src/main/kotlin/com/example/sigla/BottomNavHelper.kt`
 - Create: `app/src/test/kotlin/com/example/sigla/BottomNavHelperTest.kt`
 
 **Interfaces:**
+
 - Consumes: styles/colours from Task 1; `ic_hand_line` from Task 2; existing `ic_house_line`, `ic_book_line`, `ic_history_line`, `ic_settings_line`.
 - Produces:
   - Layout `view_bottom_nav.xml`, a `<merge>` meant to be `<include>`d as the **last child of a `CoordinatorLayout`**; view ids `bottomAppBar`, `tabHome`, `tabHomeIcon`, `tabHomeLabel`, `tabWordBank`, `tabWordBankIcon`, `tabWordBankLabel`, `tabHistory`, `tabHistoryIcon`, `tabHistoryLabel`, `tabSettings`, `tabSettingsIcon`, `tabSettingsLabel`, `fabTranslate`.
@@ -811,6 +843,7 @@ git commit -m "feat(mobile): Home greeting, stats and category logic"
 - [ ] **Step 1: Write the failing test**
 
 Create `app/src/test/kotlin/com/example/sigla/BottomNavHelperTest.kt`:
+
 ```kotlin
 package com.example.sigla
 
@@ -836,6 +869,7 @@ Expected: compilation FAILURE — unresolved `HomeActivity`, `BottomNavHelper`, 
 - [ ] **Step 3: Stubs the helper needs**
 
 Create `app/src/main/kotlin/com/example/sigla/HomeActivity.kt` (replaced in Task 5):
+
 ```kotlin
 package com.example.sigla
 
@@ -844,7 +878,9 @@ import androidx.appcompat.app.AppCompatActivity
 /** Placeholder so BottomNavHelper compiles; the real screen arrives in Task 5. */
 class HomeActivity : AppCompatActivity()
 ```
+
 In `app/src/main/kotlin/com/example/sigla/WordBankActivity.kt`, add this constant inside the existing `companion object` (around line 70):
+
 ```kotlin
         /** Set by Home's search bar: focus the search field and open the keyboard. */
         const val EXTRA_FOCUS_SEARCH = "extra_focus_search"
@@ -853,6 +889,7 @@ In `app/src/main/kotlin/com/example/sigla/WordBankActivity.kt`, add this constan
 - [ ] **Step 4: Bottom bar layout**
 
 Create `app/src/main/res/layout/view_bottom_nav.xml`:
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Shared bottom bar (spec §3). Include as the LAST child of a CoordinatorLayout;
@@ -928,6 +965,7 @@ Create `app/src/main/res/layout/view_bottom_nav.xml`:
 - [ ] **Step 5: BottomNavHelper**
 
 Create `app/src/main/kotlin/com/example/sigla/BottomNavHelper.kt`:
+
 ```kotlin
 package com.example.sigla
 
@@ -1029,16 +1067,19 @@ git commit -m "feat(mobile): shared bottom bar with centre translate button"
 ### Task 5: Home screen
 
 **Files:**
+
 - Create: `app/src/main/res/layout/activity_home.xml`, `item_home_category.xml`, `item_home_recent.xml`
 - Modify: `app/src/main/kotlin/com/example/sigla/HomeActivity.kt` (replace the stub), `app/src/main/res/values/strings.xml`, `app/src/main/AndroidManifest.xml`, `app/src/main/kotlin/com/example/sigla/OnboardingActivity.kt`
 
 **Interfaces:**
+
 - Consumes: everything from Tasks 1–4; `TranslationHistoryManager.getInstance(ctx).getAll(): List<TranslationEntry>` (newest first) and its companion `formatDate(ts: Long): String` / `formatTime(ts: Long): String`; `FavoritesManager.getInstance(ctx).getAll(): Set<Int>`; `suspend ModelUpdateManager.loadCachedWordBank(ctx): List<WordBankWord>?`; `suspend ModelUpdateManager.loadCachedCategories(ctx): List<CategoryItem>?` (`CategoryItem.name`); `String.toTitleCase()` (StringExt.kt); `CategoryWordListActivity.EXTRA_CATEGORY_NAME`.
 - Produces: `HomeActivity` (launcher). Onboarding now finishes into Home.
 
 - [ ] **Step 1: Strings**
 
 In `app/src/main/res/values/strings.xml`, add inside `<resources>`:
+
 ```xml
     <plurals name="home_word_count">
         <item quantity="one">%d word</item>
@@ -1049,6 +1090,7 @@ In `app/src/main/res/values/strings.xml`, add inside `<resources>`:
 - [ ] **Step 2: Category card layout**
 
 Create `app/src/main/res/layout/item_home_category.xml`:
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <com.google.android.material.card.MaterialCardView
@@ -1097,6 +1139,7 @@ Create `app/src/main/res/layout/item_home_category.xml`:
 - [ ] **Step 3: Recent row layout**
 
 Create `app/src/main/res/layout/item_home_recent.xml`:
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -1152,6 +1195,7 @@ Create `app/src/main/res/layout/item_home_recent.xml`:
 - [ ] **Step 4: Home layout**
 
 Create `app/src/main/res/layout/activity_home.xml`:
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Home dashboard (spec §5; mockup home-v1.html). Top to bottom: greeting, search,
@@ -1462,6 +1506,7 @@ Create `app/src/main/res/layout/activity_home.xml`:
 - [ ] **Step 5: HomeActivity**
 
 Replace the whole content of `app/src/main/kotlin/com/example/sigla/HomeActivity.kt`:
+
 ```kotlin
 package com.example.sigla
 
@@ -1624,13 +1669,16 @@ class HomeActivity : AppCompatActivity() {
     }
 }
 ```
+
 If `TranslationHistoryManager.formatDate`/`formatTime` are not callable as `TranslationHistoryManager.formatDate(...)`, check where they are declared (they are in its `companion object` at the time of writing) and call them the same way `TranslationHistoryActivity` does.
 
 - [ ] **Step 6: Make Home the launcher**
 
 In `app/src/main/AndroidManifest.xml`:
+
 1. Move the `<intent-filter>` block (MAIN + LAUNCHER) out of the `.MainActivity` element, and set `.MainActivity`'s `android:exported="false"`.
 2. Add, directly above the `.MainActivity` element:
+
 ```xml
         <activity
             android:name=".HomeActivity"
@@ -1663,10 +1711,12 @@ git commit -m "feat(mobile): Home dashboard as the launch screen"
 ### Task 6: Bottom bar on Word Bank, History and Settings
 
 **Files:**
+
 - Modify: `app/src/main/res/layout/activity_word_bank.xml`, `activity_translation_history.xml`, `activity_settings.xml`
 - Modify: `app/src/main/kotlin/com/example/sigla/WordBankActivity.kt`, `TranslationHistoryActivity.kt`, `SettingsActivity.kt`
 
 **Interfaces:**
+
 - Consumes: `view_bottom_nav.xml`, `BottomNavHelper`, `Tab` (Task 4); `WordBankActivity.EXTRA_FOCUS_SEARCH` (added in Task 4).
 - Produces: the three screens without drawers; `NavigationHelper` and `nav_sidebar.xml` are no longer referenced by them (deleted in Task 7).
 
@@ -1677,6 +1727,7 @@ The three layouts share one shape: a `DrawerLayout` (id `drawerLayout`) wrapping
 In each of `activity_word_bank.xml`, `activity_translation_history.xml`, `activity_settings.xml`:
 
 (a) Replace the opening `<androidx.drawerlayout.widget.DrawerLayout …>` tag **and** the `<androidx.coordinatorlayout.widget.CoordinatorLayout …>` opening tag that follows it (ignoring blank lines and comments between them) with this single opening tag:
+
 ```xml
 <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -1685,9 +1736,11 @@ In each of `activity_word_bank.xml`, `activity_translation_history.xml`, `activi
     android:layout_height="match_parent"
     android:background="@color/sig_page_bg">
 ```
+
 If the old `DrawerLayout` tag declared `xmlns:tools`, keep that declaration on the new tag.
 
 (b) At the end of the file, replace
+
 ```xml
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
@@ -1695,7 +1748,9 @@ If the old `DrawerLayout` tag declared `xmlns:tools`, keep that declaration on t
 
 </androidx.drawerlayout.widget.DrawerLayout>
 ```
+
 (including any comment between them) with:
+
 ```xml
     <include layout="@layout/view_bottom_nav" />
 
@@ -1711,6 +1766,7 @@ In each of the three layouts, delete the whole `<com.google.android.material.but
 - [ ] **Step 3: Keep the last item clear of the bar**
 
 Change these `android:paddingBottom` values to `@dimen/sg_bottom_bar_clearance` (keep `android:clipToPadding="false"`):
+
 - `activity_word_bank.xml`: on `rvCategoryGrid` (currently `24dp`) and on `rvWords` (currently `20dp`).
 - `activity_translation_history.xml`: on `rvHistory` (currently `24dp`).
 - `activity_settings.xml`: on the `LinearLayout` directly inside the `NestedScrollView` (currently `android:paddingBottom="32dp"`).
@@ -1718,14 +1774,18 @@ Change these `android:paddingBottom` values to `@dimen/sg_bottom_bar_clearance` 
 - [ ] **Step 4: WordBankActivity**
 
 In `app/src/main/kotlin/com/example/sigla/WordBankActivity.kt`:
+
 1. Delete the fields `private lateinit var drawerLayout: DrawerLayout` and `private lateinit var btnSidebar: MaterialButton`.
 2. In `onCreate`, delete the line `drawerLayout = findViewById(R.id.drawerLayout) // ← ADD THIS`, and replace the two calls `setupTopBar()` and `setupSidebar()` with:
+
 ```kotlin
         BottomNavHelper.setup(this, Tab.WORD_BANK)
 ```
+
 3. In `bindViews()`, delete `drawerLayout = findViewById(R.id.drawerLayout)` and `btnSidebar = findViewById(R.id.btnSidebar)`.
 4. Delete the whole `// ── Top bar ──` section (`setupTopBar()`) and the whole `// ── Sidebar ──` section (`setupSidebar()`).
 5. At the end of `onCreate` (after the existing last statement), add `maybeFocusSearch(intent)`, and add these members to the class:
+
 ```kotlin
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -1745,8 +1805,9 @@ In `app/src/main/kotlin/com/example/sigla/WordBankActivity.kt`:
         }
     }
 ```
-If the search field is not usable in grid mode in the current screen (check how `etSearch`'s text listener switches modes), drop the `if (!isGridMode) showGridMode()` line — the goal is only that the field is focused with the keyboard open.
-6. Replace the `onBackPressed()` override with:
+
+If the search field is not usable in grid mode in the current screen (check how `etSearch`'s text listener switches modes), drop the `if (!isGridMode) showGridMode()` line — the goal is only that the field is focused with the keyboard open. 6. Replace the `onBackPressed()` override with:
+
 ```kotlin
     @Deprecated("Use OnBackPressedDispatcher instead")
     override fun onBackPressed() {
@@ -1757,37 +1818,44 @@ If the search field is not usable in grid mode in the current screen (check how 
         }
     }
 ```
+
 7. Remove imports that are now unused: `androidx.core.view.GravityCompat`, `androidx.drawerlayout.widget.DrawerLayout` (keep `MaterialButton` if `btnCategoryPill` still uses it). Add `import android.content.Intent` if not already imported.
 
 - [ ] **Step 5: TranslationHistoryActivity**
 
 In `app/src/main/kotlin/com/example/sigla/TranslationHistoryActivity.kt`:
+
 1. Delete the fields `drawerLayout` and `btnSidebar`.
 2. In `onCreate`, delete `drawerLayout = findViewById(R.id.drawerLayout)  // ← ADD THIS` and replace `setupTopBar()` + `setupSidebar()` with `BottomNavHelper.setup(this, Tab.HISTORY)`.
 3. In `bindViews()`, delete the `drawerLayout = …` and `btnSidebar = …` lines.
 4. Delete the `// ── Top bar ──` and `// ── Sidebar ──` sections.
 5. Replace the `onBackPressed()` override with:
+
 ```kotlin
     @Deprecated("Use OnBackPressedDispatcher instead")
     override fun onBackPressed() {
         BottomNavHelper.open(this, Tab.HOME)
     }
 ```
+
 6. Remove the now-unused `GravityCompat` and `DrawerLayout` imports.
 
 - [ ] **Step 6: SettingsActivity**
 
 In `app/src/main/kotlin/com/example/sigla/SettingsActivity.kt`:
+
 1. Delete the field `private lateinit var drawer: DrawerLayout` and the line `drawer = findViewById(R.id.drawerLayout)`.
 2. Replace `setupTopBar()` + `setupSidebar()` in `onCreate` with `BottomNavHelper.setup(this, Tab.SETTINGS)`.
 3. Delete the `// ── Top bar ──` and `// ── Sidebar ──` sections.
 4. Replace the `onBackPressed()` override with:
+
 ```kotlin
     @Deprecated("Use OnBackPressedDispatcher instead")
     override fun onBackPressed() {
         BottomNavHelper.open(this, Tab.HOME)
     }
 ```
+
 5. Remove the now-unused `GravityCompat` and `DrawerLayout` imports.
 
 - [ ] **Step 7: Build and test**
@@ -1805,6 +1873,7 @@ git commit -m "feat(mobile): bottom bar replaces the drawer on Word Bank, Histor
 - [ ] **Step 9: Device check — back navigation (Review Focus 5)**
 
 Install the debug APK and check, writing each result in the report:
+
 1. Home → Word Bank tab → open a category list inside Word Bank (list mode) → Back → Word Bank grid → Back → Home.
 2. Home → History → Back → Home. Home → Settings → Back → Home.
 3. Home → Back → the app closes (it does not reveal another tab).
@@ -1816,10 +1885,12 @@ Install the debug APK and check, writing each result in the report:
 ### Task 7: Translator without the drawer; remove the old navigation
 
 **Files:**
+
 - Modify: `app/src/main/res/layout/activity_main.xml`, `app/src/main/kotlin/com/example/sigla/MainActivity.kt`
 - Delete: `app/src/main/kotlin/com/example/sigla/NavigationHelper.kt`, `app/src/main/res/layout/nav_sidebar.xml`
 
 **Interfaces:**
+
 - Consumes: `Theme.Sigla.Immersive` (applied in Task 1).
 - Produces: `MainActivity` reached only from Home/bottom bar; `binding.btnBack` replaces `binding.btnSidebar`.
 
@@ -1828,6 +1899,7 @@ The tap-to-sign code in `MainActivity` (frame routing in the landmark sink, `pro
 - [ ] **Step 1: activity_main.xml root**
 
 Replace the opening
+
 ```xml
 <androidx.drawerlayout.widget.DrawerLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -1843,7 +1915,9 @@ Replace the opening
         android:layout_height="match_parent"
         android:background="@color/sig_page_bg">
 ```
+
 with
+
 ```xml
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -1853,7 +1927,9 @@ with
     android:layout_height="match_parent"
     android:background="@color/sig_page_bg">
 ```
+
 and replace the end
+
 ```xml
     </androidx.constraintlayout.widget.ConstraintLayout>
 
@@ -1862,7 +1938,9 @@ and replace the end
 
 </androidx.drawerlayout.widget.DrawerLayout>
 ```
+
 with
+
 ```xml
 </androidx.constraintlayout.widget.ConstraintLayout>
 ```
@@ -1870,6 +1948,7 @@ with
 - [ ] **Step 2: Hamburger → back button**
 
 In `activity_main.xml`, on the `MaterialButton` with `android:id="@+id/btnSidebar"`:
+
 - `android:id="@+id/btnSidebar"` → `android:id="@+id/btnBack"`
 - `android:contentDescription="Open menu"` → `android:contentDescription="Back"`
 - `app:icon="@drawable/ic_menu_lines"` → `app:icon="@drawable/ic_back"`
@@ -1877,19 +1956,23 @@ In `activity_main.xml`, on the `MaterialButton` with `android:id="@+id/btnSideba
 - [ ] **Step 3: MainActivity**
 
 In `app/src/main/kotlin/com/example/sigla/MainActivity.kt`:
+
 1. Delete the onboarding gate in `onCreate` — the block
+
 ```kotlin
         if (!appSettings.isOnboardingDone) {
             startActivity(Intent(this, OnboardingActivity::class.java))
             return  // Exit onCreate, onboarding will start MainActivity when done
         }
 ```
-Home now does this check (Task 5). Leave `setupComplete = true` and everything after it unchanged.
-2. In `onCreate`, replace the call `setupSidebar()` with:
+
+Home now does this check (Task 5). Leave `setupComplete = true` and everything after it unchanged. 2. In `onCreate`, replace the call `setupSidebar()` with:
+
 ```kotlin
         // Back returns to whichever screen opened the translator.
         binding.btnBack.setOnClickListener { finish() }
 ```
+
 3. Delete the whole `// ── Sidebar ──` section: the functions `setupSidebar()` and `setActiveNavItem(activeId: Int)` (from the `// ── Sidebar ──` comment down to the closing brace of `setActiveNavItem`).
 4. Delete the `onBackPressed()` override (the one that checks `binding.drawerLayout.isDrawerOpen(GravityCompat.START)`), including its `@Deprecated` annotation. The default back behaviour (finish) is what we want.
 5. Remove the `import androidx.core.view.GravityCompat` line. Remove any other import the compiler reports as unused only if it is clearly sidebar-related (`LinearLayout` was used only by `setActiveNavItem` at the time of writing — check before removing).
@@ -1899,10 +1982,13 @@ Home now does this check (Task 5). Leave `setupComplete = true` and everything a
 ```bash
 git rm app/src/main/kotlin/com/example/sigla/NavigationHelper.kt app/src/main/res/layout/nav_sidebar.xml
 ```
+
 Then search for leftovers:
+
 ```bash
 grep -rn "NavigationHelper\|nav_sidebar\|sidebarDrawer\|navMainInterface\|navWordBank\|navTranslationHistory\|navSettings\|Screen\.MAIN" app/src/main
 ```
+
 Expected: no output. Drawables such as `bg_nav_item_selected.xml` may remain unused; they are removed in Plan 2's cleanup, not here.
 
 - [ ] **Step 5: Build and test**
