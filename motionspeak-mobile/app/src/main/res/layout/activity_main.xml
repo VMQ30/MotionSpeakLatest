@@ -98,9 +98,14 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
+            android:orientation="vertical"
             android:padding="@dimen/ms_space_12">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
             <FrameLayout
                 android:layout_width="@dimen/ms_badge_size"
@@ -139,7 +144,45 @@
                     android:visibility="gone"
                     tools:text="Magandang umaga"
                     tools:visibility="visible" />
+                <!-- Facial cue read with the sign (yes/no question, WH question, negation).
+                     Hidden until the recognizer reports one. -->
+                <TextView
+                    android:id="@+id/tvFacialCue"
+                    style="@style/Sigla.Text.Caption"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/ms_space_8"
+                    android:background="@drawable/bg_ms_search"
+                    android:paddingStart="@dimen/ms_space_12"
+                    android:paddingTop="@dimen/ms_space_4"
+                    android:paddingEnd="@dimen/ms_space_12"
+                    android:paddingBottom="@dimen/ms_space_4"
+                    android:textColor="@color/ms_brand_text"
+                    android:visibility="gone"
+                    tools:text="Yes/no question"
+                    tools:visibility="visible" />
             </LinearLayout>
+        </LinearLayout>
+
+        <!-- Result actions -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/ms_space_12"
+            android:orientation="horizontal">
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSpeakAgain"
+                style="@style/Widget.Sigla.Chip"
+                android:layout_marginEnd="@dimen/ms_space_8"
+                android:contentDescription="Speak the translation again"
+                android:text="Speak again" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCopyResult"
+                style="@style/Widget.Sigla.Chip"
+                android:contentDescription="Copy the translation"
+                android:text="Copy" />
+        </LinearLayout>
+
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
@@ -161,6 +204,29 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/cardResult" />
+
+    <!-- Environment warning (low light, face not visible, cluttered background).
+         The message is set in code. Sits under the hands warning; if that one is
+         gone, this one moves up into its place. -->
+    <TextView
+        android:id="@+id/tvEnvWarning"
+        style="@style/Sigla.Text.Caption"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/ms_space_8"
+        android:background="@drawable/bg_ms_pill"
+        android:backgroundTint="@color/ms_danger"
+        android:paddingStart="@dimen/ms_space_12"
+        android:paddingTop="@dimen/ms_space_4"
+        android:paddingEnd="@dimen/ms_space_12"
+        android:paddingBottom="@dimen/ms_space_4"
+        android:textColor="@color/ms_on_dark"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tvHandsWarning"
+        tools:text="Low light. Move to a brighter spot."
+        tools:visibility="visible" />
 
     <!-- Tap mode: prompt + record button, just above the sheet -->
     <LinearLayout

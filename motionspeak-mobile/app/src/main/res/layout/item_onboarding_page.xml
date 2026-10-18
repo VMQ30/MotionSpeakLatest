@@ -78,7 +78,7 @@
         app:layout_constraintTop_toBottomOf="@id/tvPageEyebrow"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        tools:text="Sign, and SigLa speaks" />
+        tools:text="Sign, and MotionSpeak speaks" />
 
     <TextView
         android:id="@+id/tvPageDescription"
@@ -93,6 +93,6 @@
         app:layout_constraintTop_toBottomOf="@id/tvPageTitle"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        tools:text="Point your camera at someone signing. SigLa reads the sign and says the word out loud, in English or Filipino." />
+        tools:text="Point your camera at someone signing. MotionSpeak reads the sign and says the word out loud, in English or Filipino." />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

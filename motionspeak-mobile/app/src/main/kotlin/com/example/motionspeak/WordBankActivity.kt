@@ -56,8 +56,8 @@ class WordBankActivity : AppCompatActivity() {
     private lateinit var btnDownloadAllVideos: MaterialButton
     private lateinit var tvWordBankSubtitle: TextView
     private lateinit var pillAll: MaterialButton
-    private lateinit var pillWords: MaterialButton
-    private lateinit var pillLetters: MaterialButton
+    private lateinit var pillMedical: MaterialButton
+    private lateinit var pillConversational: MaterialButton
     private lateinit var listContainer: View
     private lateinit var gridEntrance: ListEntrance
     private lateinit var wordsEntrance: ListEntrance
@@ -144,8 +144,8 @@ class WordBankActivity : AppCompatActivity() {
         btnDownloadAllVideos = findViewById(R.id.btnDownloadAllVideos)
         tvWordBankSubtitle = findViewById(R.id.tvWordBankSubtitle)
         pillAll = findViewById(R.id.pillAll)
-        pillWords = findViewById(R.id.pillWords)
-        pillLetters = findViewById(R.id.pillLetters)
+        pillMedical = findViewById(R.id.pillMedical)
+        pillConversational = findViewById(R.id.pillConversational)
         listContainer = findViewById(R.id.listContainer)
     }
 
@@ -211,8 +211,8 @@ class WordBankActivity : AppCompatActivity() {
                 .sorted()
         }
 
-        tvWordBankSubtitle.text =
-            "${allWords.size} Filipino Sign Language word${if (allWords.size != 1) "s" else ""}"
+        updatePillCounts()
+        tvWordBankSubtitle.text = subtitleFor(gridFilter)
 
         val items = mutableListOf<CategoryGridItem>()
         if (gridFilter == VocabularyFilter.ALL) {
@@ -225,6 +225,24 @@ class WordBankActivity : AppCompatActivity() {
         }
         gridAdapter.setItems(items)
         gridEntrance.onData(items.size)
+    }
+
+    /** Pill labels carry the live count of words each pill covers. */
+    private fun updatePillCounts() {
+        val medical = allWords.count { matchesFilter(it, VocabularyFilter.MEDICAL) }
+        val conversational = allWords.count { matchesFilter(it, VocabularyFilter.CONVERSATIONAL) }
+        pillMedical.text = "Medical ($medical)"
+        pillConversational.text = "Conversational ($conversational)"
+    }
+
+    private fun subtitleFor(filter: VocabularyFilter): String {
+        val n = allWords.count { matchesFilter(it, filter) }
+        val s = if (n != 1) "s" else ""
+        return when (filter) {
+            VocabularyFilter.ALL -> "$n Filipino Sign Language word$s"
+            VocabularyFilter.MEDICAL -> "$n medical sign$s"
+            VocabularyFilter.CONVERSATIONAL -> "$n conversational sign$s"
+        }
     }
 
     private fun onCategoryCardClicked(item: CategoryGridItem) {
@@ -374,8 +392,8 @@ class WordBankActivity : AppCompatActivity() {
 
     private fun setupFilterPills() {
         pillAll.setOnClickListener { selectGridFilter(VocabularyFilter.ALL) }
-        pillWords.setOnClickListener { selectGridFilter(VocabularyFilter.WORDS) }
-        pillLetters.setOnClickListener { selectGridFilter(VocabularyFilter.LETTERS) }
+        pillMedical.setOnClickListener { selectGridFilter(VocabularyFilter.MEDICAL) }
+        pillConversational.setOnClickListener { selectGridFilter(VocabularyFilter.CONVERSATIONAL) }
         renderFilterPills()
     }
 
@@ -393,8 +411,8 @@ class WordBankActivity : AppCompatActivity() {
             pill.setTextColor(ContextCompat.getColor(this, fg))
         }
         style(pillAll, gridFilter == VocabularyFilter.ALL)
-        style(pillWords, gridFilter == VocabularyFilter.WORDS)
-        style(pillLetters, gridFilter == VocabularyFilter.LETTERS)
+        style(pillMedical, gridFilter == VocabularyFilter.MEDICAL)
+        style(pillConversational, gridFilter == VocabularyFilter.CONVERSATIONAL)
     }
 
     // ── Search ────────────────────────────────────────────────────────────────

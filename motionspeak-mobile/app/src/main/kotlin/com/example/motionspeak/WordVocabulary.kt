@@ -51,32 +51,46 @@ internal fun filipinoDisplay(text: String): String = text.trim().toTitleCase()
 internal fun translatorStartVocabulary(requested: String?, hasLetters: Boolean): PredictionService.Vocabulary? =
     if (requested == VOCAB_LETTERS && hasLetters) PredictionService.Vocabulary.LETTERS else null
 
-enum class VocabularyFilter { ALL, WORDS, LETTERS }
+enum class VocabularyFilter { ALL, MEDICAL, CONVERSATIONAL }
+
+/**
+ * Categories (lowercase, as the backend sends them) that the Conversational pill
+ * covers. Every other category of words is Medical. Letters (the alphabet) are
+ * in neither pill and only show under All. To move a category, edit this set.
+ */
+internal val CONVERSATIONAL_CATEGORIES: Set<String> = setOf("greetings")
+
+/** Whether [word] belongs under the given Word Bank pill. */
+internal fun matchesFilter(word: WordBankWord, filter: VocabularyFilter): Boolean = when (filter) {
+    VocabularyFilter.ALL -> true
+    VocabularyFilter.CONVERSATIONAL ->
+        effectiveVocabulary(word) == VOCAB_WORDS &&
+            word.category.trim().lowercase() in CONVERSATIONAL_CATEGORIES
+    VocabularyFilter.MEDICAL ->
+        effectiveVocabulary(word) == VOCAB_WORDS &&
+            word.category.trim().lowercase() !in CONVERSATIONAL_CATEGORIES
+}
 
 data class GridCategory(val name: String, val wordCount: Int)
 
 /**
  * Word Bank's category cards for the selected filter pill. ALL keeps every
  * category in the given order, with total counts, including empty ones (as the
- * grid always has). WORDS / LETTERS count only words of that vocabulary and drop
- * categories left with none. Categories match words case-insensitively.
+ * grid always has). MEDICAL / CONVERSATIONAL count only the words that pill covers
+ * (see [matchesFilter]) and drop categories left with none. Categories match
+ * words case-insensitively.
  */
 internal fun gridCategories(
     words: List<WordBankWord>,
     categoryNames: List<String>,
     filter: VocabularyFilter,
 ): List<GridCategory> {
-    val wanted = when (filter) {
-        VocabularyFilter.ALL -> null
-        VocabularyFilter.WORDS -> VOCAB_WORDS
-        VocabularyFilter.LETTERS -> VOCAB_LETTERS
-    }
     val counts = HashMap<String, Int>()
     for (w in words) {
-        if (wanted != null && effectiveVocabulary(w) != wanted) continue
+        if (!matchesFilter(w, filter)) continue
         val key = w.category.lowercase()
         counts[key] = (counts[key] ?: 0) + 1
     }
     val all = categoryNames.map { GridCategory(it, counts[it.lowercase()] ?: 0) }
-    return if (wanted == null) all else all.filter { it.wordCount > 0 }
+    return if (filter == VocabularyFilter.ALL) all else all.filter { it.wordCount > 0 }
 }

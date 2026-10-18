@@ -40,7 +40,7 @@
                     style="@style/Sigla.Text.Caption"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Filipino Sign Language words" />
+                    android:text="60 medical FSL signs" />
             </LinearLayout>
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDownloadAllVideos"
@@ -79,6 +79,34 @@
                 android:textColorHint="@color/ms_text_secondary" />
         </LinearLayout>
 
+        <!-- Practice progress. Hidden until the app has something to count. -->
+        <LinearLayout
+            android:id="@+id/practiceProgressRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/ms_space_12"
+            android:orientation="vertical"
+            android:visibility="gone"
+            tools:visibility="visible">
+            <TextView
+                android:id="@+id/tvPracticeProgress"
+                style="@style/Sigla.Text.Caption"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                tools:text="Practiced 12 of 60" />
+            <ProgressBar
+                android:id="@+id/progressPractice"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="6dp"
+                android:layout_marginTop="@dimen/ms_space_4"
+                android:max="60"
+                android:progress="0"
+                android:progressBackgroundTint="@color/ms_tint"
+                android:progressTint="@color/ms_brand"
+                tools:progress="12" />
+        </LinearLayout>
+
         <!-- Grid mode: pills + categories -->
         <LinearLayout
             android:id="@+id/categoryGridContainer"
@@ -98,14 +126,14 @@
                     android:layout_marginEnd="@dimen/ms_space_8"
                     android:text="All" />
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/pillWords"
+                    android:id="@+id/pillMedical"
                     style="@style/Widget.Sigla.Chip"
                     android:layout_marginEnd="@dimen/ms_space_8"
-                    android:text="Words" />
+                    android:text="Medical (45)" />
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/pillLetters"
+                    android:id="@+id/pillConversational"
                     style="@style/Widget.Sigla.Chip"
-                    android:text="Letters" />
+                    android:text="Conversational (15)" />
             </LinearLayout>
 
             <TextView
