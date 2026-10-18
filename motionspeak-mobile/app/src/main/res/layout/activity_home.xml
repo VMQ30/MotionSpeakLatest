@@ -67,34 +67,6 @@
                     tools:visibility="visible" />
             </LinearLayout>
 
-            <!-- Search → Word Bank -->
-            <LinearLayout
-                android:id="@+id/homeSearch"
-                android:layout_width="match_parent"
-                android:layout_height="@dimen/ms_search_height"
-                android:layout_marginTop="@dimen/ms_space_16"
-                android:background="@drawable/bg_ms_search"
-                android:clickable="true"
-                android:contentDescription="Search FSL signs"
-                android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="@dimen/ms_space_16"
-                android:paddingEnd="@dimen/ms_space_16">
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:importantForAccessibility="no"
-                    android:src="@drawable/ic_search_line"
-                    android:tint="@color/ms_text_secondary" />
-                <TextView
-                    style="@style/Sigla.Text.Secondary"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="@dimen/ms_space_12"
-                    android:importantForAccessibility="no"
-                    android:text="Search FSL signs" />
-            </LinearLayout>
 
             <!-- Hero -->
             <com.google.android.material.card.MaterialCardView
@@ -149,69 +121,6 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Stats: one tint strip, three columns split by thin dividers -->
-            <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.Sigla.Card.Tint"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/ms_space_16">
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:paddingStart="@dimen/ms_space_8"
-                    android:paddingTop="@dimen/ms_space_16"
-                    android:paddingEnd="@dimen/ms_space_8"
-                    android:paddingBottom="@dimen/ms_space_16">
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:gravity="center_horizontal"
-                        android:orientation="vertical">
-                        <TextView android:id="@+id/tvStatWords" style="@style/Sigla.Text.StatValue"
-                            android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            tools:text="89" />
-                        <TextView style="@style/Sigla.Text.StatLabel"
-                            android:layout_width="match_parent" android:layout_height="wrap_content"
-                            android:gravity="center" android:text="Words" />
-                    </LinearLayout>
-                    <View
-                        android:layout_width="1dp"
-                        android:layout_height="match_parent"
-                        android:background="@color/ms_divider" />
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:gravity="center_horizontal"
-                        android:orientation="vertical">
-                        <TextView android:id="@+id/tvStatTotal" style="@style/Sigla.Text.StatValue"
-                            android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            tools:text="12" />
-                        <TextView style="@style/Sigla.Text.StatLabel"
-                            android:layout_width="match_parent" android:layout_height="wrap_content"
-                            android:gravity="center" android:text="Translated today" />
-                    </LinearLayout>
-                    <View
-                        android:layout_width="1dp"
-                        android:layout_height="match_parent"
-                        android:background="@color/ms_divider" />
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:gravity="center_horizontal"
-                        android:orientation="vertical">
-                        <TextView android:id="@+id/tvStatFavorites" style="@style/Sigla.Text.StatValue"
-                            android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            tools:text="9" />
-                        <TextView style="@style/Sigla.Text.StatLabel"
-                            android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Favorites" />
-                    </LinearLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
 
             <!-- Categories -->
             <LinearLayout
