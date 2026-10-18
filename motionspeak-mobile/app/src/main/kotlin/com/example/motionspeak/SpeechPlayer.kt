@@ -72,6 +72,17 @@ class SpeechPlayer(
     }
 
     /**
+     * Pre-applies the preferred voice immediately in the background so
+     * changing the voice takes effect with zero latency on the next utterance.
+     */
+    fun applyVoice() {
+        val engine = tts ?: return
+        scope.launch(speechLane) {
+            TtsVoiceHelper.applyPreferredVoice(engine, appSettings)
+        }
+    }
+
+    /**
      * shutdown() blocks until the engine connection started in the constructor
      * has finished binding, so leaving right after entering stalled the main
      * thread for 0.6-1.25 s. Shut down on teardownExecutor instead.

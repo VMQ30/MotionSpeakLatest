@@ -86,11 +86,12 @@ object TtsVoiceHelper {
         val chosen = byName ?: fallback
         cachedVoice        = chosen
         cachedForVoiceType = voiceType
-        engine.voice       = chosen
 
         try {
             engine.language = chosen.locale
         } catch (ignored: Exception) {}
+
+        engine.voice = chosen
     }
 
     /**

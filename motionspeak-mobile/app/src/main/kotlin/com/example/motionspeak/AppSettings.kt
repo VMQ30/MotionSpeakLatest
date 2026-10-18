@@ -34,10 +34,10 @@ class AppSettings(context: Context) {
         const val HAPTIC_LIGHT = "light"
         const val HAPTIC_MAX = "max"
 
-        /** Font-size scale stored as an integer percentage (80 = Small, 100 = Normal, 130 = Large). */
+        /** Font-size scale stored as an integer percentage (80 = Small, 100 = Normal, 125 = Large). */
         const val FONT_SIZE_SMALL  = 80
         const val FONT_SIZE_NORMAL = 100
-        const val FONT_SIZE_LARGE  = 130
+        const val FONT_SIZE_LARGE  = 125
 
         @Volatile private var INSTANCE: AppSettings? = null
 
@@ -98,8 +98,8 @@ class AppSettings(context: Context) {
 
     /**
      * UI font-size scale as an integer percentage.
-     * One of FONT_SIZE_SMALL (80), FONT_SIZE_NORMAL (100), or FONT_SIZE_LARGE (130).
-     * The slider in Settings maps 80–130 continuously; the preset buttons snap to
+     * One of FONT_SIZE_SMALL (80), FONT_SIZE_NORMAL (100), or FONT_SIZE_LARGE (125).
+     * The slider in Settings maps 80–125 continuously; the preset buttons snap to
      * one of the three values and move the slider thumb with them.
      */
     var fontSize: Int

@@ -42,6 +42,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:textColor="@color/ms_home_accent"
+                        android:fontFamily="@font/poppins_bold"
+                        android:textSize="24sp"
                         android:ellipsize="end"
                         android:maxLines="1"
                         tools:text="Hi Maria!" />
@@ -50,6 +52,9 @@
                         style="@style/Sigla.Text.Secondary"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:fontFamily="@font/poppins_bold"
+                        android:textStyle="bold"
+                        android:textSize="16sp"
                         tools:text="Good morning" />
                 </LinearLayout>
 
@@ -121,6 +126,8 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
+                        android:clipChildren="false"
+                        android:clipToPadding="false"
                         android:orientation="vertical">
                         <TextView
                             style="@style/Sigla.Text.CardTitle"
@@ -135,14 +142,20 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="@dimen/ms_space_4"
                             android:text="Tap, sign one word, and SigLa reads it for you." />
-                        <com.google.android.material.button.MaterialButton
+                        <com.example.motionspeak.SiriLinearGradientButton
                             android:id="@+id/btnHeroStart"
                             style="@style/Widget.Sigla.Button"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="@dimen/ms_space_12"
-                            app:backgroundTint="@color/ms_home_brand"
+                            app:backgroundTint="@android:color/transparent"
                             android:textColor="@color/ms_home_on_brand"
+                            android:shadowColor="#4D000000"
+                            android:shadowDx="0"
+                            android:shadowDy="1"
+                            android:shadowRadius="3"
+                            app:cornerRadius="@dimen/ms_radius_lg"
+                            app:strokeWidth="0dp"
                             android:text="Open camera" />
                     </LinearLayout>
                     <ImageView

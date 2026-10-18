@@ -37,7 +37,7 @@ internal fun profileInitial(userName: String?): String =
  * Preferences managed:
  *   - Volume level (0–100%)
  *   - Voice type: Male / Female (for TTS)
- *   - Font size: 80–130% via SeekBar + Small / Normal / Large presets
+ *   - Font size: 80–125% via SeekBar + Small / Normal / Large presets
  *   - Dark / Light mode toggle
  *   - Reset to default
  *   - Replay onboarding tutorial
@@ -139,11 +139,13 @@ class SettingsActivity : BaseActivity() {
             // The chosen Voice is cached against the preference, so changing it
             // has to drop the cache or playback would keep the old voice.
             TtsVoiceHelper.invalidate()
+            speech?.applyVoice()
         }
         findViewById<View>(R.id.btnVoiceFemale)?.setOnClickListener {
             applyVoiceSelection("FEMALE")
             appSettings.voiceType = AppSettings.VOICE_FEMALE
             TtsVoiceHelper.invalidate()
+            speech?.applyVoice()
         }
     }
 
@@ -187,7 +189,8 @@ class SettingsActivity : BaseActivity() {
         val btnNormal = findViewById<TextView>(R.id.btnFontNormal)
         val btnLarge  = findViewById<TextView>(R.id.btnFontLarge)
 
-        // SeekBar spans FONT_SIZE_SMALL..FONT_SIZE_LARGE (80..130), max = range size.
+        // SeekBar spans FONT_SIZE_SMALL..FONT_SIZE_LARGE (80..125), max = range size (45).
+        seekBar?.max = AppSettings.FONT_SIZE_LARGE - AppSettings.FONT_SIZE_SMALL
         seekBar?.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
                 val pct = progress + AppSettings.FONT_SIZE_SMALL
@@ -212,7 +215,7 @@ class SettingsActivity : BaseActivity() {
     @Suppress("UNUSED_PARAMETER")
     private fun applyFontSizeSelection(pct: Int, animate: Boolean = true) {
         currentFontSize = pct
-        // SeekBar progress = pct − FONT_SIZE_SMALL, so 80→0, 100→20, 130→50
+        // SeekBar progress = pct − FONT_SIZE_SMALL, so 80→0, 100→20, 125→45
         findViewById<SeekBar>(R.id.seekFontSize)?.progress = pct - AppSettings.FONT_SIZE_SMALL
         findViewById<TextView>(R.id.tvFontSizeValue)?.text = "$pct%"
         applyFontSizeButtons(pct)

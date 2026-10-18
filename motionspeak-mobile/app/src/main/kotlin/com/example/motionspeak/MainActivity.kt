@@ -541,6 +541,8 @@ class MainActivity : BaseActivity() {
      */
     private fun stopVision() {
         cancelTap()
+        stopStatusFlicker()
+        setStatus("Not ready", StatusKind.NOT_READY)
         binding.cardResult.removeCallbacks(hideResult)
         if (clearResultOnStop(tapMode)) Motion.hideNow(binding.cardResult, View.INVISIBLE)
         if (!visionActive) return
@@ -780,7 +782,7 @@ class MainActivity : BaseActivity() {
                     ?.let { selectVocabulary(it) }
             }
         } else {
-            setStatus("Couldn't load the words", StatusKind.ERROR)
+            setStatus("Not ready", StatusKind.NOT_READY)
         }
     }
 
@@ -1649,6 +1651,9 @@ class MainActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (predictor?.isReady == true) {
+            setStatus("Ready", StatusKind.READY)
+        }
         // refreshNotifBadge() removed: it fired a network request on every
         // resume — plus an encrypted-prefs read and a failed view lookup — to
         // populate tvNotifBadge, which exists in no inflated layout.
@@ -1665,6 +1670,7 @@ class MainActivity : BaseActivity() {
 
     override fun onPause() {
         super.onPause()
+        stopStatusFlicker()
         // A transient pause (system dialog, split-screen, brief backgrounding)
         // may not reach onStop. A tap recording must not keep running on frames
         // from a screen the user is no longer looking at.

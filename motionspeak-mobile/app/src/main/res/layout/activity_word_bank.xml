@@ -115,26 +115,47 @@
             android:layout_weight="1"
             android:orientation="vertical">
 
-            <LinearLayout
+            <HorizontalScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/ms_space_8"
-                android:orientation="horizontal">
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/pillAll"
-                    style="@style/Widget.Sigla.Chip"
-                    android:layout_marginEnd="@dimen/ms_space_8"
-                    android:text="All" />
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/pillMedical"
-                    style="@style/Widget.Sigla.Chip"
-                    android:layout_marginEnd="@dimen/ms_space_8"
-                    android:text="Medical (45)" />
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/pillConversational"
-                    style="@style/Widget.Sigla.Chip"
-                    android:text="Conversational (15)" />
-            </LinearLayout>
+                android:scrollbars="none"
+                android:overScrollMode="never"
+                android:clipToPadding="false"
+                android:fillViewport="false">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/pillAll"
+                        style="@style/Widget.Sigla.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:minHeight="@dimen/ms_touch_min"
+                        android:layout_marginEnd="@dimen/ms_space_8"
+                        android:text="All" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/pillMedical"
+                        style="@style/Widget.Sigla.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:minHeight="@dimen/ms_touch_min"
+                        android:layout_marginEnd="@dimen/ms_space_8"
+                        android:text="Medical (45)" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/pillConversational"
+                        style="@style/Widget.Sigla.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:minHeight="@dimen/ms_touch_min"
+                        android:text="Conversational (15)" />
+                </LinearLayout>
+            </HorizontalScrollView>
 
             <TextView
                 style="@style/Sigla.Text.Section"
