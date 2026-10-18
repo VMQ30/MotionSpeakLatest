@@ -4,10 +4,14 @@ import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.Intent
 import android.content.res.ColorStateList
+import android.graphics.Color
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.ViewGroup
+import android.view.animation.AccelerateInterpolator
 import android.view.animation.LinearInterpolator
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
@@ -73,14 +77,123 @@ object BottomNavHelper {
             val normalBg = ContextCompat.getColor(activity, R.color.ms_brand)
             val fullRed = ContextCompat.getColor(activity, R.color.ms_scarlet)
 
+            // ── State ──────────────────────────────────────────────────────────
             var sosTriggered = false
             var redFadeAnimator: ValueAnimator? = null
+            var pressStartMs = 0L
 
-            // Runnable that starts fading the circular button to red 2 seconds before SOS activates
+            // Pulse state
+            var pulseRunnable: Runnable? = null
+            var pulseScheduled = false
+
+            // Red overlay state
+            var overlayView: View? = null
+            var overlayAnimator: ValueAnimator? = null
+
+            // ── Overlay helpers ────────────────────────────────────────────────
+
+            fun getDecorViewGroup(): ViewGroup =
+                activity.window.decorView as ViewGroup
+
+            fun showRedOverlay() {
+                if (overlayView != null) return
+                val overlay = View(activity).apply {
+                    setBackgroundColor(Color.RED)
+                    alpha = 0f
+                    // Block touches so taps on the overlay don't fall through to
+                    // the button (SOS is already triggered; overlay is purely visual)
+                    isClickable = false
+                    isFocusable = false
+                }
+                val params = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+                getDecorViewGroup().addView(overlay, params)
+                overlayView = overlay
+            }
+
+            fun removeOverlay() {
+                val ov = overlayView ?: return
+                overlayAnimator?.cancel()
+                overlayAnimator = null
+                ValueAnimator.ofFloat(ov.alpha, 0f).apply {
+                    duration = 300L
+                    interpolator = LinearInterpolator()
+                    addUpdateListener { ov.alpha = it.animatedValue as Float }
+                    addListener(object : android.animation.AnimatorListenerAdapter() {
+                        override fun onAnimationEnd(a: android.animation.Animator) {
+                            (ov.parent as? ViewGroup)?.removeView(ov)
+                        }
+                    })
+                    start()
+                }
+                overlayView = null
+            }
+
+            // ── Pulse helpers ──────────────────────────────────────────────────
+
+            /**
+             * Emit one expanding red ring pulse centred on the FAB.
+             * The ring is added to the DecorView so it appears above the FAB.
+             */
+            fun emitPulseRing(intensity: Float) {
+                val decor = getDecorViewGroup()
+                val fabLoc = IntArray(2)
+                fab.getLocationOnScreen(fabLoc)
+                val fabCx = fabLoc[0] + fab.width / 2
+                val fabCy = fabLoc[1] + fab.height / 2
+
+                val baseSizePx = fab.width.coerceAtLeast(fab.height)
+                // Maximum ring size grows with intensity (1.5x → 3.5x FAB diameter)
+                val maxScale = 1.5f + intensity * 2.0f
+
+                val ring = View(activity).apply {
+                    background = ContextCompat.getDrawable(
+                        activity, R.drawable.bg_sos_pulse_ring
+                    )
+                    alpha = 0.85f + intensity * 0.15f // starts more opaque at high intensity
+                }
+                val startSize = baseSizePx
+                val params = FrameLayout.LayoutParams(startSize, startSize)
+                // Position so the ring centre aligns with the FAB centre
+                val decorLoc = IntArray(2)
+                decor.getLocationOnScreen(decorLoc)
+                params.leftMargin = fabCx - decorLoc[0] - startSize / 2
+                params.topMargin = fabCy - decorLoc[1] - startSize / 2
+                decor.addView(ring, params)
+
+                val animator = ValueAnimator.ofFloat(1f, maxScale).apply {
+                    duration = (500L - (intensity * 250L).toLong()).coerceAtLeast(150L)
+                    interpolator = AccelerateInterpolator(1.2f)
+                    addUpdateListener { anim ->
+                        val scale = anim.animatedValue as Float
+                        val newSize = (startSize * scale).toInt()
+                        val lp = ring.layoutParams as FrameLayout.LayoutParams
+                        lp.width = newSize
+                        lp.height = newSize
+                        lp.leftMargin = fabCx - decorLoc[0] - newSize / 2
+                        lp.topMargin = fabCy - decorLoc[1] - newSize / 2
+                        ring.layoutParams = lp
+                        ring.alpha = (1f - anim.animatedFraction) *
+                            (0.85f + intensity * 0.15f)
+                    }
+                    addListener(object : android.animation.AnimatorListenerAdapter() {
+                        override fun onAnimationEnd(a: android.animation.Animator) {
+                            (ring.parent as? ViewGroup)?.removeView(ring)
+                        }
+                    })
+                    start()
+                }
+            }
+
+            // ── Scheduled runnables ────────────────────────────────────────────
+
+            // Button color fades from brand → scarlet over 3 s (t=2 s → t=5 s)
             val startFadeRunnable = Runnable {
                 redFadeAnimator?.cancel()
                 redFadeAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-                    duration = 2000L // 2-second fade from t=2s to t=4s
+                    duration = 3000L // 3-second fade from t=2s to t=5s
                     interpolator = LinearInterpolator()
                     addUpdateListener { anim ->
                         val fraction = anim.animatedValue as Float
@@ -96,7 +209,66 @@ object BottomNavHelper {
                 Haptics.trigger(activity, fab, AppSettings.HAPTIC_LIGHT)
             }
 
-            // Runnable that triggers SOS at 4 seconds
+            // Pulsating rings start at t=2 s; a recursive runnable re-posts itself
+            // at a shrinking interval (600 ms → 150 ms) as intensity grows.
+            val startPulseRunnable = Runnable {
+                pulseScheduled = true
+
+                fun schedulePulse(handler: View) {
+                    val elapsed = System.currentTimeMillis() - pressStartMs
+                    // intensity 0 at t=2 s, 1 at t=5 s
+                    val intensity = ((elapsed - 2000L) / 3000f).coerceIn(0f, 1f)
+                    // interval shrinks from 600 ms to 150 ms as intensity grows
+                    val interval = (600L - (intensity * 450L).toLong()).coerceAtLeast(150L)
+
+                    // emit visual ring
+                    emitPulseRing(intensity)
+
+                    // haptic: light until near trigger, then max
+                    val hapticMode = if (intensity > 0.7f) AppSettings.HAPTIC_MAX
+                    else AppSettings.HAPTIC_LIGHT
+                    Haptics.trigger(activity, fab, hapticMode)
+
+                    if (pulseScheduled) {
+                        val next: Runnable = object : Runnable {
+                            override fun run() {
+                                if (!pulseScheduled) return
+                                val el2 = System.currentTimeMillis() - pressStartMs
+                                val int2 = ((el2 - 2000L) / 3000f).coerceIn(0f, 1f)
+                                val iv2 = (600L - (int2 * 450L).toLong()).coerceAtLeast(150L)
+
+                                emitPulseRing(int2)
+                                val hm = if (int2 > 0.7f) AppSettings.HAPTIC_MAX
+                                else AppSettings.HAPTIC_LIGHT
+                                Haptics.trigger(activity, fab, hm)
+
+                                if (pulseScheduled) handler.postDelayed(this, iv2)
+                            }
+                        }
+                        handler.postDelayed(next, interval)
+                        pulseRunnable = next
+                    }
+                }
+
+                schedulePulse(fab)
+            }
+
+            // Red screen overlay fades in from t=3 s to t=5 s (max alpha ≈ 0.55)
+            val startOverlayRunnable = Runnable {
+                showRedOverlay()
+                overlayAnimator?.cancel()
+                overlayAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+                    duration = 2000L // spans t=3s → t=5s
+                    interpolator = LinearInterpolator()
+                    addUpdateListener { anim ->
+                        val f = anim.animatedValue as Float
+                        overlayView?.alpha = f * 0.55f // cap at ~55% opacity
+                    }
+                    start()
+                }
+            }
+
+            // SOS triggers at 5 seconds
             val sosRunnable = Runnable {
                 sosTriggered = true
                 if (glowFab != null) {
@@ -107,9 +279,25 @@ object BottomNavHelper {
                 SosHelper.trigger(activity)
             }
 
+            // ── Reset helper ───────────────────────────────────────────────────
+
             fun resetSosState(animateBack: Boolean) {
+                // Cancel all scheduled runnables
                 fab.removeCallbacks(startFadeRunnable)
+                fab.removeCallbacks(startPulseRunnable)
                 fab.removeCallbacks(sosRunnable)
+
+                // Stop pulse loop
+                pulseScheduled = false
+                pulseRunnable?.let { fab.removeCallbacks(it) }
+                pulseRunnable = null
+
+                // Cancel / remove overlay
+                overlayAnimator?.cancel()
+                overlayAnimator = null
+                removeOverlay()
+
+                // Revert button colour
                 redFadeAnimator?.cancel()
                 val currentProgress = glowFab?.sosTransitionProgress ?: 0f
                 if (animateBack && currentProgress > 0f) {
@@ -138,14 +326,19 @@ object BottomNavHelper {
             // Initial reset to ensure clean state
             resetSosState(animateBack = false)
 
+            // ── Touch handler ──────────────────────────────────────────────────
+
             fab.setOnTouchListener { v, event ->
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
                         v.isPressed = true
                         sosTriggered = false
+                        pressStartMs = System.currentTimeMillis()
                         resetSosState(animateBack = false)
-                        v.postDelayed(startFadeRunnable, 2000L)
-                        v.postDelayed(sosRunnable, 4000L)
+                        v.postDelayed(startFadeRunnable, 2000L)   // button fade starts at 2 s
+                        v.postDelayed(startPulseRunnable, 2000L)  // pulse rings start at 2 s
+                        v.postDelayed(startOverlayRunnable, 3000L) // red overlay starts at 3 s
+                        v.postDelayed(sosRunnable, 5000L)          // SOS triggers at 5 s
                         true
                     }
                     MotionEvent.ACTION_MOVE -> {
