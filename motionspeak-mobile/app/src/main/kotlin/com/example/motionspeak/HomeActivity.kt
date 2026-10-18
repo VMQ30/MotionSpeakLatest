@@ -79,7 +79,6 @@ class HomeActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         BottomNavHelper.setup(this, Tab.HOME)
-        binding.homeSearch.setOnClickListener { BottomNavHelper.openWordBankSearch(this) }
         binding.btnHeroStart.setOnClickListener { BottomNavHelper.openTranslator(this) }
         binding.btnRecentStart.setOnClickListener { BottomNavHelper.openTranslator(this) }
         binding.tvCategoriesViewAll.setOnClickListener { BottomNavHelper.open(this, Tab.WORD_BANK) }
@@ -100,12 +99,6 @@ class HomeActivity : AppCompatActivity() {
 
         val historyManager = TranslationHistoryManager.getInstance(this)
         val entries = historyManager.getAll()
-        // Favorites/translated-today are on-device and instant; wordsAvailable
-        // needs the cached word bank, loaded below with the categories grid, so
-        // the stat banner's word count updates in the same pass as the grid.
-        binding.tvStatTotal.text = historyManager.getTranslatedToday().toString()
-        binding.tvStatFavorites.text = FavoritesManager.getInstance(this).getAll().size.toString()
-
         renderRecent(recentEntries(entries))
 
         lifecycleScope.launch {
@@ -115,7 +108,6 @@ class HomeActivity : AppCompatActivity() {
             val names = withContext(Dispatchers.IO) {
                 ModelUpdateManager.loadCachedCategories(this@HomeActivity)
             }.orEmpty().map { it.name }
-            binding.tvStatWords.text = words.size.toString()
             renderCategories(homeCategories(words, names))
         }
     }
