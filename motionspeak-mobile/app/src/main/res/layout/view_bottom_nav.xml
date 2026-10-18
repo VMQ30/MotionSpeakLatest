@@ -26,25 +26,10 @@
                     android:text="Home" />
             </LinearLayout>
 
-            <LinearLayout android:id="@+id/tabWordBank" style="@style/Widget.Sigla.Tab">
-                <ImageView android:id="@+id/tabWordBankIcon" style="@style/Widget.Sigla.TabIcon"
-                    android:src="@drawable/ic_book_line" />
-                <TextView android:id="@+id/tabWordBankLabel" style="@style/Widget.Sigla.TabLabel"
-                    android:text="Word Bank" />
-            </LinearLayout>
-
-            <!-- Room for the centre button -->
+            <!-- Room for the centre button (cradle width is 72dp) -->
             <Space
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1" />
-
-            <LinearLayout android:id="@+id/tabHistory" style="@style/Widget.Sigla.Tab">
-                <ImageView android:id="@+id/tabHistoryIcon" style="@style/Widget.Sigla.TabIcon"
-                    android:src="@drawable/ic_history_line" />
-                <TextView android:id="@+id/tabHistoryLabel" style="@style/Widget.Sigla.TabLabel"
-                    android:text="History" />
-            </LinearLayout>
+                android:layout_width="80dp"
+                android:layout_height="match_parent" />
 
             <LinearLayout android:id="@+id/tabSettings" style="@style/Widget.Sigla.Tab">
                 <ImageView android:id="@+id/tabSettingsIcon" style="@style/Widget.Sigla.TabIcon"

@@ -19,6 +19,10 @@
     <color name="ms_on_dark_secondary">#CCFFFFFF</color>
     <color name="ms_nav_bar">#0D1127</color>
     <color name="colorIndicatorInactive">#D7DBE4</color>
+    <color name="ms_warning">#F59E0B</color>
+    <color name="ms_blue_soft">#EFF6FF</color>
+    <color name="ms_green_soft">#ECFDF5</color>
+    <color name="ms_amber_soft">#FFFBEB</color>
     <color name="ms_illus_soft">#C9D8FA</color>
     <color name="ms_illus_mid">#9DB8F2</color>
 </resources>

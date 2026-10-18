@@ -96,14 +96,14 @@
                             style="@style/Sigla.Text.CardTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Start translating"
+                            android:text="Start Signing"
                             android:textSize="20sp" />
                         <TextView
                             style="@style/Sigla.Text.Secondary"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="@dimen/ms_space_4"
-                            android:text="Tap, sign one word, and SigLa reads it for you." />
+                            android:text="Point camera at signer and begin" />
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnHeroStart"
                             style="@style/Widget.Sigla.Button"
@@ -122,98 +122,232 @@
             </com.google.android.material.card.MaterialCardView>
 
 
-            <!-- Categories -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/ms_space_20"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <TextView
-                    style="@style/Sigla.Text.Section"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Categories" />
-                <TextView
-                    android:id="@+id/tvCategoriesViewAll"
-                    style="@style/Sigla.Text.Link"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:minHeight="@dimen/ms_touch_min"
-                    android:gravity="center_vertical"
-                    android:paddingStart="@dimen/ms_space_8"
-                    android:text="View all" />
-            </LinearLayout>
-
-            <!-- 6dp negative side margins offset the 6dp margin on each card so
-                 the grid's outer edges line up with the screen padding. -->
-            <GridLayout
-                android:id="@+id/gridCategories"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="-6dp"
-                android:layout_marginEnd="-6dp"
-                android:columnCount="2"
-                android:useDefaultMargins="false" />
-
+            <!-- Quick Actions -->
             <TextView
-                android:id="@+id/tvCategoriesEmpty"
-                style="@style/Sigla.Text.Secondary"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Connect to the internet once to download the word bank."
-                android:visibility="gone" />
-
-            <!-- Recent translations -->
-            <LinearLayout
+                style="@style/Sigla.Text.Section"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/ms_space_20"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <TextView
-                    style="@style/Sigla.Text.Section"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Recent translations" />
-                <TextView
-                    android:id="@+id/tvRecentViewAll"
-                    style="@style/Sigla.Text.Link"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:minHeight="@dimen/ms_touch_min"
-                    android:gravity="center_vertical"
-                    android:paddingStart="@dimen/ms_space_8"
-                    android:text="View all" />
-            </LinearLayout>
+                android:text="QUICK ACTIONS"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:textColor="@color/ms_text_secondary" />
 
-            <LinearLayout
-                android:id="@+id/listRecent"
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical" />
+                android:layout_marginTop="@dimen/ms_space_8"
+                app:cardCornerRadius="@dimen/ms_radius_lg"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="@color/ms_divider"
+                app:cardBackgroundColor="@color/ms_tint">
 
-            <LinearLayout
-                android:id="@+id/recentEmpty"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
-                <TextView
-                    style="@style/Sigla.Text.Secondary"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Your translations will appear here." />
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnRecentStart"
-                    style="@style/Widget.Sigla.Button"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/ms_space_12"
-                    android:text="Start translating" />
-            </LinearLayout>
+                    android:orientation="vertical">
+
+                    <!-- Row 1: Sign Dictionary -->
+                    <LinearLayout
+                        android:id="@+id/actionSignDictionary"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="64dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="@dimen/ms_space_16"
+                        android:paddingEnd="@dimen/ms_space_16"
+                        android:paddingTop="@dimen/ms_space_12"
+                        android:paddingBottom="@dimen/ms_space_12"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <FrameLayout
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:background="@drawable/bg_ms_circle_tint"
+                            android:backgroundTint="@color/ms_blue_soft">
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_book_line"
+                                app:tint="@color/ms_brand"
+                                android:importantForAccessibility="no" />
+                        </FrameLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="@dimen/ms_space_12"
+                            android:orientation="vertical">
+                            <TextView
+                                style="@style/Sigla.Text.BodyStrong"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Sign Dictionary"
+                                android:textSize="15sp"
+                                android:textColor="@color/ms_text" />
+                            <TextView
+                                android:id="@+id/tvSignDictionaryCount"
+                                style="@style/Sigla.Text.Caption"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="37 medical FSL signs"
+                                android:textSize="12sp"
+                                android:textColor="@color/ms_text_secondary" />
+                        </LinearLayout>
+
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:src="@drawable/ic_chevron_right"
+                            app:tint="@color/ms_text_secondary"
+                            android:importantForAccessibility="no" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="68dp"
+                        android:background="@color/ms_divider" />
+
+                    <!-- Row 2: MediSIGN Reference -->
+                    <LinearLayout
+                        android:id="@+id/actionMediSignReference"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="64dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="@dimen/ms_space_16"
+                        android:paddingEnd="@dimen/ms_space_16"
+                        android:paddingTop="@dimen/ms_space_12"
+                        android:paddingBottom="@dimen/ms_space_12"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <FrameLayout
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:background="@drawable/bg_ms_circle_tint"
+                            android:backgroundTint="@color/ms_green_soft">
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_hospital_box"
+                                app:tint="@color/ms_success"
+                                android:importantForAccessibility="no" />
+                        </FrameLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="@dimen/ms_space_12"
+                            android:orientation="vertical">
+                            <TextView
+                                style="@style/Sigla.Text.BodyStrong"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="MediSIGN Reference"
+                                android:textSize="15sp"
+                                android:textColor="@color/ms_text" />
+                            <TextView
+                                style="@style/Sigla.Text.Caption"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Based on UP Manila handbook"
+                                android:textSize="12sp"
+                                android:textColor="@color/ms_text_secondary" />
+                        </LinearLayout>
+
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:src="@drawable/ic_chevron_right"
+                            app:tint="@color/ms_text_secondary"
+                            android:importantForAccessibility="no" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="68dp"
+                        android:background="@color/ms_divider" />
+
+                    <!-- Row 3: App Settings -->
+                    <LinearLayout
+                        android:id="@+id/actionAppSettings"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="64dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="@dimen/ms_space_16"
+                        android:paddingEnd="@dimen/ms_space_16"
+                        android:paddingTop="@dimen/ms_space_12"
+                        android:paddingBottom="@dimen/ms_space_12"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <FrameLayout
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:background="@drawable/bg_ms_circle_tint"
+                            android:backgroundTint="@color/ms_amber_soft">
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_settings_line"
+                                app:tint="@color/ms_warning"
+                                android:importantForAccessibility="no" />
+                        </FrameLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="@dimen/ms_space_12"
+                            android:orientation="vertical">
+                            <TextView
+                                style="@style/Sigla.Text.BodyStrong"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="App Settings"
+                                android:textSize="15sp"
+                                android:textColor="@color/ms_text" />
+                            <TextView
+                                style="@style/Sigla.Text.Caption"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Font, language, TTS &amp; more"
+                                android:textSize="12sp"
+                                android:textColor="@color/ms_text_secondary" />
+                        </LinearLayout>
+
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:src="@drawable/ic_chevron_right"
+                            app:tint="@color/ms_text_secondary"
+                            android:importantForAccessibility="no" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 

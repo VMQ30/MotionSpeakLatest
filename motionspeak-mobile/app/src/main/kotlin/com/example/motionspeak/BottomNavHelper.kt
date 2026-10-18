@@ -24,8 +24,6 @@ object BottomNavHelper {
 
     private val TABS = listOf(
         TabViews(Tab.HOME, R.id.tabHome, R.id.tabHomeIcon, R.id.tabHomeLabel),
-        TabViews(Tab.WORD_BANK, R.id.tabWordBank, R.id.tabWordBankIcon, R.id.tabWordBankLabel),
-        TabViews(Tab.HISTORY, R.id.tabHistory, R.id.tabHistoryIcon, R.id.tabHistoryLabel),
         TabViews(Tab.SETTINGS, R.id.tabSettings, R.id.tabSettingsIcon, R.id.tabSettingsLabel),
     )
 
@@ -43,18 +41,18 @@ object BottomNavHelper {
         val regular = ResourcesCompat.getFont(activity, R.font.poppins_regular)
         for (t in TABS) {
             val selected = t.tab == current
-            activity.findViewById<ImageView>(t.icon).imageTintList =
+            activity.findViewById<ImageView>(t.icon)?.imageTintList =
                 ColorStateList.valueOf(if (selected) on else off)
-            activity.findViewById<TextView>(t.label).apply {
+            activity.findViewById<TextView>(t.label)?.apply {
                 setTextColor(if (selected) on else off)
                 typeface = if (selected) semibold else regular
             }
-            activity.findViewById<View>(t.root).apply {
+            activity.findViewById<View>(t.root)?.apply {
                 isSelected = selected
                 setOnClickListener { open(activity, t.tab) }
             }
         }
-        activity.findViewById<View>(R.id.fabTranslate).setOnClickListener { openTranslator(activity) }
+        activity.findViewById<View>(R.id.fabTranslate)?.setOnClickListener { openTranslator(activity) }
     }
 
     fun open(activity: Activity, tab: Tab) {

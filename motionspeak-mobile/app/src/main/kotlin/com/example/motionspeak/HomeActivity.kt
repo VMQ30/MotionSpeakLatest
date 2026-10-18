@@ -1,25 +1,18 @@
 package com.example.motionspeak
 
 import android.content.Intent
-import android.content.res.ColorStateList
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.View
-import android.widget.GridLayout
 import androidx.activity.addCallback
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import com.example.motionspeak.databinding.ActivityHomeBinding
-import com.example.motionspeak.databinding.ItemHomeCategoryBinding
-import com.example.motionspeak.databinding.ItemHomeRecentBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Calendar
-import java.util.TimeZone
 
 /**
  * Home (spec §3, §5), the first screen after SplashActivity's intro.
@@ -37,30 +30,10 @@ class HomeActivity : AppCompatActivity() {
     private lateinit var binding: ActivityHomeBinding
     private lateinit var appSettings: AppSettings
 
-    // Home rebuilds its rows on every onResume; they stagger in only the first
-    // time this screen instance renders them (app-motion spec §4.2).
-    private var categoriesEntrancePlayed = false
-    private var recentEntrancePlayed = false
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         appSettings = AppSettings.getInstance(this)
 
-        // Build hand tracking now, in the background, so the translator opens
-        // ready instead of on "Loading hand tracking…" — on slower phones that
-        // first build takes seconds. No-op once built (see HandLandmarkHelper.Cache).
-        // Same idea for the recognition models: a first-time user's download
-        // starts here rather than when they open the translator; throttled
-        // inside, so returning to Home does not re-hit the server.
-        // Both are scheduled BEFORE the onboarding redirect, so a new user's
-        // onboarding time is spent loading — that is exactly the user who would
-        // wait most.
-        //
-        // Delayed past launch: started immediately they competed with Splash →
-        // Home's own first frames and made those stutters visibly longer. On the
-        // main Handler with the app context rather than this view, so it still
-        // runs when Home finishes straight into onboarding. Opening the
-        // translator sooner is fine: it builds on demand and prewarm no-ops.
         val app = applicationContext
         Handler(Looper.getMainLooper()).postDelayed({
             HandLandmarkHelper.Cache.prewarm(app)
@@ -80,9 +53,9 @@ class HomeActivity : AppCompatActivity() {
 
         BottomNavHelper.setup(this, Tab.HOME)
         binding.btnHeroStart.setOnClickListener { BottomNavHelper.openTranslator(this) }
-        binding.btnRecentStart.setOnClickListener { BottomNavHelper.openTranslator(this) }
-        binding.tvCategoriesViewAll.setOnClickListener { BottomNavHelper.open(this, Tab.WORD_BANK) }
-        binding.tvRecentViewAll.setOnClickListener { BottomNavHelper.open(this, Tab.HISTORY) }
+        binding.actionSignDictionary.setOnClickListener { BottomNavHelper.open(this, Tab.WORD_BANK) }
+        binding.actionMediSignReference.setOnClickListener { BottomNavHelper.open(this, Tab.WORD_BANK) }
+        binding.actionAppSettings.setOnClickListener { BottomNavHelper.open(this, Tab.SETTINGS) }
 
         // Home is the root: back leaves the app. finishAffinity() also closes the
         // other tab screens kept alive behind it by the bottom bar.
@@ -97,18 +70,12 @@ class HomeActivity : AppCompatActivity() {
     private fun refresh() {
         renderGreeting()
 
-        val historyManager = TranslationHistoryManager.getInstance(this)
-        val entries = historyManager.getAll()
-        renderRecent(recentEntries(entries))
-
         lifecycleScope.launch {
             val words = withContext(Dispatchers.IO) {
                 ModelUpdateManager.loadCachedWordBank(this@HomeActivity)
             }.orEmpty()
-            val names = withContext(Dispatchers.IO) {
-                ModelUpdateManager.loadCachedCategories(this@HomeActivity)
-            }.orEmpty().map { it.name }
-            renderCategories(homeCategories(words, names))
+            val count = if (words.isNotEmpty()) words.size else 37
+            binding.tvSignDictionaryCount.text = "$count medical FSL signs"
         }
     }
 
@@ -122,76 +89,5 @@ class HomeActivity : AppCompatActivity() {
         val name = appSettings.userName?.trim()?.takeIf { it.isNotEmpty() }
         binding.tvAvatar.isVisible = name != null
         binding.tvAvatar.text = name?.take(1)?.uppercase().orEmpty()
-    }
-
-    private fun renderCategories(categories: List<HomeCategory>) {
-        val grid = binding.gridCategories
-        grid.removeAllViews()
-        grid.isVisible = categories.isNotEmpty()
-        binding.tvCategoriesEmpty.showEmptyState(categories.isEmpty())
-        val animate = shouldPlayListEntrance(
-            categoriesEntrancePlayed, categories.size, systemAnimationsEnabled(this)
-        )
-        if (animate || categories.isNotEmpty()) categoriesEntrancePlayed = true
-        val stepMs = resources.getInteger(R.integer.motion_list_stagger).toLong()
-
-        val brand = ContextCompat.getColor(this, R.color.ms_brand)
-        val onBrand = ContextCompat.getColor(this, R.color.ms_on_brand)
-        val onBrandSecondary = ContextCompat.getColor(this, R.color.ms_on_brand_secondary)
-        val gap = resources.getDimensionPixelSize(R.dimen.ms_space_12) / 2
-
-        categories.forEachIndexed { index, category ->
-            val item = ItemHomeCategoryBinding.inflate(layoutInflater, grid, false)
-            item.tvCategoryName.text = category.name.toTitleCase()
-            item.tvCategoryCount.text = resources.getQuantityString(
-                R.plurals.home_word_count, category.wordCount, category.wordCount
-            )
-            // The first card is the navy highlight, like the reference.
-            if (index == 0) {
-                item.root.setCardBackgroundColor(brand)
-                item.tvCategoryName.setTextColor(onBrand)
-                item.tvCategoryCount.setTextColor(onBrandSecondary)
-                item.ivCategoryIcon.imageTintList = ColorStateList.valueOf(onBrand)
-            }
-            item.root.setOnClickListener {
-                startActivity(
-                    Intent(this, CategoryWordListActivity::class.java)
-                        .putExtra(CategoryWordListActivity.EXTRA_CATEGORY_NAME, category.name)
-                )
-            }
-            val params = GridLayout.LayoutParams(
-                GridLayout.spec(GridLayout.UNDEFINED),
-                GridLayout.spec(GridLayout.UNDEFINED, 1f),
-            ).apply {
-                width = 0
-                setMargins(gap, gap, gap, gap)
-            }
-            if (animate) item.root.visibility = View.INVISIBLE
-            grid.addView(item.root, params)
-            if (animate) Motion.reveal(item.root, startDelay = staggerDelayMs(index, stepMs))
-        }
-    }
-
-    private fun renderRecent(entries: List<TranslationEntry>) {
-        binding.listRecent.removeAllViews()
-        binding.recentEmpty.showEmptyState(entries.isEmpty())
-        val animate = shouldPlayListEntrance(
-            recentEntrancePlayed, entries.size, systemAnimationsEnabled(this)
-        )
-        if (animate || entries.isNotEmpty()) recentEntrancePlayed = true
-        val stepMs = resources.getInteger(R.integer.motion_list_stagger).toLong()
-        val now = System.currentTimeMillis()
-        val zone = TimeZone.getDefault()
-        for ((index, entry) in entries.withIndex()) {
-            val row = ItemHomeRecentBinding.inflate(layoutInflater, binding.listRecent, false)
-            row.tvRecentWord.text = entry.word.toTitleCase()
-            val day = if (isSameLocalDay(entry.timestamp, now, zone)) "Today"
-                      else TranslationHistoryManager.formatDate(entry.timestamp)
-            row.tvRecentMeta.text = "$day · ${TranslationHistoryManager.formatTime(entry.timestamp)}"
-            row.root.setOnClickListener { BottomNavHelper.open(this, Tab.HISTORY) }
-            if (animate) row.root.visibility = View.INVISIBLE
-            binding.listRecent.addView(row.root)
-            if (animate) Motion.reveal(row.root, startDelay = staggerDelayMs(index, stepMs))
-        }
     }
 }

@@ -14,6 +14,10 @@
     <color name="ms_on_brand">#13306B</color>
     <color name="ms_on_brand_secondary">#CC13306B</color>
     <color name="ms_on_brand_disc">#1F13306B</color>
+    <color name="ms_warning">#FCD34D</color>
+    <color name="ms_blue_soft">#1E3A5F</color>
+    <color name="ms_green_soft">#064E3B</color>
+    <color name="ms_amber_soft">#451A03</color>
     <color name="ms_nav_bar">@color/ms_bar_bg</color>
     <color name="ms_illus_soft">#233A73</color>
     <color name="ms_illus_mid">#6F8FD6</color>
