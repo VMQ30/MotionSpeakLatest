@@ -2,6 +2,7 @@ package com.example.motionspeak
 
 import android.content.Context
 import android.content.res.Configuration
+import android.view.MotionEvent
 import androidx.appcompat.app.AppCompatActivity
 
 /**
@@ -40,5 +41,14 @@ abstract class BaseActivity : AppCompatActivity() {
             appliedFontScale = expectedScale
             recreate()
         }
+    }
+
+    /**
+     * Every touch event on any tab activity resets the FAB's idle heartbeat
+     * countdown. The FAB is optional (e.g. absent on Settings), so we null-check.
+     */
+    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
+        findViewById<SiriGlowFloatingActionButton>(R.id.fabTranslate)?.onUserInteraction()
+        return super.dispatchTouchEvent(ev)
     }
 }

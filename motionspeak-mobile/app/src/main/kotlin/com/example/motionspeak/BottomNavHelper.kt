@@ -82,6 +82,11 @@ object BottomNavHelper {
             var redFadeAnimator: ValueAnimator? = null
             var pressStartMs = 0L
 
+            // Guard: true only while the finger is physically down on the FAB.
+            // Every delayed runnable checks this before doing any work so that
+            // a runnable that fires *after* the finger is lifted is a no-op.
+            var isHolding = false
+
             // Pulse state
             var pulseRunnable: Runnable? = null
             var pulseScheduled = false
@@ -191,6 +196,7 @@ object BottomNavHelper {
 
             // Button color fades from brand → scarlet over 3 s (t=2 s → t=5 s)
             val startFadeRunnable = Runnable {
+                if (!isHolding) return@Runnable
                 redFadeAnimator?.cancel()
                 redFadeAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
                     duration = 3000L // 3-second fade from t=2s to t=5s
@@ -212,6 +218,7 @@ object BottomNavHelper {
             // Pulsating rings start at t=2 s; a recursive runnable re-posts itself
             // at a shrinking interval (600 ms → 150 ms) as intensity grows.
             val startPulseRunnable = Runnable {
+                if (!isHolding) return@Runnable
                 pulseScheduled = true
 
                 fun schedulePulse(handler: View) {
@@ -255,6 +262,7 @@ object BottomNavHelper {
 
             // Red screen overlay fades in from t=3 s to t=5 s (max alpha ≈ 0.55)
             val startOverlayRunnable = Runnable {
+                if (!isHolding) return@Runnable
                 showRedOverlay()
                 overlayAnimator?.cancel()
                 overlayAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
@@ -270,6 +278,7 @@ object BottomNavHelper {
 
             // SOS triggers at 5 seconds
             val sosRunnable = Runnable {
+                if (!isHolding) return@Runnable
                 sosTriggered = true
                 if (glowFab != null) {
                     glowFab.setSosTransitionProgress(1f)
@@ -283,8 +292,13 @@ object BottomNavHelper {
 
             fun resetSosState(animateBack: Boolean) {
                 // Cancel all scheduled runnables
+                // Stop holding — must be cleared BEFORE removeCallbacks so that any
+                // runnable that fires on the same looper tick sees isHolding=false.
+                isHolding = false
+
                 fab.removeCallbacks(startFadeRunnable)
                 fab.removeCallbacks(startPulseRunnable)
+                fab.removeCallbacks(startOverlayRunnable)
                 fab.removeCallbacks(sosRunnable)
 
                 // Stop pulse loop
@@ -335,6 +349,7 @@ object BottomNavHelper {
                         sosTriggered = false
                         pressStartMs = System.currentTimeMillis()
                         resetSosState(animateBack = false)
+                        isHolding = true                            // arm the guard
                         v.postDelayed(startFadeRunnable, 2000L)   // button fade starts at 2 s
                         v.postDelayed(startPulseRunnable, 2000L)  // pulse rings start at 2 s
                         v.postDelayed(startOverlayRunnable, 3000L) // red overlay starts at 3 s

@@ -67,10 +67,10 @@ class SiriLinearGradientButton @JvmOverloads constructor(
         var GLOW_MAX_ALPHA = 0.55f
 
         /** Multiplier for how spread out the gradient colors are (higher = more gradual, spread out) */
-        var SPREAD_FACTOR = 2.8f
+        var SPREAD_FACTOR = 4.5f
 
         /** Time for the linear gradient to complete one full cycle shift (ms) */
-        var COLOR_SHIFT_DURATION_MS = 4000L
+        var COLOR_SHIFT_DURATION_MS = 6500L
 
         /** Time for one complete inhale/exhale glow breath (ms) */
         var BREATHING_DURATION_MS = 2500L

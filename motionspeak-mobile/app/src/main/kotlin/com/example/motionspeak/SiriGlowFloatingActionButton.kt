@@ -1,15 +1,22 @@
 package com.example.motionspeak
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.SweepGradient
+import android.os.Handler
+import android.os.Looper
 import android.util.AttributeSet
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
 import android.content.res.ColorStateList
 import androidx.core.content.ContextCompat
@@ -26,6 +33,9 @@ import kotlin.math.min
  *   - Forever shifting: Continuous 360-degree color rotation
  *   - Faint breathing glow: Soft ambient glow oscillating gently
  *   - 60/120 FPS hardware-accelerated with zero allocations in onDraw
+ *   - Idle heartbeat: After [IDLE_BEAT_DELAY_MS] ms of no interaction, the button
+ *     plays a lub-dub heartbeat scale animation. The outline scales with the view
+ *     as a single unit.
  *
  * Adjust any of the settings in the [Companion] object below to tweak the effect.
  */
@@ -68,6 +78,29 @@ class SiriGlowFloatingActionButton @JvmOverloads constructor(
 
         /** Time for one complete inhale/exhale glow breath (ms) */
         var BREATHING_DURATION_MS = 2500L
+
+        // ── Idle heartbeat settings ──────────────────────────────────────────
+
+        /**
+         * How long the button must be completely idle (no touch anywhere on the
+         * screen) before the heartbeat starts, in milliseconds.
+         */
+        var IDLE_BEAT_DELAY_MS = 10_000L
+
+        /** Peak scale of the first (stronger) beat in the lub-dub pair */
+        var BEAT_SCALE_LUB = 1.10f
+
+        /** Peak scale of the second (softer) beat in the lub-dub pair */
+        var BEAT_SCALE_DUB = 1.06f
+
+        /** Duration of each individual scale-up or scale-down in the beat (ms) */
+        var BEAT_STEP_MS = 110L
+
+        /** Pause between the lub and the dub (ms) */
+        var BEAT_LUB_DUB_GAP_MS = 80L
+
+        /** Rest period between complete lub-dub cycles (ms) */
+        var BEAT_REST_MS = 900L
 
         /** Default fallback spectrum colors (Light Blue -> Teal -> Electric Blue -> Electric Violet) */
         val DEFAULT_SPECTRUM_HEX = intArrayOf(
@@ -128,6 +161,13 @@ class SiriGlowFloatingActionButton @JvmOverloads constructor(
 
     private var shiftAnimator: ValueAnimator? = null
     private var breathAnimator: ValueAnimator? = null
+
+    // ── Idle heartbeat state ─────────────────────────────────────────────────
+    private val idleHandler = Handler(Looper.getMainLooper())
+    private var beatAnimator: AnimatorSet? = null
+    private var isBeatRunning = false
+
+    private val idleTriggerRunnable = Runnable { startIdleBeat() }
 
     // Spectrum colors loaded from resources or defaults
     private val spectrumColors: IntArray by lazy {
@@ -213,10 +253,12 @@ class SiriGlowFloatingActionButton @JvmOverloads constructor(
             p = p.parent
         }
         startAnimations()
+        scheduleIdleBeat()
     }
 
     override fun onDetachedFromWindow() {
         stopAnimations()
+        cancelIdleBeat()
         super.onDetachedFromWindow()
     }
 
@@ -224,8 +266,10 @@ class SiriGlowFloatingActionButton @JvmOverloads constructor(
         super.onWindowVisibilityChanged(visibility)
         if (visibility == View.VISIBLE) {
             startAnimations()
+            scheduleIdleBeat()
         } else {
             stopAnimations()
+            cancelIdleBeat()
         }
     }
 
@@ -276,6 +320,109 @@ class SiriGlowFloatingActionButton @JvmOverloads constructor(
     private fun stopAnimations() {
         shiftAnimator?.cancel()
         breathAnimator?.cancel()
+    }
+
+    // ── Idle heartbeat public API ─────────────────────────────────────────────
+
+    /**
+     * Called by the host activity (via [BaseActivity.dispatchTouchEvent]) whenever
+     * the screen is touched. Stops any running beat and restarts the idle countdown.
+     */
+    fun onUserInteraction() {
+        stopIdleBeat()
+        scheduleIdleBeat()
+    }
+
+    /**
+     * Arms the idle countdown. After [IDLE_BEAT_DELAY_MS] ms with no call to
+     * [onUserInteraction], the heartbeat starts.
+     */
+    fun scheduleIdleBeat() {
+        idleHandler.removeCallbacks(idleTriggerRunnable)
+        idleHandler.postDelayed(idleTriggerRunnable, IDLE_BEAT_DELAY_MS)
+    }
+
+    /** Cancels both the countdown and any running beat animation. */
+    fun cancelIdleBeat() {
+        idleHandler.removeCallbacks(idleTriggerRunnable)
+        stopIdleBeat()
+    }
+
+    /** Starts the continuous lub-dub heartbeat scale animation. */
+    private fun startIdleBeat() {
+        if (isBeatRunning) return
+        isBeatRunning = true
+        playBeatCycle()
+    }
+
+    /** Stops the heartbeat and snaps the button back to normal scale. */
+    private fun stopIdleBeat() {
+        isBeatRunning = false
+        beatAnimator?.cancel()
+        beatAnimator = null
+        // Snap back to 1:1 with a short ease so it doesn't jump
+        animate()
+            .scaleX(1f)
+            .scaleY(1f)
+            .setDuration(120L)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
+    }
+
+    /**
+     * Plays one lub-dub cycle, then schedules itself again after [BEAT_REST_MS]
+     * to create a continuous heartbeat until [stopIdleBeat] is called.
+     *
+     * The animation drives scaleX AND scaleY together, so the SweepGradient
+     * outline (drawn in [draw] in the view's own coordinate space) scales with
+     * the button body perfectly — they move as a single unit.
+     */
+    private fun playBeatCycle() {
+        if (!isBeatRunning) return
+
+        val step = BEAT_STEP_MS
+        val decel = DecelerateInterpolator(1.5f)
+
+        // Lub: scale up to LUB peak then back to 1
+        val lubUp = scaleAnimPair(1f, BEAT_SCALE_LUB, step)
+        val lubDown = scaleAnimPair(BEAT_SCALE_LUB, 1f, step)
+
+        // Dub: scale up to DUB peak then back to 1  (slightly softer)
+        val dubUp = scaleAnimPair(1f, BEAT_SCALE_DUB, step)
+        val dubDown = scaleAnimPair(BEAT_SCALE_DUB, 1f, step)
+
+        val set = AnimatorSet().apply {
+            playSequentially(lubUp, lubDown, dubUp, dubDown)
+        }
+
+        set.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                if (isBeatRunning) {
+                    // Wait for the rest gap, then play the next cycle
+                    idleHandler.postDelayed({ playBeatCycle() }, BEAT_REST_MS)
+                }
+            }
+        })
+
+        beatAnimator = set
+        set.start()
+    }
+
+    /**
+     * Creates a paired [AnimatorSet] that animates both [scaleX] and [scaleY]
+     * from [from] to [to] over [durationMs] simultaneously — keeping the
+     * button and its outline in perfect sync.
+     */
+    private fun scaleAnimPair(from: Float, to: Float, durationMs: Long): AnimatorSet {
+        val sx = ObjectAnimator.ofFloat(this, SCALE_X, from, to).apply {
+            duration = durationMs
+            interpolator = DecelerateInterpolator(1.5f)
+        }
+        val sy = ObjectAnimator.ofFloat(this, SCALE_Y, from, to).apply {
+            duration = durationMs
+            interpolator = DecelerateInterpolator(1.5f)
+        }
+        return AnimatorSet().apply { playTogether(sx, sy) }
     }
 
     override fun draw(canvas: Canvas) {
