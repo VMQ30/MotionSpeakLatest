@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import java.io.File
 import org.junit.Assert.assertEquals
@@ -38,11 +38,11 @@ class ThresholdPolicyTest {
         // A missing file FAILS rather than skipping: a test that silently finds
         // nothing would report green while enforcing nothing, which is exactly the
         // failure mode this class exists to prevent.
-        val relative = "src/main/kotlin/com/example/sigla/PredictionService.kt"
+        val relative = "src/main/kotlin/com/example/motionspeak/PredictionService.kt"
         val candidates = listOf(
             File(relative),
             File("app/$relative"),
-            File("sigla-mobile/app/$relative"),
+            File("motionspeak-mobile/app/$relative"),
         )
         val file = candidates.firstOrNull { it.isFile }
         assertTrue(

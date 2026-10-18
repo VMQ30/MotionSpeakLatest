@@ -46,7 +46,7 @@
 }
 
 # All app classes — keep everything in the app package
--keep class com.example.sigla.** { *; }
+-keep class com.example.motionspeak.** { *; }
 
 # TensorFlow Lite
 -keep class org.tensorflow.** { *; }

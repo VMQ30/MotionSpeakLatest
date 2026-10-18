@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import kotlin.math.max
 import kotlin.math.min
@@ -20,7 +20,7 @@ import kotlin.math.roundToInt
  *
  * At 12 fps a sign reaches the model at half speed and short signs never collect
  * enough frames to fire. Replaying 747 held-out clips through a copy of the live
- * path (sigla-ml/tools/live_replay.py): 70.8% right at 24 fps, 41.5% at 12 fps,
+ * path (motionspeak-ml/tools/live_replay.py): 70.8% right at 24 fps, 41.5% at 12 fps,
  * 71.6% at 12 fps with this bridge.
  *
  * HOW
@@ -32,7 +32,7 @@ import kotlin.math.roundToInt
  * [maxFill] frames are added per gap, and a gap longer than [maxGapMs] is a
  * pause, not dropped frames, so nothing is invented across it.
  *
- * MUST stay identical to sigla-ml tools/live_replay.py upsample_stream /
+ * MUST stay identical to motionspeak-ml tools/live_replay.py upsample_stream /
  * _blend_frames, which is what the accuracy above was measured with.
  */
 internal class FrameRateBridge(
@@ -87,7 +87,7 @@ internal class FrameRateBridge(
     }
 
     companion object {
-        const val TARGET_FPS = 24f   // sigla-ml clip_prep.TARGET_SAMPLE_FPS
+        const val TARGET_FPS = 24f   // motionspeak-ml clip_prep.TARGET_SAMPLE_FPS
         const val MAX_FILL = 3       // a 6 fps stall is the most this will bridge
         const val MAX_GAP_MS = 500L  // longer than this is a pause, not drops
     }

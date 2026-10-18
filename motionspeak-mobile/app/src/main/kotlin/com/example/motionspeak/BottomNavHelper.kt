@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import android.app.Activity
 import android.content.Intent

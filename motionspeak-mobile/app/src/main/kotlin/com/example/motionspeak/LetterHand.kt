@@ -1,8 +1,8 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import kotlin.math.hypot
 
-// One-hand letter input. MUST match sigla-ml app/utils/letters.py
+// One-hand letter input. MUST match motionspeak-ml app/utils/letters.py
 // (hand_extent / select_hand); LetterParityTest checks it against Python.
 // Design: docs-internal/specs/2026-10-11-letters-accuracy-design.md
 internal const val LETTER_POINTS = 21

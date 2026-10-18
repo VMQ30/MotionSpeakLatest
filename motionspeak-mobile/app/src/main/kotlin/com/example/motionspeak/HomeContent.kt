@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import java.util.Calendar
 import java.util.TimeZone

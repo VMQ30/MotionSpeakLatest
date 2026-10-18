@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import android.content.Intent
 import android.content.res.ColorStateList
@@ -12,9 +12,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
-import com.example.sigla.databinding.ActivityHomeBinding
-import com.example.sigla.databinding.ItemHomeCategoryBinding
-import com.example.sigla.databinding.ItemHomeRecentBinding
+import com.example.motionspeak.databinding.ActivityHomeBinding
+import com.example.motionspeak.databinding.ItemHomeCategoryBinding
+import com.example.motionspeak.databinding.ItemHomeRecentBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

@@ -1,4 +1,4 @@
-// Email entry validation, mirroring sigla-backend/src/utils/validators.js.
+// Email entry validation, mirroring motionspeak-backend/src/utils/validators.js.
 //
 // Two layers, because they solve different problems:
 //

@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor

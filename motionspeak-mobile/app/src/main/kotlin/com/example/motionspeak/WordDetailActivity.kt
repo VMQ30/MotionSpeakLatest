@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import android.animation.ValueAnimator
 import android.content.Context

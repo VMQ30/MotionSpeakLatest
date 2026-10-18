@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 // Pure decisions for the word screens and "Try it yourself" (spec §5–6).
 

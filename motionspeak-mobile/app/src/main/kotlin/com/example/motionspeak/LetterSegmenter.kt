@@ -1,8 +1,8 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import kotlin.math.hypot
 
-// MUST equal sigla-ml app/utils/letters.py SEGMENT_CONFIG / MOTION_FRAMES —
+// MUST equal motionspeak-ml app/utils/letters.py SEGMENT_CONFIG / MOTION_FRAMES —
 // test_mobile_parity_flags.py reads these lines; LetterParityTest replays a
 // Python-recorded stream. Speeds are hand sizes per second.
 internal const val LETTER_MOTION_FRAMES = 32

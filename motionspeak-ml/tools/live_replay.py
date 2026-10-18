@@ -1,6 +1,6 @@
 """
 Live replay: feed whole-clip landmark streams (tools/extract_live_streams.py)
-through a line-by-line Python copy of the words path in sigla-mobile
+through a line-by-line Python copy of the words path in motionspeak-mobile
 PredictionService.kt — growing buffer, slide every 2 frames, peak-centred
 window, pose/motion gates, 3-window probability mean, margin, streaks,
 timer and end-of-gesture flush — and report what the phone would show.

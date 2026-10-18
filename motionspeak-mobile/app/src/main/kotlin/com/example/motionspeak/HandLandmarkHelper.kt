@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -18,11 +18,11 @@ import java.io.File
 
 private const val TAG = "HandLandmarkHelper"
 
-// Feature layout — MUST match sigla-ml (preprocessor.py / extract.py):
+// Feature layout — MUST match motionspeak-ml (preprocessor.py / extract.py):
 // [0..125]   2 hands × 21 landmarks × (x,y,z), normalized per hand block.
 // [126..146] 7 upper-body pose keypoints × (x,y,z), normalized as one block.
 // `internal` rather than `private` so FeatureParityTest can assert these against
-// their sigla-ml counterparts — a constant edited on one side only is otherwise
+// their motionspeak-ml counterparts — a constant edited on one side only is otherwise
 // invisible until it corrupts features at runtime.
 internal const val FEATURE_SIZE = 147
 internal const val POSE_BASE    = 126
@@ -202,7 +202,7 @@ class HandLandmarkHelper(
             .setBaseOptions(baseOptions("hand_landmarker.task", "hand", delegate, serializeModel = false))
             .setRunningMode(mode)
             .setNumHands(2)
-            // Match the training extraction settings (sigla-ml/app/services/extract.py):
+            // Match the training extraction settings (motionspeak-ml/app/services/extract.py):
             // detection/presence/tracking all 0.5, so the phone reproduces the same
             // landmarks the model was trained on.
             .setMinHandDetectionConfidence(0.5f)
@@ -305,7 +305,7 @@ class HandLandmarkHelper(
     }
 
     // Synchronous — use only in IMAGE mode. Unlike detectAsync(), this pairs pose with
-    // the SAME frame as the hands, matching sigla-ml extract.py's offline path exactly.
+    // the SAME frame as the hands, matching motionspeak-ml extract.py's offline path exactly.
     //
     // NO PRODUCTION CALLER (the on-device collection screen was removed). It is kept
     // as the reference same-frame path for parity work against extract.py, which
@@ -407,7 +407,7 @@ class HandLandmarkHelper(
 
         // Position/scale-invariant normalization of the WHOLE frame — every present
         // hand block plus the pose block — in one call, so the per-hand presence rule
-        // has a single definition shared with FeatureParityTest. MUST match sigla-ml
+        // has a single definition shared with FeatureParityTest. MUST match motionspeak-ml
         // preprocessor.normalize_frame exactly (wrist-center on landmark 0, scale by
         // 2D wrist→landmark-9 distance; pose on shoulder midpoint / shoulder width;
         // epsilon 1e-6). Only the model's `features` are normalized — drawData stays
@@ -601,7 +601,7 @@ class HandLandmarkHelper(
  * Normalize a full 147-float frame in place: every PRESENT hand block, then the
  * pose block. Absent (all-zero) blocks are left untouched as the sentinel.
  *
- * MUST match sigla-ml preprocessor.normalize_frame exactly. This is the single
+ * MUST match motionspeak-ml preprocessor.normalize_frame exactly. This is the single
  * definition of the per-hand presence rule — parseResult() and FeatureParityTest
  * both go through it, so the test exercises the real production path rather than
  * a parallel reimplementation that could drift.
@@ -629,7 +629,7 @@ internal fun normalizeFrame(features: FloatArray) {
 // so no existing gate sees it. hasSufficientPoseCoverage and hasSufficientMotion
 // both pass it straight into the LSTM.
 //
-// MUST equal MAX_HAND_EXTENT in sigla-ml preprocessor.py.
+// MUST equal MAX_HAND_EXTENT in motionspeak-ml preprocessor.py.
 internal const val MAX_HAND_EXTENT = 5.0f
 
 /**
@@ -638,7 +638,7 @@ internal const val MAX_HAND_EXTENT = 5.0f
  * Takes a normalized frame: on raw image coordinates the scale is the frame
  * rather than the hand, and the check would mean nothing.
  *
- * MUST stay identical to hand_extent_ok in sigla-ml preprocessor.py.
+ * MUST stay identical to hand_extent_ok in motionspeak-ml preprocessor.py.
  */
 internal fun handExtentOk(features: FloatArray): Boolean {
     for (hand in 0..1) {
@@ -665,7 +665,7 @@ internal fun handExtentOk(features: FloatArray): Boolean {
 }
 
 // Normalize one hand's 63-float block in place: wrist-center (landmark 0) + scale
-// by the 2D wrist→landmark-9 distance. Must match sigla-ml normalize_frame exactly.
+// by the 2D wrist→landmark-9 distance. Must match motionspeak-ml normalize_frame exactly.
 // File-level (not class) so plain JUnit parity tests can call it without a Context.
 internal fun normalizeHandBlock(features: FloatArray, base: Int) {
     val wx = features[base]
@@ -684,7 +684,7 @@ internal fun normalizeHandBlock(features: FloatArray, base: Int) {
 
 // Normalize the 21-float pose block in place: center on the shoulder midpoint
 // (x,y,z), scale by the 2D L↔R shoulder distance, epsilon 1e-6. Must match
-// sigla-ml preprocessor.normalize_frame's pose block exactly. All-zero block
+// motionspeak-ml preprocessor.normalize_frame's pose block exactly. All-zero block
 // (absent pose) is left untouched as the sentinel.
 internal fun normalizePoseBlock(features: FloatArray) {
     var present = false

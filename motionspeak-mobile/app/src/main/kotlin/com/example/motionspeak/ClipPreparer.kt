@@ -1,11 +1,11 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 
-// ── Mirrored from sigla-ml/app/services/clip_prep.py and extract.py ───────────
+// ── Mirrored from motionspeak-ml/app/services/clip_prep.py and extract.py ───────────
 // Tap mode prepares a recorded sign the way training clips were prepared, so
 // these MUST equal their Python twins. test_mobile_parity_flags.py checks each
 // one, and ClipPreparerParityTest pins the behaviour to Python-generated goldens.

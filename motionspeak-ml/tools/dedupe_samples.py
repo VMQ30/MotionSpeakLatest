@@ -48,7 +48,7 @@ USAGE
     venv/Scripts/python.exe tools/audit_duplicates.py
     venv/Scripts/python.exe tools/cross_validate.py --out cv_deduped.json
 
-Needs PG_URI (same value the backend uses) in the environment or sigla-ml/.env.
+Needs PG_URI (same value the backend uses) in the environment or motionspeak-ml/.env.
 The ML API is read-only, so this talks to Postgres directly.
 """
 
@@ -249,8 +249,8 @@ def main() -> int:
     pg_uri = os.getenv("PG_URI")
     if not pg_uri:
         raise SystemExit(
-            "PG_URI is not set. Copy it from sigla-backend/.env into the environment "
-            "or sigla-ml/.env -- the ML API is read-only, so this needs Postgres directly."
+            "PG_URI is not set. Copy it from motionspeak-backend/.env into the environment "
+            "or motionspeak-ml/.env -- the ML API is read-only, so this needs Postgres directly."
         )
 
     try:

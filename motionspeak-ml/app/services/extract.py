@@ -18,7 +18,7 @@ from app.utils.preprocessor import (
     SEQUENCE_LENGTH,
 )
 
-# Moved to clip_prep so sigla-mobile's ClipPreparer can mirror them; re-exported
+# Moved to clip_prep so motionspeak-mobile's ClipPreparer can mirror them; re-exported
 # because tests and tools import these names from here.
 from app.services.clip_prep import (  # noqa: E402,F401
     ExtractionQualityError,
@@ -73,7 +73,7 @@ TRIM_SCAN_FRAMES = int(os.getenv("TRIM_SCAN_FRAMES", 30))
 # Matches import_fsl105.TRIM_PAD_FRAMES, whose value this replaces.
 TRIM_PAD_FRAMES = int(os.getenv("TRIM_PAD_FRAMES", 4))
 
-# Feature layout — MUST match sigla-mobile (HandLandmarkHelper.kt):
+# Feature layout — MUST match motionspeak-mobile (HandLandmarkHelper.kt):
 # [0..125]   2 hands x 21 landmarks x (x,y,z), normalized per hand block.
 # [126..146] 7 upper-body pose keypoints x (x,y,z), normalized as one block.
 POSE_BASE = 126
@@ -87,7 +87,7 @@ _MODEL_PATH = os.getenv(
     os.path.join(os.path.dirname(__file__), "..", "models", "hand_landmarker.task"),
 )
 # Path to the MediaPipe Tasks PoseLandmarker model bundle (same bundle shipped
-# on-device — see sigla-mobile/app/src/main/assets/pose_landmarker_lite.task).
+# on-device — see motionspeak-mobile/app/src/main/assets/pose_landmarker_lite.task).
 _POSE_MODEL_PATH = os.getenv(
     "POSE_LANDMARKER_MODEL",
     os.path.join(os.path.dirname(__file__), "..", "models", "pose_landmarker_lite.task"),

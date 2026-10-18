@@ -337,7 +337,7 @@ def test_training_coverage_rejects_too_few_signers(seq, monkeypatch):
     The gate must reject a dataset one signer short of its configured minimum.
 
     Parameterised on MIN_SIGNERS_PER_CLASS rather than hardcoding four: the value
-    is an env var, and a local override (sigla-ml/.env currently sets 2 for the
+    is an env var, and a local override (motionspeak-ml/.env currently sets 2 for the
     two-signer greetings dataset) otherwise makes this test silently pass without
     exercising the gate at all — the suite would stop guarding signer diversity on
     exactly the machine that relaxed it. Pin the threshold here so the INVARIANT is

@@ -13,7 +13,7 @@ The mobile application has no user accounts, authentication, profiles, or notifi
 
 ## Run locally
 
-1. Open `sigla-mobile` in Android Studio.
+1. Open `motionspeak-mobile` in Android Studio.
 2. Set the debug `BASE_URL` in `app/build.gradle.kts` to the backend address reachable by the Android device.
 3. Build and run the `app` configuration.
 

@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -7,7 +7,7 @@ import org.junit.Test
 import kotlin.math.abs
 
 /**
- * ClipPreparer must make the same decisions as sigla-ml's clip_prep, which is
+ * ClipPreparer must make the same decisions as motionspeak-ml's clip_prep, which is
  * the code that prepared every training clip. Goldens come from
  * tools/gen_tap_clip_fixtures.py. A failure is a real divergence: fix the code,
  * never regenerate to make this pass.

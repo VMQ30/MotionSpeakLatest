@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -11,7 +11,7 @@ import java.io.File
 class MotionTokensTest {
 
     private val values: Map<String, Long> by lazy {
-        // Unit tests run with the module directory (sigla-mobile/app) as cwd.
+        // Unit tests run with the module directory (motionspeak-mobile/app) as cwd.
         val xml = File("src/main/res/values/motion.xml").readText()
         Regex("""<integer name="(\w+)">(\d+)</integer>""").findAll(xml)
             .associate { it.groupValues[1] to it.groupValues[2].toLong() }

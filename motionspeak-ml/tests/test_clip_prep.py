@@ -1,4 +1,4 @@
-"""Behaviour of the pure clip-preparation pipeline shared with sigla-mobile."""
+"""Behaviour of the pure clip-preparation pipeline shared with motionspeak-mobile."""
 import numpy as np
 import pytest
 

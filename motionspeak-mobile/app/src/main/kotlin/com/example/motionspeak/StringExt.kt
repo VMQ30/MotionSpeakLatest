@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 /**
  * Category names come back from the backend in lowercase (e.g. "greetings",

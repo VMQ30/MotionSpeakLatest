@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="sigla-mobile/SigLa-Logo.png" alt="SigLa logo" width="180">
+<img src="motionspeak-mobile/SigLa-Logo.png" alt="SigLa logo" width="180">
 
 # SigLa
 
@@ -35,10 +35,10 @@ newer recognition model, sync the word bank, and download demonstration videos.
 
 | Part | What it does | Built with |
 |---|---|---|
-| **SigLa Mobile** (`sigla-mobile/`) | Camera translation (tap and live modes, words and letters), word bank, translation history, settings, SOS "help me" alert | Kotlin, CameraX, MediaPipe, TensorFlow Lite |
-| **Administrator Platform** (`sigla-admin/`) | Web dashboard for super administrators and administrators: words, categories, gesture samples, models, activity logs, reports | React, Vite, Tailwind CSS |
-| **Backend Server** (`sigla-backend/`) | REST API that connects the app, the admin platform, the ML service, and the database | Node.js, Express, Sequelize |
-| **ML Service** (`sigla-ml/`) | Extracts hand and upper-body landmarks from sign videos, trains and evaluates the recognition models | Python, FastAPI, TensorFlow, MediaPipe |
+| **SigLa Mobile** (`motionspeak-mobile/`) | Camera translation (tap and live modes, words and letters), word bank, translation history, settings, SOS "help me" alert | Kotlin, CameraX, MediaPipe, TensorFlow Lite |
+| **Administrator Platform** (`motionspeak-admin/`) | Web dashboard for super administrators and administrators: words, categories, gesture samples, models, activity logs, reports | React, Vite, Tailwind CSS |
+| **Backend Server** (`motionspeak-backend/`) | REST API that connects the app, the admin platform, the ML service, and the database | Node.js, Express, Sequelize |
+| **ML Service** (`motionspeak-ml/`) | Extracts hand and upper-body landmarks from sign videos, trains and evaluates the recognition models | Python, FastAPI, TensorFlow, MediaPipe |
 | **Database and Storage** | Administrator accounts, words, gesture samples, model versions, videos and model files | PostgreSQL and Storage on Supabase |
 
 ```text
@@ -84,11 +84,11 @@ cd sigla
 
 1. Create a Supabase project and copy its PostgreSQL connection string.
 2. Create the Storage buckets for videos, gesture data, and models.
-3. Apply the SQL files in `sigla-backend/migrations/` **in order**. See
-   [`sigla-backend/migrations/README.md`](sigla-backend/migrations/README.md) for the notes on each one:
+3. Apply the SQL files in `motionspeak-backend/migrations/` **in order**. See
+   [`motionspeak-backend/migrations/README.md`](motionspeak-backend/migrations/README.md) for the notes on each one:
 
    ```bash
-   psql "$PG_URI" -f sigla-backend/migrations/001_model_versions_trained_word_ids.sql
+   psql "$PG_URI" -f motionspeak-backend/migrations/001_model_versions_trained_word_ids.sql
    ```
 
 The schema is maintained by hand. The backend never runs `sequelize.sync()`.
@@ -96,7 +96,7 @@ The schema is maintained by hand. The backend never runs `sequelize.sync()`.
 ### 3. Backend server
 
 ```bash
-cd sigla-backend
+cd motionspeak-backend
 npm install
 cp .env.example .env
 ```
@@ -125,7 +125,7 @@ and `SUPER_ADMIN_PASSWORD`. If those aren't set, it uses `superadmin` / `ChangeM
 ### 4. ML service
 
 ```bash
-cd sigla-ml
+cd motionspeak-ml
 python -m venv venv
 venv\Scripts\activate          # macOS/Linux: source venv/bin/activate
 pip install -r requirements.txt
@@ -135,13 +135,13 @@ cp .env.example .env
 - Fill in `.env`: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, the bucket names, `BACKEND_URL`, and
   `ML_API_KEY`, which must match the backend's. The remaining values tune training. The
   comments in `.env.example` explain each one.
-- Download the two MediaPipe model files into `sigla-ml/app/models/`, as described in
-  [`sigla-ml/app/models/README.md`](sigla-ml/app/models/README.md).
+- Download the two MediaPipe model files into `motionspeak-ml/app/models/`, as described in
+  [`motionspeak-ml/app/models/README.md`](motionspeak-ml/app/models/README.md).
 
 ### 5. Administrator platform
 
 ```bash
-cd sigla-admin
+cd motionspeak-admin
 npm install
 cp .env.example .env
 ```
@@ -150,17 +150,17 @@ Set `VITE_API_URL` to the backend's API address, for example `http://localhost:3
 
 ### 6. Mobile app
 
-1. Open the `sigla-mobile/` folder in **Android Studio**.
+1. Open the `motionspeak-mobile/` folder in **Android Studio**.
 2. Set `BASE_URL` in `app/build.gradle.kts` to a backend address the phone can reach. It
    currently points to the deployed server, `https://siglaph.online/api/`.
 3. Build and run the `app` configuration on a device, or from a terminal:
 
    ```bash
-   cd sigla-mobile
+   cd motionspeak-mobile
    gradlew.bat assembleDebug      # macOS/Linux: ./gradlew assembleDebug
    ```
 
-Release builds are signed with the credentials in `sigla-mobile/keystore.properties`.
+Release builds are signed with the credentials in `motionspeak-mobile/keystore.properties`.
 
 ---
 
@@ -172,16 +172,16 @@ Open three terminals:
 
 ```bash
 # Terminal 1: Backend
-cd sigla-backend
+cd motionspeak-backend
 npm run dev
 
 # Terminal 2: ML service
-cd sigla-ml
+cd motionspeak-ml
 venv\Scripts\activate
 uvicorn app.main:app --reload --port 8000 --host 0.0.0.0
 
 # Terminal 3: Administrator platform
-cd sigla-admin
+cd motionspeak-admin
 npm run dev
 ```
 
@@ -214,8 +214,8 @@ Then run the mobile app from Android Studio.
 ### Tests
 
 ```bash
-cd sigla-backend && npm test        # backend
-cd sigla-ml && pytest               # ML service
+cd motionspeak-backend && npm test        # backend
+cd motionspeak-ml && pytest               # ML service
 ```
 
 ### Project documentation
@@ -224,7 +224,7 @@ cd sigla-ml && pytest               # ML service
 |---|---|
 | [`docs-internal/diagrams/`](docs-internal/diagrams/) | Data flow diagrams and ERD (`.drawio`), plus the [scripts that generate them](docs-internal/diagrams/tools/README.md) |
 | [`docs-internal/`](docs-internal/) | Scope and delimitation, design specs, and implementation plans |
-| [`sigla-backend/migrations/`](sigla-backend/migrations/README.md) | Database migration history |
+| [`motionspeak-backend/migrations/`](motionspeak-backend/migrations/README.md) | Database migration history |
 
 ---
 

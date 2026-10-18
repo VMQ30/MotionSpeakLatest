@@ -5,7 +5,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-// Release signing credentials, read from sigla-mobile/keystore.properties
+// Release signing credentials, read from motionspeak-mobile/keystore.properties
 // (gitignored). Absent on a machine without the keystore, in which case debug
 // builds still work and only assembleRelease fails.
 val keystoreProps = Properties().apply {
@@ -14,11 +14,11 @@ val keystoreProps = Properties().apply {
 }
 
 android {
-    namespace = "com.example.sigla"
+    namespace = "com.example.motionspeak"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.sigla"
+        applicationId = "com.example.motionspeak"
         minSdk = 24
         targetSdk = 34
         versionCode = 10
@@ -48,7 +48,7 @@ android {
 
     buildTypes {
         debug {
-            // Installs beside the release app (com.example.sigla) instead of
+            // Installs beside the release app (com.example.motionspeak) instead of
             // failing with a signature mismatch, so a debug build never needs the
             // real app uninstalled (which would wipe its settings, history and
             // downloaded models).

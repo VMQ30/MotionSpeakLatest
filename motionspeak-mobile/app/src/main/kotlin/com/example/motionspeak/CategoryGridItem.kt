@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 data class CategoryGridItem(
     val displayName: String,

@@ -12,7 +12,7 @@ import pytest
 
 _ML_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _MOBILE = os.path.abspath(os.path.join(
-    _ML_ROOT, "..", "sigla-mobile", "app", "src", "main", "kotlin", "com", "example", "sigla"
+    _ML_ROOT, "..", "motionspeak-mobile", "app", "src", "main", "kotlin", "com", "example", "motionspeak"
 ))
 
 _MAIN_ACTIVITY = os.path.join(_MOBILE, "MainActivity.kt")
@@ -21,7 +21,7 @@ _LANDMARK_HELPER = os.path.join(_MOBILE, "HandLandmarkHelper.kt")
 
 pytestmark = pytest.mark.skipif(
     not os.path.isdir(_MOBILE),
-    reason="sigla-mobile checkout not present next to sigla-ml",
+    reason="motionspeak-mobile checkout not present next to motionspeak-ml",
 )
 
 

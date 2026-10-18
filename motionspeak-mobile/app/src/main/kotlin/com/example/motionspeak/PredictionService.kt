@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import android.content.Context
 import android.util.Log
@@ -148,7 +148,7 @@ private const val LATENCY_LOG_EVERY = 20    // emit a summary every N inferences
 // width, so pose wrists keep full arm translation, scale-invariant, and are
 // anatomically left/right rather than detection-slot-ordered.
 //
-// MUST stay byte-identical to sigla-ml preprocessor._POSE_WRIST_XY / frame_velocity.
+// MUST stay byte-identical to motionspeak-ml preprocessor._POSE_WRIST_XY / frame_velocity.
 // POSE_BASE/FEATURE_SIZE come from HandLandmarkHelper.kt (single source of truth).
 private const val POSE_LWRIST = 5   // local pose-block index (mediapipe landmark 15)
 private const val POSE_RWRIST = 6   // local pose-block index (mediapipe landmark 16)
@@ -170,7 +170,7 @@ internal fun posePresent(frame: FloatArray): Boolean {
 }
 
 /** L2 velocity between two consecutive NORMALIZED frames.
- *  MUST match sigla-ml preprocessor.frame_velocity byte-for-byte. */
+ *  MUST match motionspeak-ml preprocessor.frame_velocity byte-for-byte. */
 internal fun frameVelocity(prev: FloatArray, cur: FloatArray): Float {
     val idxs = if (posePresent(prev) && posePresent(cur)) POSE_WRIST_XY else FALLBACK_XY
     var total = 0f
@@ -181,7 +181,7 @@ internal fun frameVelocity(prev: FloatArray, cur: FloatArray): Float {
     return sqrt(total)
 }
 
-// Temporal window search parameters. MUST match sigla-ml preprocessor.py
+// Temporal window search parameters. MUST match motionspeak-ml preprocessor.py
 // (VELOCITY_SMOOTH_WINDOW / VELOCITY_EDGE_MARGIN).
 //
 // Training clips are "raise, sign, lower": the ENTRY movement is a bigger velocity
@@ -206,7 +206,7 @@ private const val VELOCITY_EDGE_MARGIN   = 0.20
 private const val VELOCITY_TIE_EPS = 1e-5f
 
 /** Index of the frame that best represents the gesture's motion.
- *  MUST stay byte-identical to sigla-ml preprocessor.peak_velocity_index. */
+ *  MUST stay byte-identical to motionspeak-ml preprocessor.peak_velocity_index. */
 internal fun peakVelocityIndex(frames: List<FloatArray>): Int {
     val n = frames.size
     if (n < 2) return 0
@@ -680,7 +680,7 @@ class PredictionService(private val context: Context) {
 
         // The input shape must be validated too, not just the class count.
         // SEQUENCE_LENGTH/FEATURE_SIZE are compile-time constants here but are
-        // env-driven on the training side (sigla-ml preprocessor.py reads
+        // env-driven on the training side (motionspeak-ml preprocessor.py reads
         // FEATURE_SIZE/SEQUENCE_LENGTH from .env, and .env.example shipped 126 for
         // a long time). A model trained at a different width used to pass this
         // init untouched and then fail per-frame inside runMotionInference's bare
@@ -1222,7 +1222,7 @@ class PredictionService(private val context: Context) {
     //
     // The `size == SEQUENCE_LENGTH` early return below is an identity, not a shortcut:
     // with exactly 30 frames the only possible window IS [0:30]. It is kept because it
-    // is free and matches sigla-ml's default path.
+    // is free and matches motionspeak-ml's default path.
     //
     // On the EXTRACTION side the same branch was a real bug — extract.py fed it clips
     // that happened to survive at exactly 30 frames, so they were stored with no window
@@ -1311,7 +1311,7 @@ class PredictionService(private val context: Context) {
      * Loads the class-index → label map that the model was trained with.
      *
      * `labels_motion.json` is the ONLY valid source: training builds it from
-     * `sorted(real.keys())` (sigla-ml preprocessor.prepare_motion_dataset) and it
+     * `sorted(real.keys())` (motionspeak-ml preprocessor.prepare_motion_dataset) and it
      * ships alongside the .tflite, so index N here is the word the model means by
      * output N.
      *

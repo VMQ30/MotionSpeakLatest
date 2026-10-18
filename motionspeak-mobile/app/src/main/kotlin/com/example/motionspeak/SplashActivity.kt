@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import android.content.Intent
 import android.os.Bundle
@@ -7,7 +7,7 @@ import android.os.Looper
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
-import com.example.sigla.databinding.ActivitySplashBinding
+import com.example.motionspeak.databinding.ActivitySplashBinding
 
 // How long the logo and name stay up after the system splash hands over. Kept
 // short on purpose: this is a deliberate wait on every cold start, on top of the

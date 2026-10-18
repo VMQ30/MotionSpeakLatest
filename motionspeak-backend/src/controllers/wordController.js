@@ -274,7 +274,7 @@ const extractAndStoreSample = async (
     form.append("file", fileBuffer, { filename, contentType: mimetype });
 
     // 180s, not 60s. /extract-landmarks now trims the clip to its signing span
-    // before extracting (see TRIM_TO_SIGNING_SPAN in sigla-ml extract.py), which
+    // before extracting (see TRIM_TO_SIGNING_SPAN in motionspeak-ml extract.py), which
     // is what makes an admin UI upload produce the same sequence as a
     // tools/import_fsl105.py import instead of being rejected outright for the
     // idle head and tail. That trim costs a hand-detection pass over the clip:

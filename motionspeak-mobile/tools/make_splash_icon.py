@@ -5,8 +5,8 @@ canvas and masks it to the central 192dp circle, so logo and name must both fit
 inside that circle. SplashActivity shows the same drawable at the same size, so
 the whole frame is identical from the first system-splash frame onward.
 
-Usage (from sigla-mobile/, see README.md):
-    python tools/make_splash_icon.py ../sigla-admin/public/favicon-256.svg         app/src/main/res/font/poppins_semibold.ttf         app/src/main/res/drawable-xxxhdpi/splash_icon.webp [preview.png]
+Usage (from motionspeak-mobile/, see README.md):
+    python tools/make_splash_icon.py ../motionspeak-admin/public/favicon-256.svg         app/src/main/res/font/poppins_semibold.ttf         app/src/main/res/drawable-xxxhdpi/splash_icon.webp [preview.png]
 """
 import io
 import math

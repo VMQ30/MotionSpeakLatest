@@ -1,6 +1,6 @@
 """
 Offline early-fire simulator — replays stored samples through the live streak /
-early-exit logic from sigla-mobile PredictionService.kt.
+early-exit logic from motionspeak-mobile PredictionService.kt.
 
 WHY THIS EXISTS
 ---------------

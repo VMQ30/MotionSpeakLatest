@@ -1,10 +1,10 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** LetterHand / LetterSegmenter must decide exactly as sigla-ml letters.py. */
+/** LetterHand / LetterSegmenter must decide exactly as motionspeak-ml letters.py. */
 class LetterParityTest {
 
     @Test

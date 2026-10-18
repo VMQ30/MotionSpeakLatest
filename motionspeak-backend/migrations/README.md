@@ -38,7 +38,7 @@ need no extra tooling: paste the file into the **Supabase SQL Editor**, or run i
 the connection the app already uses:
 
 ```js
-// from sigla-backend/, with the file contents in `sql`
+// from motionspeak-backend/, with the file contents in `sql`
 require("dotenv").config();
 const { Sequelize } = require("sequelize");
 const s = new Sequelize(process.env.PG_URI, { dialect: "postgres", logging: false });

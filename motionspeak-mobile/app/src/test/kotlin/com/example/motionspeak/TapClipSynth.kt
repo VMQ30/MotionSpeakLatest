@@ -1,6 +1,6 @@
-package com.example.sigla
+package com.example.motionspeak
 
-/** Kotlin twin of sigla-ml/tests/_tap_clip_synth.py. Change both together. */
+/** Kotlin twin of motionspeak-ml/tests/_tap_clip_synth.py. Change both together. */
 internal object TapClipSynth {
     const val NO_PEAK = 1_000_000
 

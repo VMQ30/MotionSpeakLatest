@@ -2,7 +2,7 @@
 Deterministic synthetic frames for clip-preparation tests, shared by
 test_clip_prep.py and tools/gen_tap_clip_fixtures.py.
 
-sigla-mobile's TapClipSynth.kt rebuilds byte-identical frames from the same
+motionspeak-mobile's TapClipSynth.kt rebuilds byte-identical frames from the same
 (pattern, slope, peak_at, jump), so only expected OUTPUTS are shipped to Kotlin.
 Change this file only together with TapClipSynth.kt.
 

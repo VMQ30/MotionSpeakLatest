@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import retrofit2.Response
 import retrofit2.http.GET

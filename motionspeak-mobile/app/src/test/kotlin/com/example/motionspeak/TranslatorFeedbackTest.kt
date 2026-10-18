@@ -1,9 +1,9 @@
-package com.example.sigla
+package com.example.motionspeak
 
-import com.example.sigla.TapSignSession.State.IDLE
-import com.example.sigla.TapSignSession.State.PROCESSING
-import com.example.sigla.TapSignSession.State.READY
-import com.example.sigla.TapSignSession.State.RECORDING
+import com.example.motionspeak.TapSignSession.State.IDLE
+import com.example.motionspeak.TapSignSession.State.PROCESSING
+import com.example.motionspeak.TapSignSession.State.READY
+import com.example.motionspeak.TapSignSession.State.RECORDING
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

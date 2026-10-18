@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import android.Manifest
 import android.content.Intent
@@ -29,7 +29,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
-import com.example.sigla.databinding.ActivityMainBinding
+import com.example.motionspeak.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
@@ -95,7 +95,7 @@ internal val teardownExecutor = Executors.newSingleThreadExecutor { r ->
 // while the phone preserves the raw MediaPipe orientation it was trained against.
 private const val LEFT_HANDED_SUPPORT_ENABLED = false
 // ── Camera scope ─────────────────────────────────────────────────────────────
-// PAIRED WITH sigla-ml/.env MIRROR_AUGMENTATION_ENABLED. The two must move
+// PAIRED WITH motionspeak-ml/.env MIRROR_AUGMENTATION_ENABLED. The two must move
 // together and tests/test_mobile_parity_flags.py fails the build if they do not.
 //
 // The front camera delivers a horizontally flipped image. Against a model whose
@@ -132,9 +132,9 @@ private const val LATCH_NO_HAND_RESET         = 6
 // ── Canonical hand-slot ordering (fixes two-handed sign accuracy) ─────────────
 // Two-handed signs are packed by MediaPipe in arbitrary slot order; we reorder so
 // the RIGHT hand is always slot 0 and LEFT slot 1, using a pure-geometry chirality
-// test (byte-identical to sigla-ml preprocessor.canonicalize_slots). When disabled,
+// test (byte-identical to motionspeak-ml preprocessor.canonicalize_slots). When disabled,
 // behavior is byte-identical to before. MUST retrain the model for this to take effect.
-// Reverted again 2026-07: re-enabled with a matching sigla-ml preprocessor.py
+// Reverted again 2026-07: re-enabled with a matching motionspeak-ml preprocessor.py
 // canonicalize_slots (fixing the mismatch that sank the first attempt) and it DID fix
 // BREAD, but regressed one-handed signs like HELLO — a stray false-positive second-hand
 // detection during an otherwise one-handed gesture now triggers a slot swap, corrupting

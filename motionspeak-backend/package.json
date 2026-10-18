@@ -1,7 +1,7 @@
 {
-  "name": "sigla-backend",
+  "name": "motionspeak-backend",
   "version": "1.0.0",
-  "description": "a backend for sigla",
+  "description": "a backend for motionspeak",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

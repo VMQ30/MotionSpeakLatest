@@ -761,7 +761,7 @@ const testModel = async (req, res) => {
       }
       console.error("ML service unreachable:", mlErr.message);
       return res.status(503).json({
-        message: "ML service unavailable. Make sure sigla-ml is running.",
+        message: "ML service unavailable. Make sure motionspeak-ml is running.",
       });
     }
 

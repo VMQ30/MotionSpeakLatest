@@ -1,6 +1,6 @@
-package com.example.sigla
+package com.example.motionspeak
 
-import com.example.sigla.TapSignSession.State
+import com.example.motionspeak.TapSignSession.State
 
 /**
  * What a Tap state change should look and feel like — spec §5.1. Pure, so the

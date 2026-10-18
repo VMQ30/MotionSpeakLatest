@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import android.os.Bundle
 import android.view.LayoutInflater

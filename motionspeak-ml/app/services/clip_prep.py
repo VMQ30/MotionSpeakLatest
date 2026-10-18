@@ -3,7 +3,7 @@ Post-detection half of extract_motion_landmarks, as pure functions.
 
 extract.py decodes a clip and runs MediaPipe on the frames chosen by
 sample_indices(); everything after detection happens in finalize_sampled().
-sigla-mobile's ClipPreparer.kt re-implements THESE two functions for
+motionspeak-mobile's ClipPreparer.kt re-implements THESE two functions for
 tap-to-sign mode, and tools/gen_tap_clip_fixtures.py pins them together. A
 behaviour change here must be made on both sides, and needs a retrain.
 """
@@ -80,7 +80,7 @@ class ExtractionQualityError(ValueError):
     """The video decoded, but does not contain enough reliable training signal.
 
     `reason` is a stable machine-readable code (a REASON_* constant below). The
-    message is for people. sigla-mobile maps the same codes to its own copy.
+    message is for people. motionspeak-mobile maps the same codes to its own copy.
     """
 
     def __init__(self, message: str, reason: str = "quality"):

@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 import android.speech.tts.TextToSpeech
 import android.speech.tts.Voice

@@ -5,7 +5,7 @@ which requires two model bundles to be present in this directory:
 
 - `hand_landmarker.task`
 - `pose_landmarker_lite.task` (same bundle shipped on-device — see
-  `sigla-mobile/app/src/main/assets/pose_landmarker_lite.task`)
+  `motionspeak-mobile/app/src/main/assets/pose_landmarker_lite.task`)
 
 Neither `.task` binary is committed (gitignored). Download them once:
 

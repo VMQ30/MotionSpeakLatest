@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 internal const val TAP_READY_TIMEOUT_MS = 5_000L
 internal const val TAP_MAX_RECORDING_MS = 4_000L

@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "sigla"
+rootProject.name = "motionspeak"
 include(":app")

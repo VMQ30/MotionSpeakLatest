@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 // Turns per-frame letter guesses into committed letters. Ported from Senya's
 // PredictionStabilizer, without spaces (SigLa shows one result at a time).

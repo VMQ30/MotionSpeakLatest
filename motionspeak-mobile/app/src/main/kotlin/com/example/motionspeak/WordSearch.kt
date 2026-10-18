@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 /**
  * The search every word list uses: English label, Filipino translation, or

@@ -1,4 +1,4 @@
-package com.example.sigla
+package com.example.motionspeak
 
 /** The two letter models, behind an interface so the engine is testable on the JVM. */
 internal interface LetterClassifier {
