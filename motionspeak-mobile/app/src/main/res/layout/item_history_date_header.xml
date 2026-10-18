@@ -7,6 +7,6 @@
     style="@style/Sigla.Text.Section"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:paddingTop="@dimen/sg_space_16"
-    android:paddingBottom="@dimen/sg_space_8"
+    android:paddingTop="@dimen/ms_space_16"
+    android:paddingBottom="@dimen/ms_space_8"
     tools:text="Today" />

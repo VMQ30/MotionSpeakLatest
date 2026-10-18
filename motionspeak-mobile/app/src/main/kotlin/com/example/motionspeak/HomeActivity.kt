@@ -143,10 +143,10 @@ class HomeActivity : AppCompatActivity() {
         if (animate || categories.isNotEmpty()) categoriesEntrancePlayed = true
         val stepMs = resources.getInteger(R.integer.motion_list_stagger).toLong()
 
-        val brand = ContextCompat.getColor(this, R.color.sg_brand)
-        val onBrand = ContextCompat.getColor(this, R.color.sg_on_brand)
-        val onBrandSecondary = ContextCompat.getColor(this, R.color.sg_on_brand_secondary)
-        val gap = resources.getDimensionPixelSize(R.dimen.sg_space_12) / 2
+        val brand = ContextCompat.getColor(this, R.color.ms_brand)
+        val onBrand = ContextCompat.getColor(this, R.color.ms_on_brand)
+        val onBrandSecondary = ContextCompat.getColor(this, R.color.ms_on_brand_secondary)
+        val gap = resources.getDimensionPixelSize(R.dimen.ms_space_12) / 2
 
         categories.forEachIndexed { index, category ->
             val item = ItemHomeCategoryBinding.inflate(layoutInflater, grid, false)

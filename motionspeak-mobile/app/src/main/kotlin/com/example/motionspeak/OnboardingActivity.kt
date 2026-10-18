@@ -20,7 +20,7 @@ import com.google.android.material.textfield.TextInputEditText
 
 /**
  * One onboarding feature page (Translate / Learn / Explore): its illustration
- * (an illus_onboard_* vector drawn in sg_* colours, so it follows dark mode),
+ * (an illus_onboard_* vector drawn in ms_* colours, so it follows dark mode),
  * what that illustration shows for screen readers, and the page copy.
  */
 data class OnboardingPage(
@@ -168,8 +168,8 @@ class OnboardingActivity : AppCompatActivity() {
             params.width = if (isActive) dp(20) else dp(7)
             dot.layoutParams = params
             dot.setBackgroundColor(
-                if (isActive) ContextCompat.getColor(this, R.color.sg_brand)
-                else ContextCompat.getColor(this, R.color.sg_divider)
+                if (isActive) ContextCompat.getColor(this, R.color.ms_brand)
+                else ContextCompat.getColor(this, R.color.ms_divider)
             )
         }
 

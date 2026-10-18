@@ -387,8 +387,8 @@ class WordBankActivity : AppCompatActivity() {
 
     private fun renderFilterPills() {
         fun style(pill: MaterialButton, on: Boolean) {
-            val bg = if (on) R.color.sg_brand else R.color.sg_tint
-            val fg = if (on) R.color.sg_on_brand else R.color.sg_brand_text
+            val bg = if (on) R.color.ms_brand else R.color.ms_tint
+            val fg = if (on) R.color.ms_on_brand else R.color.ms_brand_text
             pill.backgroundTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, bg))
             pill.setTextColor(ContextCompat.getColor(this, fg))
         }

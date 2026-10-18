@@ -1,4 +1,4 @@
-# Mobile image generators
+﻿# Mobile image generators
 
 Both scripts build their images from `motionspeak-admin/public/favicon-256.svg`, the
 same file the admin site uses as its favicon, so the app and the web share one
@@ -23,5 +23,5 @@ Run from `motionspeak-mobile/`:
 
 Both scripts assume the SVG's first path is the blue logo tile
 (`fill="rgb(26,56,126)"`) and stop with an error if it is not found. If that
-colour changes, update `BLUE` in the scripts and `sg_logo_blue` /
+colour changes, update `BLUE` in the scripts and `ms_logo_blue` /
 `ic_launcher_background.xml` to match.

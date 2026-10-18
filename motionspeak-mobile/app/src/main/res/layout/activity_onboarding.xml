@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Onboarding: 4 pages (Translate, Learn, Explore, then a name step), restyled
-     to the sg_* design system so it matches the rest of the revamped app. -->
+     to the ms_* design system so it matches the rest of the revamped app. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/sg_bg">
+    android:background="@color/ms_bg">
 
     <androidx.viewpager2.widget.ViewPager2
         android:id="@+id/viewPager"
@@ -20,7 +20,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:padding="@dimen/sg_space_24">
+        android:padding="@dimen/ms_space_24">
 
         <TextView
             android:layout_width="0dp"
@@ -28,22 +28,22 @@
             android:layout_weight="1"
             android:text="@string/app_brand_mark"
             android:fontFamily="@font/poppins_semibold"
-            android:textSize="@dimen/sg_text_body"
+            android:textSize="@dimen/ms_text_body"
             android:letterSpacing="0.05"
-            android:textColor="@color/sg_brand_text" />
+            android:textColor="@color/ms_brand_text" />
 
         <TextView
             android:id="@+id/tvStepCount"
             style="@style/Sigla.Text.Caption"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="@drawable/bg_sg_pill"
-            android:backgroundTint="@color/sg_bg"
-            android:paddingStart="@dimen/sg_space_12"
-            android:paddingTop="@dimen/sg_space_4"
-            android:paddingEnd="@dimen/sg_space_12"
-            android:paddingBottom="@dimen/sg_space_4"
-            android:textColor="@color/sg_brand_text"
+            android:background="@drawable/bg_ms_pill"
+            android:backgroundTint="@color/ms_bg"
+            android:paddingStart="@dimen/ms_space_12"
+            android:paddingTop="@dimen/ms_space_4"
+            android:paddingEnd="@dimen/ms_space_12"
+            android:paddingBottom="@dimen/ms_space_4"
+            android:textColor="@color/ms_brand_text"
             tools:text="1 of 4" />
     </LinearLayout>
 
@@ -53,7 +53,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:orientation="vertical"
-        android:padding="@dimen/sg_space_24">
+        android:padding="@dimen/ms_space_24">
 
         <!-- Page indicators -->
         <LinearLayout
@@ -61,7 +61,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="@dimen/sg_space_24"
+            android:layout_marginBottom="@dimen/ms_space_24"
             android:orientation="horizontal" />
 
         <LinearLayout
@@ -78,7 +78,7 @@
                 android:fontFamily="@font/poppins_semibold"
                 android:text="@string/skip"
                 android:textAllCaps="false"
-                android:textColor="@color/sg_brand_text" />
+                android:textColor="@color/ms_brand_text" />
 
             <View
                 android:layout_width="0dp"
@@ -89,7 +89,7 @@
                 android:id="@+id/btnNext"
                 style="@style/Widget.Sigla.Button"
                 android:layout_width="wrap_content"
-                android:layout_height="@dimen/sg_touch_min"
+                android:layout_height="@dimen/ms_touch_min"
                 android:text="@string/next" />
         </LinearLayout>
     </LinearLayout>
