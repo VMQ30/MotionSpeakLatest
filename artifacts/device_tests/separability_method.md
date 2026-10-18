@@ -62,7 +62,7 @@ not a reliable substitute for measuring it.
 
 ## How to run it
 
-`sigla-ml/scripts/separability.py`, which needs the backend running for
+`motionspeak-ml/scripts/separability.py`, which needs the backend running for
 `fetch_approved_samples`. It reports per-pair ratios, and per-pair signer counts
 with a warning when two classes were recorded by different numbers of signers —
 a class with fewer carries less inter-signer variation in its within-class

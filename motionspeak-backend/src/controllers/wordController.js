@@ -1,0 +1,1317 @@
+const { Op } = require("sequelize");
+const fs = require("fs");
+const path = require("path");
+const axios = require("axios");
+const {
+  Word,
+  GestureSample,
+  Administrator,
+  Category,
+  UploadJob,
+} = require("../models/index.js");
+const { logActivity } = require("../utils/activityLogger.js");
+const { validateWordLabel } = require("../utils/validators.js");
+const { sequelize } = require("../config/db.js");
+const { ML_SERVICE_URL } = require("../config/mlService.js");
+const { extractUrl } = require("../utils/mlDataset");
+
+// Resolve a category *name* (what the form and mobile send) to its id, or null
+// when the name is blank or matches no category. Case-insensitive, mirroring the
+// old text join. Returns the FK the words table now stores.
+// Which model a word trains into. Only "letters" opts out of the main
+// vocabulary; anything else — including undefined, which is every pre-existing
+// caller — is an ordinary word.
+//
+// A typo'd value silently becoming "words" is the right failure here rather
+// than a 400: the caller gets a word that trains where words train, which is
+// visible and correctable in the admin panel, instead of a rejected import.
+const VOCABULARIES = ["words", "letters"];
+const vocabularyFor = (value) => {
+  const v = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return VOCABULARIES.includes(v) ? v : "words";
+};
+
+const resolveCategoryId = async (name) => {
+  if (!name || !String(name).trim()) return null;
+  const cat = await Category.findOne({
+    where: sequelize.where(
+      sequelize.fn("LOWER", sequelize.col("name")),
+      String(name).trim().toLowerCase(),
+    ),
+  });
+  return cat ? cat.id : null;
+};
+
+// Flatten a Word instance (with category_ref included) to the API shape the
+// clients expect: a `category` name string, defaulting to "additional words".
+const withCategoryName = (word) => {
+  const json = typeof word.toJSON === "function" ? word.toJSON() : word;
+  const name = json.category_ref?.name || "additional words";
+  delete json.category_ref;
+  return { ...json, category: name };
+};
+
+const SUPABASE_URL         = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const SUPABASE_BUCKET_VIDEOS = process.env.SUPABASE_BUCKET_VIDEOS || "gesture-videos";
+
+
+// ── Sample caps ───────────────────────────────────────────────
+// All gestures are motion; a single flat cap/threshold applies to every word.
+const DEFAULT_SAMPLE_CAP = 25;   // flat total-sample cap per word, across all users
+const ACTIVATION_THRESHOLD = 20; // approved samples needed before a word is deploy-eligible (scope §17)
+const MIN_SIGNERS_PER_WORD = Number.parseInt(process.env.MIN_SIGNERS_PER_WORD || "4", 10);
+const MIN_SAMPLES_PER_SIGNER = Number.parseInt(process.env.MIN_SAMPLES_PER_SIGNER || "4", 10);
+
+// ── Helper: normalize word label ──────────────────────────────
+const normalizeLabel = (label) =>
+  label
+    .toLowerCase()
+    .replace(/[^\w\s]/g, "")
+    .trim();
+
+// ── Helper: total sample cap per word ─────────────────────────
+// A flat default applies to every word. (The `word` argument is kept so the
+// call sites are unchanged and a per-word cap could return later.)
+// eslint-disable-next-line no-unused-vars
+const getSampleCap = (word) => DEFAULT_SAMPLE_CAP;
+
+// ── Helper: activation threshold ──────────────────────────────
+const getActivationThreshold = () => ACTIVATION_THRESHOLD;
+
+// ── Helper: get total approved samples for a word ─────────────
+const getApprovedSampleCount = async (wordId) => {
+  return await GestureSample.count({
+    where: { word_id: wordId, status: "approved" },
+  });
+};
+
+// Live sample counts, derived from gesture_samples rather than read from the
+// words.total_samples / words.approved_sample_count columns.
+//
+// Those columns are denormalized counters that were incremented on upload and
+// never decremented on delete, so they drifted from reality the first time any
+// samples were removed: after two cleanups the admin UI reported 1880 samples
+// against 1039 real rows, and showed the twelve CALENDAR words as holding 33-40
+// samples each when all of them had zero. That is not a cosmetic difference — it
+// is the UI asserting that training data exists when it does not.
+//
+// A decrement on the delete path would not have fixed it. Rows are also removed
+// by direct SQL during dataset cleanups, which no controller-side hook observes.
+// Deriving the number instead makes it impossible to drift, and at this scale
+// (~1k sample rows, indexed word_id FK) the cost is not measurable.
+//
+// Returns a Map of word_id -> { total, approved }; callers merge it into their
+// response so the API shape stays exactly as clients expect.
+const getSampleCounts = async (wordIds = null) => {
+  const where = wordIds && wordIds.length ? { word_id: { [Op.in]: wordIds } } : {};
+  const rows = await GestureSample.findAll({
+    where,
+    attributes: [
+      "word_id",
+      [sequelize.fn("COUNT", sequelize.col("id")), "total"],
+      [
+        sequelize.fn(
+          "SUM",
+          sequelize.literal("CASE WHEN status = 'approved' THEN 1 ELSE 0 END"),
+        ),
+        "approved",
+      ],
+    ],
+    group: ["word_id"],
+    raw: true,
+  });
+  const counts = new Map();
+  for (const r of rows) {
+    counts.set(Number(r.word_id), {
+      total: Number(r.total) || 0,
+      approved: Number(r.approved) || 0,
+    });
+  }
+  return counts;
+};
+
+// Overlay derived counts onto a word (or plain object) for the API response.
+// Words with no samples are absent from the count map, so they resolve to 0
+// rather than to whatever the stale column happened to hold.
+const withSampleCounts = (word, counts) => {
+  const json = typeof word.toJSON === "function" ? word.toJSON() : { ...word };
+  const c = counts.get(Number(json.id)) || { total: 0, approved: 0 };
+  json.total_samples = c.total;
+  json.approved_sample_count = c.approved;
+  return json;
+};
+
+// Count only known signer IDs with enough approved clips. The uploading admin is
+// not a signer identifier, and twenty clips from one person do not demonstrate
+// that a model will work for a new user.
+const getSignerCoverage = async (wordId) => {
+  const rows = await GestureSample.findAll({
+    where: {
+      word_id: wordId,
+      status: "approved",
+      session_id: { [Op.ne]: null },
+    },
+    attributes: ["session_id"],
+    raw: true,
+  });
+  const counts = {};
+  for (const row of rows) {
+    const signer = String(row.session_id || "").trim().toLowerCase();
+    if (signer) counts[signer] = (counts[signer] || 0) + 1;
+  }
+  const qualifiedSigners = Object.values(counts).filter(
+    (count) => count >= MIN_SAMPLES_PER_SIGNER,
+  ).length;
+  return { counts, qualifiedSigners };
+};
+
+// ── GET /api/words/signers ────────────────────────────────────
+// Every signer ID already stored, with how many samples each has.
+//
+// session_id is the grouping key for signer-held-out cross-validation, and the
+// upload form takes it as free text. A typo therefore creates a phantom signer:
+// "singer-04" once split ten HOW ARE YOU clips away from signer-04, so that
+// person appeared in both the training and the evaluation side of a fold and the
+// reported accuracy rose rather than fell. Nothing downstream can detect that,
+// because a higher number never looks like a bug.
+//
+// Offering the known IDs for selection removes the common case of the mistake
+// without preventing a genuinely new signer from being added.
+//
+// With ?word_id=, sample_count instead reports that signer's APPROVED samples
+// for that one word — counted the same way getSignerCoverage does, since that
+// is what the activation gate reads. Without it, a signer with hundreds of
+// clips on other words looked like they already had coverage on a word they
+// had never signed. The signer LIST is still every signer ID in the dataset,
+// word_id or not, so someone new to this word remains selectable instead of
+// forcing a retyped id.
+// One aggregate query rather than loading every gesture_samples row (~2,600 and
+// growing) into Node to group and count by hand. word_id is always bound as a
+// query parameter, never interpolated into the SQL string.
+const getSignerIds = async (req, res) => {
+  try {
+    const wordId = req.query.word_id ? Number.parseInt(req.query.word_id, 10) : null;
+
+    // COUNT(*) FILTER only counts rows matching the given word — 0 for a signer
+    // with plenty of samples elsewhere but none on this word. With no word_id,
+    // the filter is dropped so sample_count is the dataset-wide total, matching
+    // the endpoint's un-scoped behaviour.
+    const rows = await sequelize.query(
+      `SELECT LOWER(TRIM(session_id)) AS session_id,
+              COUNT(*) FILTER (WHERE :wordId::int IS NULL OR (word_id = :wordId AND status = 'approved')) AS sample_count
+       FROM gesture_samples
+       WHERE session_id IS NOT NULL AND TRIM(session_id) != ''
+       GROUP BY LOWER(TRIM(session_id))`,
+      { replacements: { wordId }, type: sequelize.QueryTypes.SELECT },
+    );
+
+    const signers = rows
+      .map((r) => ({ session_id: r.session_id, sample_count: Number(r.sample_count) }))
+      .sort((a, b) => a.session_id.localeCompare(b.session_id));
+
+    return res.status(200).json({ signers });
+  } catch (err) {
+    console.error("Get signer ids error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ── Helper: update sample count; mark word approved when threshold met ────
+// Words are NOT activated here — activation only happens on model deploy.
+const checkAndActivateWord = async (word, reviewerId = null) => {
+  const threshold = getActivationThreshold();
+  const approvedCount = await getApprovedSampleCount(word.id);
+  const signerCoverage = await getSignerCoverage(word.id);
+
+  const reachedThreshold =
+    approvedCount >= threshold &&
+    signerCoverage.qualifiedSigners >= MIN_SIGNERS_PER_WORD;
+
+  await word.update({
+    approved_sample_count: approvedCount,
+    // Mark as approved (ready for training) once threshold is reached,
+    // but do NOT set is_active — that only happens on model deploy.
+    ...(reachedThreshold &&
+      word.status !== "approved" && {
+        status: "approved",
+        reviewed_by: reviewerId,
+        reviewed_at: new Date(),
+      }),
+  });
+
+  return reachedThreshold;
+};
+
+// ── Helper: extract landmarks for one file via the ML service and store a
+// GestureSample. Shared by the manual upload route (uploadVideos) and the
+// FSL-105 bulk importer so both use identical extraction + storage logic.
+//
+// Returns { status: "ok"|"skipped"|"failed", type, sample_id?, reason?/error? }.
+// Does NOT update word counters — the caller does that after a batch.
+const VIDEO_RX = /\.(mov|mp4|webm|avi|mkv)$/i;
+
+const extractAndStoreSample = async (
+  word,
+  fileBuffer,
+  filename,
+  mimetype,
+  userId,
+  fileUrl = null,
+  sessionId = null,
+) => {
+  const isVideo = VIDEO_RX.test(filename) || (mimetype || "").startsWith("video/");
+
+  // Every gesture is motion — only video files produce a valid sequence.
+  if (!isVideo) {
+    return { file: filename, status: "skipped", type: "unknown", reason: "Only video files are supported" };
+  }
+
+  const FormData = require("form-data");
+
+  try {
+    const form = new FormData();
+    form.append("file", fileBuffer, { filename, contentType: mimetype });
+
+    // 180s, not 60s. /extract-landmarks now trims the clip to its signing span
+    // before extracting (see TRIM_TO_SIGNING_SPAN in motionspeak-ml extract.py), which
+    // is what makes an admin UI upload produce the same sequence as a
+    // tools/import_fsl105.py import instead of being rejected outright for the
+    // idle head and tail. That trim costs a hand-detection pass over the clip:
+    // measured 32-55s end to end per clip on this hardware against the old 60s
+    // ceiling, so two of eight test clips came within 5s of timing out. The work
+    // is CPU-bound and scales with clip length and machine speed, so the ceiling
+    // has to clear the worst case by a wide margin rather than the average.
+    const ML_EXTRACT_TIMEOUT_MS = Number(
+      process.env.ML_EXTRACT_TIMEOUT_MS || 180000,
+    );
+
+    const mlRes = await axios.post(extractUrl(ML_SERVICE_URL, word.vocabulary), form, {
+      headers: form.getHeaders(),
+      timeout: ML_EXTRACT_TIMEOUT_MS,
+      maxBodyLength: Infinity,
+    });
+
+    const { sequence, hand_track } = mlRes.data;
+
+    const sample = await GestureSample.create({
+      word_id: word.id,
+      submitted_by: userId,
+      file_url: fileUrl || `video_upload_${Date.now()}`,
+      session_id: sessionId,
+      status: "approved",
+      sequence: sequence,
+      hand_track: hand_track ?? null,
+    });
+
+    return { file: filename, status: "ok", type: "video", sample_id: sample.id };
+  } catch (err) {
+    // Log the cause. This used to return silently, so a batch where EVERY clip
+    // failed still came back as HTTP 207 "N processed, M failed" with nothing in
+    // the server log — the failure was invisible from both the terminal and the UI.
+    //
+    // err.message alone is rarely enough: Sequelize puts the real Postgres error in
+    // err.original (type mismatch, constraint, connection) and validation failures in
+    // err.errors, while an ML-service rejection arrives as err.response.data.detail.
+    const detail =
+      err.response?.data?.detail ||
+      err.original?.message ||
+      err.errors?.map((e) => e.message).join("; ") ||
+      err.message;
+
+    console.error(
+      `[extractAndStoreSample] FAILED "${filename}" (word=${word.label}): ${detail}`,
+      {
+        name: err.name,
+        http_status: err.response?.status,
+        pg_code: err.original?.code,
+        validation: err.errors?.map((e) => `${e.path}: ${e.message}`),
+      },
+    );
+
+    return { file: filename, status: "failed", type: "video", error: detail };
+  }
+};
+
+// ── Upload a demonstration video to Supabase Storage ─────────
+// Pushes to the gesture-videos bucket and returns the
+// public URL. Falls back to local disk when Supabase env vars are absent.
+const VIDEO_CONTENT_TYPES = {
+  mp4: "video/mp4",
+  webm: "video/webm",
+  mov: "video/quicktime",
+  avi: "video/x-msvideo",
+  mkv: "video/x-matroska",
+};
+
+const saveVideo = async (buffer, ext, wordId) => {
+  const cleanExt = (ext || "mp4").replace(/[^a-z0-9]/gi, "").toLowerCase() || "mp4";
+  const contentType = VIDEO_CONTENT_TYPES[cleanExt] || "application/octet-stream";
+  const filename = `gesture_${wordId}_${Date.now()}.${cleanExt}`;
+
+  if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+    try {
+      const storagePath = filename;
+      const url = `${SUPABASE_URL}/storage/v1/object/${SUPABASE_BUCKET_VIDEOS}/${storagePath}`;
+      const res = await axios.post(url, buffer, {
+        headers: {
+          Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+          "Content-Type": contentType,
+          "x-upsert": "true",
+        },
+        maxBodyLength: Infinity,
+        validateStatus: null, // don't throw on non-2xx, log it instead
+      });
+      if (res.status >= 200 && res.status < 300) {
+        return `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_BUCKET_VIDEOS}/${storagePath}`;
+      }
+      console.error(`Supabase video upload failed [${res.status}]:`, JSON.stringify(res.data));
+      throw new Error(`Supabase ${res.status}: ${JSON.stringify(res.data)}`);
+    } catch (e) {
+      console.error("Supabase video upload error:", e.message);
+      throw e; // propagate so the upload fails visibly instead of saving broken paths
+    }
+  }
+
+  // Local fallback
+  const videosDir = path.join(__dirname, "../../uploads/videos");
+  if (!fs.existsSync(videosDir)) fs.mkdirSync(videosDir, { recursive: true });
+  const filepath = path.join(videosDir, filename);
+  fs.writeFileSync(filepath, buffer);
+  return `/uploads/videos/${filename}`;
+};
+
+// ── GET /api/words ────────────────────────────────────────────
+const getAllWords = async (req, res) => {
+  try {
+    const {
+      status,
+      sign_type,
+      category,
+      search,
+      page = 1,
+      limit = 10,
+    } = req.query;
+    const offset = (page - 1) * limit;
+
+    const where = {};
+    if (status) where.status = status;
+    if (sign_type) where.sign_type = sign_type;
+    // The filter arrives as a category name; resolve it to the FK.
+    //
+    // A name that matches nothing resolves to null, and assigning that directly
+    // meant `category_id: null` — which matches every UNCATEGORISED word instead
+    // of none. Picking a since-deleted category from a stale dropdown therefore
+    // filled the table with unrelated words as though they belonged to it. An
+    // unresolvable filter must match nothing, so use an id that cannot exist.
+    if (category) {
+      const resolvedCategoryId = await resolveCategoryId(category);
+      where.category_id = resolvedCategoryId === null ? -1 : resolvedCategoryId;
+    }
+    if (search) {
+      where[Op.or] = [
+        { label: { [Op.iLike]: `%${search}%` } },
+        { description: { [Op.iLike]: `%${search}%` } },
+      ];
+    }
+
+    const { count, rows } = await Word.findAndCountAll({
+      where,
+      include: [
+        {
+          model: Administrator,
+          as: "submitter",
+          attributes: ["id", "username"],
+        },
+        { model: Administrator, as: "reviewer", attributes: ["id", "username"] },
+        { model: Category, as: "category_ref", attributes: ["name"] },
+      ],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      order: [["created_at", "DESC"]],
+    });
+
+    // Sample counts derived from gesture_samples, not from the stored columns —
+    // one grouped query for the whole page. See getSampleCounts.
+    const counts = await getSampleCounts(rows.map((w) => w.id));
+
+    return res.status(200).json({
+      total: count,
+      page: parseInt(page),
+      totalPages: Math.ceil(count / limit),
+      words: rows.map((w) => withSampleCounts(withCategoryName(w), counts)),
+    });
+  } catch (err) {
+    console.error("Get all words error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ── GET /api/words/stats ──────────────────────────────────────
+const getWordStats = async (req, res) => {
+  try {
+    const [total, pending, approved, rejected, active, totalSamples] =
+      await Promise.all([
+        Word.count(),
+        Word.count({ where: { status: "pending" } }),
+        Word.count({ where: { status: "approved" } }),
+        Word.count({ where: { status: "rejected" } }),
+        Word.count({ where: { is_active: true } }),
+        // Count the sample rows themselves. Summing words.total_samples reported
+        // 1880 against 1039 real rows — see getSampleCounts.
+        GestureSample.count(),
+      ]);
+
+    // Words that would actually activate on the next model deploy — NOT the
+    // same as status: "approved". A word's status flips to "approved" the
+    // moment it's created by an admin (adminAddWord, approved_sample_count: 0)
+    // or has a user submission accepted (approveWord), neither of which checks
+    // sample count at all. Counting by status alone put brand-new, 0-sample
+    // words in "Awaiting Deployment" — this instead re-checks the SAME gate
+    // checkAndActivateWord and the manual activate endpoint already enforce:
+    // >= ACTIVATION_THRESHOLD approved samples AND >= MIN_SIGNERS_PER_WORD
+    // qualified signers (>= MIN_SAMPLES_PER_SIGNER approved clips each).
+    //
+    // The sample-count half is a single indexed count; only words that clear
+    // it need the per-signer query, which cannot be expressed as one COUNT.
+    // In practice that is a handful of words, not the whole table.
+    const threshold = getActivationThreshold();
+    const candidates = await Word.findAll({
+      where: { is_active: false, approved_sample_count: { [Op.gte]: threshold } },
+      attributes: ["id"],
+      raw: true,
+    });
+    const coverageChecks = await Promise.all(
+      candidates.map((w) => getSignerCoverage(w.id)),
+    );
+    const readyToActivate = coverageChecks.filter(
+      (c) => c.qualifiedSigners >= MIN_SIGNERS_PER_WORD,
+    ).length;
+
+    return res.status(200).json({
+      total,
+      pending,
+      approved,
+      rejected,
+      active,
+      ready_to_activate: readyToActivate,
+      total_samples: totalSamples || 0,
+    });
+  } catch (err) {
+    console.error("Get word stats error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ── GET /api/words/:id ────────────────────────────────────────
+const getWordById = async (req, res) => {
+  try {
+    const word = await Word.findOne({
+      where: { id: req.params.id },
+      include: [
+        {
+          model: Administrator,
+          as: "submitter",
+          attributes: ["id", "username"],
+        },
+        { model: Administrator, as: "reviewer", attributes: ["id", "username"] },
+        {
+          model: GestureSample,
+          as: "samples",
+          include: [
+            { model: Administrator, as: "submitter", attributes: ["id", "username"] },
+          ],
+        },
+      ],
+    });
+
+    if (!word) {
+      return res.status(404).json({ message: "Word not found" });
+    }
+
+    return res.status(200).json({ word });
+  } catch (err) {
+    console.error("Get word by id error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ── POST /api/words/admin-add ─────────────────────────────────
+// Admin manually adds a new word entry to the system
+// No gesture samples are required at this point — admin uploads samples separately
+const adminAddWord = async (req, res) => {
+  try {
+    const {
+      label,
+      description,
+      sign_type,
+      category,
+      filipino_translation,
+    } = req.body;
+
+    if (!label || !sign_type) {
+      return res
+        .status(400)
+        .json({ message: "Label and sign type are required" });
+    }
+
+    const labelError = validateWordLabel(label);
+    if (labelError) {
+      return res.status(400).json({ message: labelError });
+    }
+
+    const normalized = normalizeLabel(label);
+
+    // Check for duplicate
+    const existing = await Word.findOne({
+      where: {
+        normalized_label: normalized,
+        sign_type,
+        status: { [Op.in]: ["pending", "approved"] },
+      },
+    });
+
+    if (existing) {
+      return res.status(409).json({
+        message: "A word with this label already exists in the system",
+        word_id: existing.id,
+      });
+    }
+
+    // Admin-added words start as approved but inactive —
+    // they need gesture samples before they can be activated
+    const word = await Word.create({
+      label,
+      normalized_label: normalized,
+      description: description || null,
+      sign_type,
+      category_id: await resolveCategoryId(category),
+      filipino_translation: filipino_translation || null,
+      submitted_by: req.user.id,
+      status: "approved",
+      is_active: false,
+      approved_sample_count: 0,
+      reviewed_by: req.user.id,
+      reviewed_at: new Date(),
+      // Which model this word trains into. Defaults to the main vocabulary, so
+      // every existing caller keeps producing ordinary words; the alphabet
+      // import passes "letters" explicitly. Deliberately NOT guessed from the
+      // label — FSL's NG is one letter spelled with two characters.
+      vocabulary: vocabularyFor(req.body.vocabulary),
+    });
+
+    await logActivity({
+      administrator_id: req.user.id,
+      action: "added_word",
+      target_type: "word",
+      target_id: word.id,
+      details: `Added word: ${word.label}`,
+    });
+
+    return res.status(201).json({
+      message:
+        "Word added successfully. Upload gesture samples to activate it.",
+      word,
+    });
+  } catch (err) {
+    console.error("Admin add word error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ── PUT /api/words/:id ────────────────────────────────────────
+const updateWord = async (req, res) => {
+  try {
+    const {
+      label,
+      description,
+      sign_type,
+      category,
+      vocabulary,
+      filipino_translation,
+    } = req.body;
+
+    const word = await Word.findOne({ where: { id: req.params.id } });
+    if (!word) {
+      return res.status(404).json({ message: "Word not found" });
+    }
+
+    const updatedLabel = label || word.label;
+    const updatedNormalized = normalizeLabel(updatedLabel);
+    const updatedSignType = sign_type || word.sign_type;
+    const updatedVocabulary =
+      vocabulary === undefined
+        ? word.vocabulary
+        : typeof vocabulary === "string"
+          ? vocabulary.trim().toLowerCase()
+          : "";
+
+    if (!["words", "letters"].includes(updatedVocabulary)) {
+      return res.status(400).json({
+        message: "Vocabulary must be either 'words' or 'letters'.",
+      });
+    }
+
+    const labelError = validateWordLabel(updatedLabel);
+    if (labelError) {
+      return res.status(400).json({ message: labelError });
+    }
+
+    // Renaming onto an existing label used to be allowed: adminAddWord guards
+    // this with a 409 but the update path did not, so two words could end up
+    // sharing a normalized_label. Training then produces two classes with the
+    // same name, which corrupts the dataset rather than just the display.
+    //
+    // Skipped when the normalized label is unchanged, so re-saving a word with
+    // its own label (or only a casing/punctuation tweak) is not a false positive.
+    if (updatedNormalized !== word.normalized_label) {
+      const duplicate = await Word.findOne({
+        where: {
+          id: { [Op.ne]: word.id },
+          normalized_label: updatedNormalized,
+          sign_type: updatedSignType,
+          status: { [Op.in]: ["pending", "approved"] },
+        },
+      });
+      if (duplicate) {
+        return res.status(409).json({
+          message: "A word with this label already exists in the system",
+          word_id: duplicate.id,
+        });
+      }
+    }
+
+    // Only touch the category when the form supplied one; a blank/absent value
+    // leaves the existing link intact.
+    const nextCategoryId =
+      category !== undefined && category !== null && String(category).trim() !== ""
+        ? await resolveCategoryId(category)
+        : word.category_id;
+
+    await word.update({
+      label: updatedLabel,
+      normalized_label: updatedNormalized,
+      description: description ?? word.description,
+      sign_type: updatedSignType,
+      category_id: nextCategoryId,
+      vocabulary: updatedVocabulary,
+      filipino_translation:
+        filipino_translation !== undefined
+          ? filipino_translation
+          : word.filipino_translation,
+    });
+
+    await logActivity({
+      administrator_id: req.user.id,
+      action: "updated_word",
+      target_type: "word",
+      target_id: word.id,
+      details: `Updated word: ${word.label}`,
+    });
+
+    return res.status(200).json({ message: "Word updated successfully" });
+  } catch (err) {
+    console.error("Update word error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ── DELETE /api/words/:id ─────────────────────────────────────
+const deleteWord = async (req, res) => {
+  try {
+    const word = await Word.findOne({ where: { id: req.params.id } });
+    if (!word) {
+      return res.status(404).json({ message: "Word not found" });
+    }
+
+    const deletedWordId = word.id;
+    const deletedWordLabel = word.label;
+
+    await word.destroy();
+
+    await logActivity({
+      administrator_id: req.user.id,
+      action: "deleted_word",
+      target_type: "word",
+      target_id: deletedWordId,
+      details: `Deleted word: ${deletedWordLabel} — all associated gesture samples and word bank entry removed`,
+    });
+
+    return res.status(200).json({
+      message:
+        "Word deleted successfully. All associated gesture samples and word bank entry have been removed.",
+    });
+  } catch (err) {
+    console.error("Delete word error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ── GET /api/words/:id/samples ────────────────────────────────
+const getSamples = async (req, res) => {
+  try {
+    const word = await Word.findOne({ where: { id: req.params.id } });
+    if (!word) {
+      return res.status(404).json({ message: "Word not found" });
+    }
+
+    // hand_track (~36 KB per letter clip) is training data, not something the admin
+    // list shows; leave it out of the response.
+    const samples = await GestureSample.findAll({
+      attributes: { exclude: ["hand_track"] },
+      where: { word_id: word.id },
+      include: [
+        { model: Administrator, as: "submitter", attributes: ["id", "username"] },
+      ],
+      order: [["created_at", "DESC"]],
+    });
+
+    console.log(`GET /api/words/${req.params.id}/samples`);
+    console.log(`  Word: ${word.label}`);
+    console.log(`  Total samples found: ${samples.length}`);
+    if (samples.length > 0) {
+      console.log(`  Sample types:`, samples.map(s => ({
+        id: s.id,
+        status: s.status,
+        has_sequence: !!s.sequence,
+        sequence_length: s.sequence?.length || 0,
+        file_url: s.file_url?.substring(0, 50)
+      })));
+    }
+
+    return res.status(200).json({
+      samples,
+      // Derived from the rows this handler already loaded rather than from the
+      // stored columns, which drift on delete — see getSampleCounts.
+      total_samples: samples.length,
+      approved_sample_count: samples.filter((s) => s.status === "approved").length,
+      is_active: word.is_active,
+      activation_threshold: getActivationThreshold(),
+      sample_cap: getSampleCap(word),
+    });
+  } catch (err) {
+    console.error("Get samples error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ── DELETE /api/words/:id/samples ────────────────────────────
+// Permanently delete every gesture sample for a word, keeping the word itself.
+//
+// This existed only as hand-written SQL before. Clearing a word's training data
+// is a normal part of the dataset workflow — a category is re-recorded because
+// the takes were inconsistent, or a batch is found to be mislabelled — and the
+// only alternatives were deleting the whole word (losing its id, so a re-import
+// renumbers and the label->id mapping shifts) or running DELETE by hand against
+// production.
+//
+// Deliberately NOT touched here:
+//   * word.status    — an admin decision, not a consequence of having no clips.
+//   * word.is_active — set only by the model-deploy path, which reconciles
+//     against the deployed model's trained_word_ids. A deployed model still
+//     genuinely recognises this word; clearing the rows we would retrain FROM
+//     does not change what the shipped .tflite can do. Flipping it here would
+//     hide a word the app can still predict.
+//
+// Requires ?confirm=<label> matching the word exactly. The guard is the point:
+// this is unrecoverable, the row count is not visible from the URL, and an
+// id-only call is too easy to fire at the wrong word.
+const deleteAllSamplesForWord = async (req, res) => {
+  try {
+    const word = await Word.findOne({ where: { id: req.params.id } });
+    if (!word) {
+      return res.status(404).json({ message: "Word not found" });
+    }
+
+    const confirm = req.query.confirm ?? req.body?.confirm;
+    if (confirm !== word.label) {
+      return res.status(400).json({
+        message:
+          `Confirmation required. Pass confirm="${word.label}" to delete every ` +
+          `sample for this word. This cannot be undone.`,
+        word_id: word.id,
+        label: word.label,
+      });
+    }
+
+    const total = await GestureSample.count({ where: { word_id: word.id } });
+    if (total === 0) {
+      return res.status(200).json({
+        message: `"${word.label}" already has no samples.`,
+        deleted: 0,
+      });
+    }
+
+    const deleted = await GestureSample.destroy({ where: { word_id: word.id } });
+
+    // Keep the stored counter consistent with the rows. total_samples is always
+    // derived at read time (see getSampleCounts), but approved_sample_count is
+    // read back by checkAndActivateWord, so it must not be left stale.
+    await word.update({ approved_sample_count: 0 });
+
+    await logActivity({
+      administrator_id: req.user.id,
+      action: "deleted_word_samples",
+      target_type: "word",
+      target_id: word.id,
+      details:
+        `Deleted all ${deleted} gesture sample(s) for word: ${word.label}. ` +
+        `The word row was kept; is_active and status were left unchanged.`,
+    });
+
+    return res.status(200).json({
+      message: `Deleted all ${deleted} sample(s) for "${word.label}".`,
+      word_id: word.id,
+      label: word.label,
+      deleted,
+    });
+  } catch (err) {
+    console.error("Delete all samples error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ── PATCH /api/words/:id/set-video ───────────────────────────
+async function setVideo(req, res) {
+  try {
+    const word = await Word.findByPk(req.params.id);
+    if (!word) return res.status(404).json({ message: "Word not found" });
+
+    let videoUrl = req.body.video_url || null;
+
+    if (!videoUrl && req.body.video_base64) {
+      // Uploading a new file replaces any existing demo video (one per word)
+      videoUrl = await saveVideo(
+        Buffer.from(req.body.video_base64, "base64"),
+        req.body.video_ext,
+        word.id,
+      );
+    }
+
+    if (!videoUrl)
+      return res
+        .status(400)
+        .json({ message: "Either video_url or video_base64 is required" });
+
+    await word.update({ video_url: videoUrl });
+
+    await logActivity({
+      administrator_id: req.user.id,
+      action: "set_word_video",
+      target_type: "word",
+      target_id: word.id,
+      details: `Set demo video for word: ${word.label}`,
+    });
+
+    return res
+      .status(200)
+      .json({ message: "Video updated", video_url: videoUrl });
+  } catch (err) {
+    console.error("Set video error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+// ── POST /api/words/:id/upload-videos ────────────────────────
+// Admin uploads video files — backend forwards each to ML service for
+// MediaPipe landmark extraction, then stores the resulting GestureSample rows
+const uploadVideos = async (req, res) => {
+  try {
+    const word = await Word.findByPk(req.params.id);
+    if (!word) return res.status(404).json({ message: "Word not found" });
+
+    // Files are attached by multer middleware before this handler runs
+    const files = req.files;
+    if (!files || files.length === 0) {
+      return res.status(400).json({ message: "At least one file is required" });
+    }
+
+    // Who signed these clips, for signer-grouped cross-validation.
+    //
+    // Cannot be derived from submitted_by — that is the uploading ADMIN, identical
+    // across every signer (1 for 1664 of 1726 existing rows). Without a real grouping
+    // key, cross-validation puts the same signer in both train and test and the
+    // resulting accuracy overstates performance for a new user.
+    //
+    // A generated ID per upload batch would make repeated batches from one person
+    // look like several independent signers and could falsely satisfy the diversity
+    // gate. Require the real signer ID and normalize its spelling across batches.
+    const providedSessionId = (req.body?.session_id || "").trim().toLowerCase();
+    if (!providedSessionId) {
+      return res.status(400).json({
+        message: "Signer ID is required. Reuse the same ID for this person across every word and batch.",
+      });
+    }
+    if (providedSessionId.length > 100) {
+      return res.status(400).json({ message: "Signer/session ID must be at most 100 characters." });
+    }
+    const sessionId = providedSessionId;
+
+    // Refuse a second concurrent batch for the same word. The UI disables its
+    // upload button while a job is live, but the server cannot rely on that —
+    // two batches would race on the same counters below.
+    //
+    // Sweep first: a batch orphaned by a backend restart would otherwise hold
+    // this lock forever and refuse every new upload for the word.
+    await failStaleUploadJobs();
+    const live = await UploadJob.findOne({
+      where: { word_id: word.id, status: "processing" },
+    });
+    if (live) {
+      return res.status(409).json({
+        message: "An upload is already in progress for this word.",
+        job: live,
+      });
+    }
+
+    const job = await UploadJob.create({
+      word_id: word.id,
+      started_by: req.user.id,
+      session_id: sessionId,
+      status: "processing",
+      total_count: files.length,
+      last_progress_at: new Date(),
+    });
+
+    // Answer before doing any extraction. 50 clips x 60s of MediaPipe is up to 50
+    // minutes, and Render's proxy closes the request at ~30 seconds — the same wall
+    // trainModel returns 202 to avoid. The client polls the job row instead, so the
+    // batch also survives the admin closing the modal or reloading the page.
+    res.status(202).json({
+      message: "Upload started. Poll /api/words/upload-jobs/:jobId for progress.",
+      job,
+    });
+
+    // Detached: the response is already sent, so nothing here may touch `res`.
+    //
+    // Holds every multer buffer (memory storage, up to 50 x 100MB) alive for the
+    // life of the batch. Acceptable at current single-admin usage; moving to disk
+    // storage or a real queue is the fix if batches grow.
+    (async () => {
+      const results = [];
+      let successCount = 0;
+      let failCount = 0;
+
+      try {
+        for (const file of files) {
+          // Heartbeat BEFORE the clip, so the stale window starts from when this
+          // clip was sent rather than when the previous one finished — which
+          // keeps a slow-but-live clip from being mistaken for a dead batch.
+          await job.update({ last_progress_at: new Date() }).catch(() => {});
+
+          const result = await extractAndStoreSample(
+            word,
+            file.buffer,
+            file.originalname,
+            file.mimetype,
+            req.user.id,
+            null,
+            sessionId,
+          );
+          results.push(result);
+          if (result.status === "ok") successCount++;
+          else failCount++;
+
+          // Per-clip so the client shows real progress. Best-effort: a failed
+          // progress write must not abort a batch that is otherwise fine.
+          //
+          // `results` is written here too, not only at the end, so a batch killed
+          // by a restart still records which clips were stored. A copy, because
+          // Sequelize compares JSON values and would skip saving a mutated array
+          // it already holds.
+          await job
+            .update({
+              processed_count: results.length,
+              success_count: successCount,
+              fail_count: failCount,
+              results: [...results],
+              last_progress_at: new Date(),
+            })
+            .catch(() => {});
+        }
+
+        // Surface the outcome server-side. A wholly-failed batch is otherwise
+        // indistinguishable from a successful one in the terminal.
+        if (failCount > 0) {
+          console.warn(
+            `[uploadVideos] "${word.label}": ${successCount} stored, ${failCount} FAILED ` +
+              `(per-clip reasons logged above)`,
+          );
+        } else {
+          console.log(`[uploadVideos] "${word.label}": ${successCount} stored`);
+        }
+
+        // total_samples is no longer incremented — it is derived from
+        // gesture_samples at read time (see getSampleCounts). approved_sample_count
+        // is still written from a real COUNT because checkAndActivateWord reads it.
+        const newApproved = await getApprovedSampleCount(word.id);
+        await word.update({ approved_sample_count: newApproved });
+        await word.reload();
+        await checkAndActivateWord(word, req.user.id);
+
+        await logActivity({
+          administrator_id: req.user.id,
+          action: "uploaded_samples",
+          target_type: "word",
+          target_id: word.id,
+          // Signer ID included so a mislabelled batch can be traced from the
+          // log alone: the wrong ID splits one person into two and skews
+          // signer-held-out evaluation, and nothing else records it per batch.
+          details: `Uploaded gesture samples for word: ${word.label} (signer: ${sessionId}) — ${successCount} processed, ${failCount} failed/skipped`,
+        });
+
+        await job.update({
+          status: "completed",
+          results,
+          processed_count: results.length,
+          success_count: successCount,
+          fail_count: failCount,
+          finished_at: new Date(),
+        });
+      } catch (err) {
+        // Only a batch-level failure lands here — an unreachable ML service, a DB
+        // error. Individual clip failures are recorded per-clip and still complete
+        // the job. Partial results are kept: those clips really were stored.
+        console.error(`[uploadVideos] job ${job.id} FAILED:`, err);
+        await job
+          .update({
+            status: "failed",
+            error: err.message || "Unknown upload error",
+            results,
+            finished_at: new Date(),
+          })
+          .catch(() => {});
+
+        // The counters above only ran on the SUCCESS path, so the clips stored
+        // before the failure (results.length may be > 0) would otherwise sit
+        // uncounted — invisible in the Samples column and "Awaiting Deployment"
+        // — until some later, unrelated action happened to recompute them.
+        // Also best-effort: a failed batch must still be reported even if this
+        // recount or the log write itself fails.
+        try {
+          const newApproved = await getApprovedSampleCount(word.id);
+          await word.update({ approved_sample_count: newApproved });
+          await word.reload();
+          await checkAndActivateWord(word, req.user.id);
+        } catch (recountErr) {
+          console.error(`[uploadVideos] job ${job.id} recount FAILED:`, recountErr);
+        }
+
+        await logActivity({
+          administrator_id: req.user.id,
+          action: "upload_failed",
+          target_type: "word",
+          target_id: word.id,
+          details:
+            `Upload for word: ${word.label} (signer: ${sessionId}) stopped early — ` +
+            `${results.length} of ${files.length} processed, ${successCount} stored: ` +
+            `${err.message || "Unknown error"}`,
+        });
+      }
+    })();
+  } catch (err) {
+    console.error("Upload videos error:", err);
+    // The 202 may already have been sent, in which case the failure belongs on the
+    // job row (handled above) and the headers are gone.
+    if (res.headersSent) return;
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ── Orphaned upload batches ───────────────────────────────────
+// The extraction loop in uploadVideos is an in-process async IIFE, so a backend
+// restart mid-batch kills it along with the clips still held in memory. The row
+// is left at 'processing' forever: the banner freezes, the word's upload lock
+// refuses every new batch with 409, and nothing ever reports what happened.
+//
+// The loop stamps last_progress_at before and after every clip, and one clip
+// either returns or times out within the ML extraction timeout. A 'processing'
+// row whose heartbeat is older than that timeout plus a margin therefore has no
+// live loop behind it — on this server or any other sharing the database, which
+// is why this checks the heartbeat instead of failing every 'processing' row on
+// startup.
+const UPLOAD_JOB_STALE_MS =
+  Number(process.env.ML_EXTRACT_TIMEOUT_MS || 180000) + 2 * 60 * 1000;
+
+const failStaleUploadJobs = async () => {
+  try {
+    const stale = await UploadJob.findAll({
+      where: {
+        status: "processing",
+        last_progress_at: { [Op.lt]: new Date(Date.now() - UPLOAD_JOB_STALE_MS) },
+      },
+    });
+    for (const job of stale) {
+      const stored = job.success_count || 0;
+      // Conditional on status, so two servers sweeping at once cannot both
+      // rewrite the same row, and a job that finished in the meantime is left
+      // alone.
+      const [updated] = await UploadJob.update(
+        {
+          status: "failed",
+          error:
+            `The server stopped during this batch (it restarted or crashed). ` +
+            `${job.processed_count} of ${job.total_count} clip(s) were processed ` +
+            `and ${stored} stored; the rest were never sent. Re-upload the missing clips.`,
+          finished_at: new Date(),
+        },
+        { where: { id: job.id, status: "processing" } },
+      );
+      // Only when THIS call is the one that actually flipped the row — with
+      // two servers sweeping at once, this stops both from recounting the
+      // word and logging the same failure twice.
+      if (updated) {
+        console.warn(
+          `[failStaleUploadJobs] job ${job.id} (word ${job.word_id}) orphaned at ` +
+            `${job.processed_count}/${job.total_count} — marked failed`,
+        );
+
+        // Same reasoning as the in-request failure path: the clips stored
+        // before the batch died (job.success_count) were never counted,
+        // because that only happens on the success path.
+        try {
+          const word = await Word.findByPk(job.word_id);
+          if (word) {
+            const newApproved = await getApprovedSampleCount(word.id);
+            await word.update({ approved_sample_count: newApproved });
+            await word.reload();
+            await checkAndActivateWord(word, job.started_by);
+
+            await logActivity({
+              administrator_id: job.started_by,
+              action: "upload_failed",
+              target_type: "word",
+              target_id: word.id,
+              details:
+                `Upload for word: ${word.label} (signer: ${job.session_id}) was orphaned ` +
+                `by a server restart — ${job.processed_count} of ${job.total_count} ` +
+                `processed, ${stored} stored. Re-upload the missing clips.`,
+            });
+          }
+        } catch (recountErr) {
+          console.error(
+            `[failStaleUploadJobs] job ${job.id} recount/log FAILED:`,
+            recountErr,
+          );
+        }
+      }
+    }
+  } catch (err) {
+    // Best-effort: a failed sweep must not break the read or upload that ran
+    // it. The next call tries again.
+    console.error("[failStaleUploadJobs] sweep failed:", err.message);
+  }
+};
+
+// Label and category of the job's word, so the results modal and banners can
+// name it even when that word is not on the admin's current page.
+//
+// Word has no `category` column — only category_id, a foreign key — so the
+// name has to come through Category via the word's own "category_ref"
+// association (see models/index.js and withCategoryName above). Selecting a
+// bare "category" attribute here throws (Sequelize rejects an unknown
+// column), which is why this used to 500 on every call to these two routes,
+// for every admin, without ever reaching the try/catch's own logging.
+const UPLOAD_JOB_WORD_INCLUDE = [
+  {
+    model: Word,
+    as: "word",
+    attributes: ["id", "label"],
+    include: [{ model: Category, as: "category_ref", attributes: ["name"] }],
+  },
+  // Who started the batch, so another admin's banner can say whose upload it
+  // is rather than showing an unattributed card. No FK (see UploadJob.js), so
+  // this is a plain LEFT join — a deleted administrator's job just gets no
+  // starter, which withJobWordCategoryName's caller falls back on.
+  { model: Administrator, as: "starter", attributes: ["id", "username"] },
+];
+
+// Flattens job.word.category_ref.name to job.word.category, matching the
+// `category` shape withCategoryName gives Word elsewhere in this file.
+const withJobWordCategoryName = (job) => {
+  const json = typeof job.toJSON === "function" ? job.toJSON() : job;
+  if (json.word) {
+    const name = json.word.category_ref?.name || "additional words";
+    delete json.word.category_ref;
+    json.word = { ...json.word, category: name };
+  }
+  return json;
+};
+
+// Poll target for a single upload batch. Mirrors modelController.getModelStatus.
+const getUploadJob = async (req, res) => {
+  try {
+    // The admin UI polls this every 5 seconds, so sweeping here is what turns an
+    // orphaned batch into a visible failure without anyone restarting anything.
+    await failStaleUploadJobs();
+    const job = await UploadJob.findByPk(req.params.jobId, {
+      include: UPLOAD_JOB_WORD_INCLUDE,
+    });
+    if (!job) return res.status(404).json({ message: "Upload job not found" });
+    return res.json({ job: withJobWordCategoryName(job) });
+  } catch (err) {
+    console.error("Get upload job error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// The live batch for a word, if any. Lets the admin UI re-adopt a job that is
+// still running after a reload or navigating back to the page — component state
+// does not survive either, but this row does.
+const getActiveUploadJob = async (req, res) => {
+  try {
+    await failStaleUploadJobs();
+    const job = await UploadJob.findOne({
+      where: { word_id: req.params.id, status: "processing" },
+      order: [["created_at", "DESC"]],
+    });
+    return res.json({ job: job || null });
+  } catch (err) {
+    console.error("Get active upload job error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ── GET /api/words/upload-jobs/active ─────────────────────────
+// Every extraction batch currently running, across all words and admins.
+//
+// The per-word endpoint above forced the page to ask once per visible row,
+// which capped visibility at the current page: a batch on page 2 was invisible,
+// and the page tracked only the first one it happened to find. Two admins
+// uploading to different words is allowed by the server — the upload lock is
+// per word, not global — so the second admin's batch ran with no progress shown
+// at all. An upload that looks like nothing is happening invites a re-upload,
+// and the clips really are being stored meanwhile.
+const getActiveUploadJobs = async (req, res) => {
+  try {
+    // Without this an orphaned batch is re-adopted as live forever.
+    await failStaleUploadJobs();
+    const jobs = await UploadJob.findAll({
+      where: { status: "processing" },
+      include: UPLOAD_JOB_WORD_INCLUDE,
+      order: [["created_at", "ASC"]],
+    });
+    return res.json({ jobs: jobs.map(withJobWordCategoryName) });
+  } catch (err) {
+    console.error("Get active upload jobs error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+module.exports = {
+  failStaleUploadJobs,
+  getAllWords,
+  getSignerIds,
+  getActiveUploadJobs,
+  getWordStats,
+  getWordById,
+  adminAddWord,
+  updateWord,
+  deleteWord,
+  getSamples,
+  deleteAllSamplesForWord,
+  setVideo,
+  uploadVideos,
+  getUploadJob,
+  getActiveUploadJob,
+};

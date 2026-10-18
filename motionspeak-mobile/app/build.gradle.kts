@@ -1,0 +1,132 @@
+import java.util.Properties
+
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+
+// Release signing credentials, read from motionspeak-mobile/keystore.properties
+// (gitignored). Absent on a machine without the keystore, in which case debug
+// builds still work and only assembleRelease fails.
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("keystore.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
+android {
+    namespace = "com.example.motionspeak"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "com.example.motionspeak"
+        minSdk = 24
+        targetSdk = 34
+        versionCode = 10
+        versionName = "1.10"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // x86/x86_64 are emulator-only ABIs — no real phone ships them. They
+        // were doubling the APK's size (258 of 461 MB) because TensorFlow
+        // Lite's Flex library (needed for the LSTM's SELECT_TF_OPS — see
+        // train.py) is 67-115 MB per ABI. Dropping them still covers every
+        // real device; only an x86 emulator loses the ability to install this
+        // build (use an arm64 emulator image, or a real phone, instead).
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = keystoreProps.getProperty("storeFile")?.let { rootProject.file(it) }
+            storePassword = keystoreProps.getProperty("storePassword")
+            keyAlias = keystoreProps.getProperty("keyAlias")
+            keyPassword = keystoreProps.getProperty("keyPassword")
+        }
+    }
+
+    buildTypes {
+        debug {
+            // Installs beside the release app (com.example.motionspeak) instead of
+            // failing with a signature mismatch, so a debug build never needs the
+            // real app uninstalled (which would wipe its settings, history and
+            // downloaded models).
+            applicationIdSuffix = ".dev"
+            // Local backend for on-device testing (PC LAN IP, port 8080).
+            // Requires the cleartext exception in network_security_config.xml.
+            buildConfigField("String", "BASE_URL", "\"https://siglaph.online/api/\"")
+        }
+        release {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            buildConfigField("String", "BASE_URL", "\"https://siglaph.online/api/\"")
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+    buildFeatures {
+        viewBinding = true
+        buildConfig = true
+    }
+}
+
+dependencies {
+    implementation("androidx.core:core-ktx:1.12.0")
+    // Launch splash (Android 12+ system splash, backported to API 24+)
+    implementation("androidx.core:core-splashscreen:1.0.1")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("com.google.android.material:material:1.11.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("androidx.cardview:cardview:1.0.0")
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
+    implementation("androidx.viewpager2:viewpager2:1.0.0")
+    
+    // CameraX
+    implementation("androidx.camera:camera-core:1.3.0")
+    implementation("androidx.camera:camera-camera2:1.3.0")
+    implementation("androidx.camera:camera-lifecycle:1.3.0")
+    implementation("androidx.camera:camera-view:1.3.0")
+    
+    // MediaPipe
+    implementation("com.google.mediapipe:tasks-vision:0.10.14")
+    
+    // TensorFlow Lite
+    implementation("org.tensorflow:tensorflow-lite:2.14.0")
+    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+    implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.14.0")
+    
+    // Retrofit for API calls
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    
+    // OkHttp
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    
+    // Gson
+    implementation("com.google.code.gson:gson:2.10.1")
+    
+    // Glide for images
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    
+    // DrawerLayout
+    implementation("androidx.drawerlayout:drawerlayout:1.2.0")
+    
+    testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+}
