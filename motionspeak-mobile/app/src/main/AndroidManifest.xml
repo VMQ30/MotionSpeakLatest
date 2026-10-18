@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
@@ -103,6 +104,14 @@
              top half, so on most phones the keyboard leaves it in view and nothing
              moves; on a short screen the system shifts the window just enough. -->
         <activity android:name=".OnboardingActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustPan" />
+
+        <!-- Scarlet SOS Emergency Alert Window -->
+        <activity
+            android:name=".SosActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Sigla.Sos" />
         
 
     </application>

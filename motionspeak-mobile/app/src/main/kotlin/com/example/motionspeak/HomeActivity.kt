@@ -1,6 +1,9 @@
 package com.example.motionspeak
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.ColorStateList
 import android.os.Bundle
 import android.os.Handler
@@ -32,7 +35,7 @@ import java.util.TimeZone
 // for launch and the entrance animations to finish first.
 private const val PRELOAD_DELAY_MS = 1500L
 
-class HomeActivity : AppCompatActivity() {
+class HomeActivity : BaseActivity() {
 
     private lateinit var binding: ActivityHomeBinding
     private lateinit var appSettings: AppSettings
@@ -41,6 +44,16 @@ class HomeActivity : AppCompatActivity() {
     // time this screen instance renders them (app-motion spec §4.2).
     private var categoriesEntrancePlayed = false
     private var recentEntrancePlayed = false
+
+    // Real-time clock receiver to dynamically update the greeting as time passes
+    // (every minute via ACTION_TIME_TICK, or when time or timezone is changed).
+    private val rtcReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (::binding.isInitialized) {
+                renderGreeting()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,14 +93,34 @@ class HomeActivity : AppCompatActivity() {
 
         BottomNavHelper.setup(this, Tab.HOME)
         binding.homeSearch.setOnClickListener { BottomNavHelper.openWordBankSearch(this) }
-        binding.btnHeroStart.setOnClickListener { BottomNavHelper.openTranslator(this) }
-        binding.btnRecentStart.setOnClickListener { BottomNavHelper.openTranslator(this) }
+        binding.btnHeroStart.setOnClickListener {
+            Haptics.trigger(it)
+            BottomNavHelper.openTranslator(this)
+        }
         binding.tvCategoriesViewAll.setOnClickListener { BottomNavHelper.open(this, Tab.WORD_BANK) }
         binding.tvRecentViewAll.setOnClickListener { BottomNavHelper.open(this, Tab.HISTORY) }
 
         // Home is the root: back leaves the app. finishAffinity() also closes the
         // other tab screens kept alive behind it by the bottom bar.
         onBackPressedDispatcher.addCallback(this) { finishAffinity() }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_TIME_TICK)
+            addAction(Intent.ACTION_TIME_CHANGED)
+            addAction(Intent.ACTION_TIMEZONE_CHANGED)
+        }
+        ContextCompat.registerReceiver(this, rtcReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        try {
+            unregisterReceiver(rtcReceiver)
+        } catch (_: IllegalArgumentException) {
+        }
     }
 
     override fun onResume() {
@@ -121,8 +154,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun renderGreeting() {
-        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        val greeting = homeGreeting(hour, appSettings.userName)
+        val greeting = dynamicRtcGreeting(appSettings.userName)
         binding.tvGreetingTitle.text = greeting.title
         binding.tvGreetingSubtitle.text = greeting.subtitle.orEmpty()
         binding.tvGreetingSubtitle.isVisible = greeting.subtitle != null
@@ -143,9 +175,9 @@ class HomeActivity : AppCompatActivity() {
         if (animate || categories.isNotEmpty()) categoriesEntrancePlayed = true
         val stepMs = resources.getInteger(R.integer.motion_list_stagger).toLong()
 
-        val brand = ContextCompat.getColor(this, R.color.ms_brand)
-        val onBrand = ContextCompat.getColor(this, R.color.ms_on_brand)
-        val onBrandSecondary = ContextCompat.getColor(this, R.color.ms_on_brand_secondary)
+        val brand = ContextCompat.getColor(this, R.color.ms_home_brand)
+        val onBrand = ContextCompat.getColor(this, R.color.ms_home_on_brand)
+        val onBrandSecondary = ContextCompat.getColor(this, R.color.ms_home_on_brand_secondary)
         val gap = resources.getDimensionPixelSize(R.dimen.ms_space_12) / 2
 
         categories.forEachIndexed { index, category ->

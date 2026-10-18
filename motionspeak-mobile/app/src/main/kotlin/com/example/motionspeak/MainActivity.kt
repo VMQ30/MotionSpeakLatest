@@ -1,6 +1,8 @@
 package com.example.motionspeak
 
 import android.Manifest
+import android.animation.ArgbEvaluator
+import android.animation.ValueAnimator
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
@@ -147,7 +149,7 @@ private const val SLOT_CANONICALIZATION_ENABLED = false
 // flip if reversed. MUST equal Python _CHIRALITY_RIGHT_IS_NEGATIVE_CROSS.
 private const val CHIRALITY_RIGHT_IS_NEGATIVE_CROSS = true
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : BaseActivity() {
 
     private lateinit var binding   : ActivityMainBinding
     // Nullable rather than lateinit: both are now built on a background thread,
@@ -246,7 +248,6 @@ class MainActivity : AppCompatActivity() {
 
     // ── UI state ──────────────────────────────────────────────────────────────
     private var showFilipino       = true
-    private var emergencyHoldStart = 0L
 
     // Tap-to-sign. `tapMode` is read on MediaPipe's callback thread to route
     // each frame, hence @Volatile.
@@ -370,13 +371,10 @@ class MainActivity : AppCompatActivity() {
 
         modelInitJob = lifecycleScope.launch(Dispatchers.IO) {
             withContext(Dispatchers.Main) {
-                setStatus("Starting camera…", StatusKind.LOADING)
+                setStatus("Not ready", StatusKind.NOT_READY)
             }
 
             try {
-                withContext(Dispatchers.Main) {
-                    setStatus("Loading hand tracking…", StatusKind.LOADING)
-                }
 
                 // Built first, before any network work. MediaPipe comes from
                 // bundled assets and owes nothing to the backend, so making it
@@ -508,7 +506,7 @@ class MainActivity : AppCompatActivity() {
                 val hasModel = ModelUpdateManager.checkAndUpdate(this@MainActivity)
                 if (!hasModel) {
                     withContext(Dispatchers.Main) {
-                        setStatus("Couldn't download the model", StatusKind.ERROR)
+                        setStatus("Not ready", StatusKind.NOT_READY)
                     }
                     return@launch
                 }
@@ -518,24 +516,18 @@ class MainActivity : AppCompatActivity() {
                 // may belong to no model at all. Refetch BEFORE the model reports
                 // ready, otherwise the first recognitions of the session resolve
                 // against the wrong words.
-                withContext(Dispatchers.Main) {
-                    setStatus("Updating word bank…", StatusKind.LOADING)
-                }
                 refreshWordBank()
 
                 // Initialize predictor (it will fetch labels from backend).
                 // init() now suspends until labels actually arrive, so the old
                 // blanket delay(2000) — which stalled every entry to this screen
                 // whether or not it was needed — is gone.
-                withContext(Dispatchers.Main) {
-                    setStatus("Loading words…", StatusKind.LOADING)
-                }
                 service.init()
 
                 withContext(Dispatchers.Main) { onPredictorLoaded(service) }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    setStatus("Error: ${e.message}", StatusKind.ERROR)
+                    setStatus("Not ready", StatusKind.NOT_READY)
                     Log.e(TAG, "Model error: ${e.message}", e)
                 }
             }
@@ -685,17 +677,55 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private enum class StatusKind { LOADING, READY, ERROR }
+    private enum class StatusKind { LOADING, READY, NOT_READY, ERROR }
 
-    /** Sheet status line: text plus a coloured dot (spec §5). Main thread only. */
+    private var statusFlickerAnimator: ValueAnimator? = null
+
+    private fun startStatusFlicker() {
+        if (statusFlickerAnimator?.isRunning == true) return
+        statusFlickerAnimator?.cancel()
+
+        val greenColor = ContextCompat.getColor(this, R.color.ms_status_ready_green)
+        val lightGreenColor = ContextCompat.getColor(this, R.color.ms_status_ready_light_green)
+
+        statusFlickerAnimator = ValueAnimator.ofObject(
+            ArgbEvaluator(),
+            greenColor,
+            lightGreenColor
+        ).apply {
+            duration = 450L
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
+            addUpdateListener { anim ->
+                val color = anim.animatedValue as Int
+                binding.statusDot.backgroundTintList = ColorStateList.valueOf(color)
+            }
+            start()
+        }
+    }
+
+    private fun stopStatusFlicker() {
+        statusFlickerAnimator?.cancel()
+        statusFlickerAnimator = null
+    }
+
+    /** Sheet status line: text plus a coloured dot. Main thread only. */
     private fun setStatus(text: String, kind: StatusKind) {
         Motion.swapText(binding.tvStatus, text)
-        val colour = when (kind) {
-            StatusKind.LOADING -> R.color.ms_text_secondary
-            StatusKind.READY -> R.color.ms_success
-            StatusKind.ERROR -> R.color.ms_danger
+
+        when (kind) {
+            StatusKind.READY -> {
+                binding.tvStatus.setTextColor(ContextCompat.getColor(this, R.color.ms_status_ready_text))
+                startStatusFlicker()
+            }
+            StatusKind.NOT_READY, StatusKind.ERROR, StatusKind.LOADING -> {
+                stopStatusFlicker()
+                binding.tvStatus.setTextColor(ContextCompat.getColor(this, R.color.ms_status_not_ready_text))
+                binding.statusDot.backgroundTintList = ColorStateList.valueOf(
+                    ContextCompat.getColor(this, R.color.ms_scarlet)
+                )
+            }
         }
-        Motion.tintTo(binding.statusDot, ContextCompat.getColor(this, colour))
     }
 
     // ── Predictor callbacks ───────────────────────────────────────────────────
@@ -836,8 +866,9 @@ class MainActivity : AppCompatActivity() {
         binding.progressBuffer.setProgress(0, true)
         binding.tvBufferPercent.text = "0%"
 
-        // Text-to-speech
-        speak(result.label)
+        // Text-to-speech — speaks Filipino translation when available and active
+        val textToSpeak = if (showFilipinoLine && !filipino.isNullOrBlank()) filipino else result.label
+        speak(textToSpeak)
 
         // Save to history off the main thread: add() serializes the whole
         // list and writes prefs, and this fires at the exact moment the
@@ -980,7 +1011,7 @@ class MainActivity : AppCompatActivity() {
         // carry the state change.
         when (state) {
             TapSignSession.State.IDLE -> {
-                binding.btnTapRecord.text = "Tap to sign"
+                binding.btnTapRecord.text = "Sign"
                 binding.btnTapRecord.isEnabled = true
                 Motion.tintTo(binding.btnTapRecord, accent, Motion.QUICK)
                 Motion.hide(binding.tvTapPrompt, View.GONE)
@@ -1144,33 +1175,36 @@ class MainActivity : AppCompatActivity() {
         binding.segModeTap.setOnClickListener { selectMode(tap = true) }
         binding.segModeLive.setOnClickListener { selectMode(tap = false) }
 
-        // Emergency — hold 2 seconds
-        binding.btnEmergency.setOnTouchListener { _, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    emergencyHoldStart = SystemClock.elapsedRealtime()
-                    binding.btnEmergency.postDelayed(emergencyRunnable, 2000)
-                    true
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    binding.btnEmergency.removeCallbacks(emergencyRunnable)
-                    true
-                }
-                else -> false
+        // Speak again & Copy result buttons
+        binding.btnSpeakAgain.setOnClickListener {
+            val label = lastLabel ?: return@setOnClickListener
+            val filipino = getFilipinoTranslation(label)
+            val toSpeak = if (showFilipino && !filipino.isNullOrBlank()) filipino else label
+            speak(toSpeak)
+        }
+        binding.btnCopyResult.setOnClickListener {
+            val text = binding.tvResult.text.toString()
+            if (text.isNotBlank()) {
+                val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Translation", text))
+                Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show()
             }
         }
-    }
-
-    private val emergencyRunnable = Runnable {
-        speak("Help me")
-        Toast.makeText(this, "Emergency alert played", Toast.LENGTH_LONG).show()
     }
 
     // Both toggles in the row read as a STATE rather than an action, and are
     // filled when on. Mixing the two — one saying what it will do, the other what
     // it is — made the pair ambiguous once they sat side by side.
     private fun updateFilipinoToggleLabel() {
-        applyToggleStyle(binding.btnToggleFilipino, showFilipino)
+        applyElectricBlueToggleStyle(binding.btnToggleFilipino, showFilipino)
+    }
+
+    /** Filled electric blue when on, tint when off (Filipino toggle chip in the sheet). */
+    private fun applyElectricBlueToggleStyle(button: MaterialButton, on: Boolean) {
+        val bg = if (on) R.color.ms_home_brand else R.color.ms_tint
+        val fg = if (on) R.color.ms_home_on_brand else R.color.ms_home_accent
+        Motion.tintTo(button, ContextCompat.getColor(this, bg), Motion.QUICK)
+        button.setTextColor(ContextCompat.getColor(this, fg))
     }
 
     /**
@@ -1202,14 +1236,14 @@ class MainActivity : AppCompatActivity() {
         button.setTextColor(ContextCompat.getColor(this, fg))
     }
 
-    /** Filled brand when on, transparent when off (segments inside the white pill). */
+    /** Filled electric violet when on, transparent when off (segments inside the white pill). */
     private fun applySegmentStyle(button: MaterialButton, on: Boolean) {
         Motion.tintTo(
             button,
-            if (on) ContextCompat.getColor(this, R.color.ms_brand) else Color.TRANSPARENT,
+            if (on) ContextCompat.getColor(this, R.color.ms_cat_violet_bg) else Color.TRANSPARENT,
             Motion.QUICK,
         )
-        button.setTextColor(ContextCompat.getColor(this, if (on) R.color.ms_on_brand else R.color.ms_text_secondary))
+        button.setTextColor(ContextCompat.getColor(this, if (on) R.color.ms_cat_violet_text else R.color.ms_text_secondary))
     }
 
     // Updated to use cached translations from backend

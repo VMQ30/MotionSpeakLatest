@@ -14,7 +14,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 
 
-class TranslationHistoryActivity : AppCompatActivity() {
+class TranslationHistoryActivity : BaseActivity() {
 
     private lateinit var btnClearAll: MaterialButton
     private lateinit var rvHistory: RecyclerView

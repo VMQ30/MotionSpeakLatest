@@ -19,6 +19,8 @@ class AppSettings(context: Context) {
         private const val KEY_ONBOARDING = "onboarding_done"
         private const val KEY_TRANSLATION_MODE = "translation_mode"
         private const val KEY_USER_NAME = "user_name"
+        private const val KEY_FONT_SIZE = "font_size"
+        private const val KEY_HAPTIC_FEEDBACK = "haptic_feedback"
         // Light is the default from the revamp on (spec §4). A stored value always
         // wins, so users who switched dark mode on keep it.
         private const val DEFAULT_DARK_MODE = false
@@ -27,6 +29,15 @@ class AppSettings(context: Context) {
 
         const val VOICE_FEMALE = "female"
         const val VOICE_MALE = "male"
+
+        const val HAPTIC_OFF = "off"
+        const val HAPTIC_LIGHT = "light"
+        const val HAPTIC_MAX = "max"
+
+        /** Font-size scale stored as an integer percentage (80 = Small, 100 = Normal, 130 = Large). */
+        const val FONT_SIZE_SMALL  = 80
+        const val FONT_SIZE_NORMAL = 100
+        const val FONT_SIZE_LARGE  = 130
 
         @Volatile private var INSTANCE: AppSettings? = null
 
@@ -85,12 +96,28 @@ class AppSettings(context: Context) {
             }.apply()
         }
 
+    /**
+     * UI font-size scale as an integer percentage.
+     * One of FONT_SIZE_SMALL (80), FONT_SIZE_NORMAL (100), or FONT_SIZE_LARGE (130).
+     * The slider in Settings maps 80–130 continuously; the preset buttons snap to
+     * one of the three values and move the slider thumb with them.
+     */
+    var fontSize: Int
+        get() = prefs.getInt(KEY_FONT_SIZE, FONT_SIZE_NORMAL)
+        set(v) = prefs.edit().putInt(KEY_FONT_SIZE, v).apply()
+
+    var hapticFeedback: String
+        get() = prefs.getString(KEY_HAPTIC_FEEDBACK, HAPTIC_LIGHT) ?: HAPTIC_LIGHT
+        set(v) = prefs.edit().putString(KEY_HAPTIC_FEEDBACK, v).apply()
+
     fun resetToDefault() {
         prefs.edit()
             .putInt(KEY_VOLUME, 80)
             .putString(KEY_VOICE_TYPE, VOICE_FEMALE)
             .putBoolean(KEY_DARK_MODE, DEFAULT_DARK_MODE)
             .putBoolean(KEY_SHOW_FILIPINO, true)
+            .putInt(KEY_FONT_SIZE, FONT_SIZE_NORMAL)
+            .putString(KEY_HAPTIC_FEEDBACK, HAPTIC_LIGHT)
             .apply()
     }
 }

@@ -8,10 +8,25 @@ import java.util.TimeZone
 
 data class Greeting(val title: String, val subtitle: String?)
 
-private fun timeOfDayLine(hour: Int): String = when {
-    hour < 12 -> "Good morning"
-    hour < 18 -> "Good afternoon"
-    else -> "Good evening"
+/**
+ * Gets the current real-time clock (RTC) hour of day (0..23).
+ */
+internal fun currentRtcHour(calendar: Calendar = Calendar.getInstance()): Int =
+    calendar.get(Calendar.HOUR_OF_DAY)
+
+/**
+ * Real-time clock (RTC) greeting line based on local hour of day:
+ * - 4:00 AM – 11:59 AM (hours 4..11): "Good morning ☀️"
+ * - 12:00 PM – 4:59 PM (hours 12..16): "Good afternoon 🌤️"
+ * - 5:00 PM – 3:59 AM (hours 17..23, 0..3): "Good evening 🌙"
+ */
+internal fun timeOfDayLine(hour: Int): String {
+    val h = ((hour % 24) + 24) % 24
+    return when (h) {
+        in 4..11 -> "Good morning ☀️"
+        in 12..16 -> "Good afternoon 🌤️"
+        else -> "Good evening 🌙"
+    }
 }
 
 /** "Hi Maria!" over "Good morning", or just "Good morning" when there is no name. */
@@ -20,6 +35,13 @@ internal fun homeGreeting(hour: Int, name: String?): Greeting {
     val cleanName = name?.trim()?.takeIf { it.isNotEmpty() }
     return if (cleanName == null) Greeting(timeLine, null) else Greeting("Hi $cleanName!", timeLine)
 }
+
+/** Real-time clock (RTC) dynamic greeting evaluated with current or provided calendar. */
+internal fun dynamicRtcGreeting(
+    name: String?,
+    calendar: Calendar = Calendar.getInstance(),
+): Greeting = homeGreeting(currentRtcHour(calendar), name)
+
 
 /**
  * The Home stat banner. SigLa bridges signers and non-signers in the moment,

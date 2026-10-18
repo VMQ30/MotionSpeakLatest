@@ -24,7 +24,7 @@ private const val INTRO_HOLD_MS = 500L
  * the home screen or recents resumes the existing task at whatever screen was
  * on top.
  */
-class SplashActivity : AppCompatActivity() {
+class SplashActivity : BaseActivity() {
 
     private val handler = Handler(Looper.getMainLooper())
     private val goHome = Runnable { openHome() }

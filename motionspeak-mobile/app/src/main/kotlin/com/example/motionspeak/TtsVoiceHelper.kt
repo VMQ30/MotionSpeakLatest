@@ -2,14 +2,14 @@ package com.example.motionspeak
 
 import android.speech.tts.TextToSpeech
 import android.speech.tts.Voice
+import java.util.Locale
 
 /**
- * Best-effort Male/Female voice selection. Android's TextToSpeech API exposes
- * no gender metadata on Voice, so this first tries a name-based hint (works
- * on engines — like Google's — that embed "male"/"female" in the voice
- * name), then falls back to a deterministic split across the available
- * English voices so toggling the setting always audibly changes something,
- * even on engines/devices whose voice names carry no gender hint at all.
+ * Best-effort Male/Female voice selection prioritizing Filipino (Tagalog) speech.
+ * Android's TextToSpeech API exposes no gender metadata on Voice, so this checks
+ * voice attributes and naming conventions, prioritizing Filipino (fil-PH / tl-PH)
+ * voices and falling back gracefully to available system voices if a device lacks
+ * offline Filipino voice data.
  */
 object TtsVoiceHelper {
 
@@ -23,7 +23,7 @@ object TtsVoiceHelper {
     @Volatile private var cachedForVoiceType: String? = null
 
     /**
-     * Applies the preferred voice to [tts].
+     * Applies the preferred Filipino voice and locale to [tts].
      *
      * Only queries the engine when the preference changed since the last
      * resolution (or nothing is cached yet). **Call this off the main thread**
@@ -42,27 +42,78 @@ object TtsVoiceHelper {
         }
 
         val preferFemale = voiceType == AppSettings.VOICE_FEMALE
-        val enVoices = engine.voices
-            ?.filter { it.locale.language == "en" }
-            ?.sortedBy { it.name }
-            ?: return
-        if (enVoices.isEmpty()) return
-
-        val byName = enVoices.firstOrNull { v ->
-            val n = v.name.lowercase()
-            if (preferFemale) n.contains("female") else n.contains("male") && !n.contains("female")
+        val allVoices = try {
+            engine.voices?.toList().orEmpty()
+        } catch (e: Exception) {
+            emptyList()
         }
 
-        val fallback = if (enVoices.size > 1) {
-            if (preferFemale) enVoices.last() else enVoices.first()
+        // 1. Prioritize Filipino / Tagalog voices (fil-PH, tl-PH, fil, tl)
+        val filVoices = allVoices.filter { v ->
+            val lang = v.locale.language.lowercase()
+            val tag = v.locale.toLanguageTag().lowercase()
+            lang == "fil" || lang == "tl" || tag.startsWith("fil") || tag.startsWith("tl")
+        }.sortedBy { it.name }
+
+        val candidateVoices = if (filVoices.isNotEmpty()) {
+            filVoices
         } else {
-            enVoices.first()
+            // Fallback to English voices if the device engine has no Filipino voice pack installed
+            allVoices.filter { it.locale.language.lowercase() == "en" }.sortedBy { it.name }
+                .ifEmpty { allVoices.sortedBy { it.name } }
+        }
+
+        if (candidateVoices.isEmpty()) {
+            applyFilipinoLocale(engine)
+            return
+        }
+
+        val byName = candidateVoices.firstOrNull { v ->
+            val n = v.name.lowercase()
+            val features = try { v.features?.map { it.lowercase() }.orEmpty() } catch (e: Exception) { emptyList() }
+            val isFemale = n.contains("female") || n.contains("fem") || n.contains("-fie") || n.contains("-fic") || n.contains("-fia") || features.contains("female")
+            val isMale = (n.contains("male") || n.contains("-fim") || n.contains("-fib") || n.contains("-fid") || features.contains("male")) && !n.contains("female")
+
+            if (preferFemale) isFemale else isMale
+        }
+
+        val fallback = if (candidateVoices.size > 1) {
+            if (preferFemale) candidateVoices.last() else candidateVoices.first()
+        } else {
+            candidateVoices.first()
         }
 
         val chosen = byName ?: fallback
         cachedVoice        = chosen
         cachedForVoiceType = voiceType
         engine.voice       = chosen
+
+        try {
+            engine.language = chosen.locale
+        } catch (ignored: Exception) {}
+    }
+
+    /**
+     * Applies the best available Filipino locale to [engine].
+     */
+    fun applyFilipinoLocale(engine: TextToSpeech) {
+        val locales = listOf(
+            Locale("fil", "PH"),
+            Locale("tl", "PH"),
+            Locale("fil"),
+            Locale("tl")
+        )
+        for (loc in locales) {
+            try {
+                if (engine.isLanguageAvailable(loc) >= TextToSpeech.LANG_AVAILABLE) {
+                    engine.language = loc
+                    return
+                }
+            } catch (ignored: Exception) {}
+        }
+        try {
+            engine.setLanguage(Locale("fil", "PH"))
+        } catch (ignored: Exception) {}
     }
 
     /**

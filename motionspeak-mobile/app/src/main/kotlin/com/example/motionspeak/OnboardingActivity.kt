@@ -65,7 +65,7 @@ internal val featurePages = listOf(
     ),
 )
 
-class OnboardingActivity : AppCompatActivity() {
+class OnboardingActivity : BaseActivity() {
 
     private lateinit var appSettings: AppSettings
     private lateinit var viewPager: ViewPager2

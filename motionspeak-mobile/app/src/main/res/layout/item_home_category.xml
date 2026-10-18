@@ -21,7 +21,7 @@
             android:layout_height="24dp"
             android:importantForAccessibility="no"
             android:src="@drawable/ic_tag_line"
-            android:tint="@color/ms_brand_text" />
+            android:tint="@color/ms_home_accent" />
 
         <TextView
             android:id="@+id/tvCategoryName"

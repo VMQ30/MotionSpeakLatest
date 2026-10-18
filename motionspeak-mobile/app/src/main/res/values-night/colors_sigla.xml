@@ -1,20 +1,77 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <resources>
-    <color name="ms_brand">#60A5FA</color>
-    <color name="ms_brand_text">#B8CCF8</color>
-    <color name="ms_bg">#0F172A</color>
-    <color name="ms_tint">#172350</color>
-    <color name="ms_bar_bg">#111B3E</color>
+    <color name="ms_brand">#34EBD5</color>
+    <color name="ms_brand_text">#8CF5E8</color>
+    <color name="ms_bg">#181E22</color>
+    <color name="ms_tint">#2B363F</color>
+    <color name="ms_bar_bg">#222B34</color>
     <color name="ms_text">#F8FAFC</color>
     <color name="ms_text_secondary">#94A3B8</color>
     <color name="ms_divider">#334155</color>
     <color name="ms_danger">#EF4444</color>
     <color name="ms_success">#10B981</color>
-    <color name="ms_on_brand">#13306B</color>
-    <color name="ms_on_brand_secondary">#CC13306B</color>
-    <color name="ms_on_brand_disc">#1F13306B</color>
+    <color name="ms_on_brand">#04302B</color>
+    <color name="ms_on_brand_secondary">#CC04302B</color>
+    <color name="ms_on_brand_disc">#1F04302B</color>
     <color name="ms_nav_bar">@color/ms_bar_bg</color>
     <color name="ms_illus_soft">#233A73</color>
     <color name="ms_illus_mid">#6F8FD6</color>
+
+    <!-- ── Category card spectrum: blue → teal → violet (dark theme) ──
+         Backgrounds are deeper/darker; text is brightened to stay legible.  -->
+    <!-- Deep blue (dark navy, vivid enough against dark bg) -->
+    <color name="ms_cat_blue_bg">#1E3A8A</color>
+    <color name="ms_cat_blue_text">#93C5FD</color>
+    <color name="ms_cat_blue_text_secondary">#CC93C5FD</color>
+    <!-- Sky blue (muted dark, softer) -->
+    <color name="ms_cat_sky_bg">#0C4A6E</color>
+    <color name="ms_cat_sky_text">#7DD3FC</color>
+    <color name="ms_cat_sky_text_secondary">#CC7DD3FC</color>
+    <!-- Teal (dark variant of the brand) -->
+    <color name="ms_cat_teal_bg">#134E4A</color>
+    <color name="ms_cat_teal_text">#5EEAD4</color>
+    <color name="ms_cat_teal_text_secondary">#CC5EEAD4</color>
+    <!-- Cyan-teal (deep cyan) -->
+    <color name="ms_cat_cyan_bg">#164E63</color>
+    <color name="ms_cat_cyan_text">#67E8F9</color>
+    <color name="ms_cat_cyan_text_secondary">#CC67E8F9</color>
+    <!-- Indigo (deep indigo, less saturated) -->
+    <color name="ms_cat_indigo_bg">#312E81</color>
+    <color name="ms_cat_indigo_text">#A5B4FC</color>
+    <color name="ms_cat_indigo_text_secondary">#CCA5B4FC</color>
+    <!-- Purple (vibrant purple-violet for dark mode) -->
+    <color name="ms_cat_purple_bg">#581C87</color>
+    <color name="ms_cat_purple_text">#E9D5FF</color>
+    <color name="ms_cat_purple_text_secondary">#CCE9D5FF</color>
+    <!-- ── Home slightly dark electric blue scheme (dark theme) ── -->
+    <color name="ms_home_brand">#1E3A8A</color> <!-- Deep dark electric blue surface -->
+    <color name="ms_home_on_brand">#FFFFFF</color>
+    <color name="ms_home_on_brand_secondary">#CC93C5FD</color>
+    <color name="ms_home_accent">#60A5FA</color> <!-- Luminous electric blue for text/icons on dark -->
+    <color name="ms_home_tint">#172554</color> <!-- Deep dark blue badge tint -->
+
+    <!-- Violet scheme additions for Settings (dark theme heuristics) -->
+    <color name="ms_cat_violet_bg">#7C3AED</color> <!-- Vivid electric violet for selected buttons & profile in dark mode for clear heuristics -->
+    <color name="ms_cat_violet_text">#FFFFFF</color>
+    <color name="ms_cat_violet_text_secondary">#DDD6FE</color>
+    <color name="ms_cat_violet_tint">#2E1065</color> <!-- Deep soft violet tint for unselected buttons -->
+    <color name="ms_cat_violet_accent">#A78BFA</color> <!-- Luminous electric violet for text/icons on dark bg -->
+    <color name="ms_cat_violet_disc">#26FFFFFF</color>
+
+    <!-- Siri glowing outline spectrum for circular hand button -->
+    <color name="ms_siri_light_blue">#38BDF8</color>
+    <color name="ms_siri_teal">#2DD4BF</color>
+    <color name="ms_siri_electric_blue">#0066FF</color>
+    <color name="ms_siri_electric_violet">#8B5CF6</color>
+
+    <!-- Scarlet emergency alert color -->
+    <color name="ms_scarlet">#DC2626</color>
+
+    <!-- Camera status indicator colors (dark theme heuristics) -->
+    <color name="ms_status_ready_text">#34D399</color> <!-- Luminous green for dark bg -->
+    <color name="ms_status_not_ready_text">#F87171</color> <!-- Readable red for dark bg -->
+    <color name="ms_status_ready_green">#10B981</color> <!-- Green dot -->
+    <color name="ms_status_ready_light_green">#86EFAC</color> <!-- Light green dot -->
 </resources>
+
