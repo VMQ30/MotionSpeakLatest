@@ -157,6 +157,9 @@ class MainActivity : AppCompatActivity() {
     private var predictor : PredictionService? = null
     private var landmarker: HandLandmarkHelper? = null
 
+    private var emotionClassifier: EmotionClassifier? = null
+    private var lastEmotionCheckTime = 0L
+
     // Device-local state
     private lateinit var historyManager: TranslationHistoryManager
     private lateinit var appSettings: AppSettings
@@ -432,6 +435,9 @@ class MainActivity : AppCompatActivity() {
                 // this returns at once or waits only for the rest of that build.
                 val helper = HandLandmarkHelper.Cache.acquire(applicationContext, sink)
 
+                // Initialize Emotion Classifier
+                emotionClassifier = EmotionClassifier(applicationContext)
+
                 // Navigated away during the build: the job is cancelled, so the
                 // withContext(Main) below would throw before its cleanup branch
                 // could run and this dead screen's sink would stay installed.
@@ -590,6 +596,9 @@ class MainActivity : AppCompatActivity() {
                 doomedPredictor.close()
             }
         }
+
+        emotionClassifier?.close()
+        emotionClassifier = null
     }
 
     // ── Backend Initialization ────────────────────────────────────────────────
@@ -1361,6 +1370,30 @@ class MainActivity : AppCompatActivity() {
             // which rotates both the overlay and the classifier features by 90°.
             val prepared        = prepareBitmap(bitmap, rotationDegrees)
             val t2              = if (PIPELINE_PROFILING) System.nanoTime() else 0L
+
+            // --- YOUR EMOTION PIPELINE ---
+            val now = System.currentTimeMillis()
+            // Only run emotion every 500ms to save CPU (2 times a second)
+            if (now - lastEmotionCheckTime > 500L) {
+                lastEmotionCheckTime = now
+                val classifier = emotionClassifier
+                if (classifier != null) {
+                    // Run on a new background thread so it doesn't block the camera pipeline
+                    Thread {
+                        val result = classifier.predictTone(prepared)
+                        if (result != null) {
+                            val emotionLabel = result.first
+                            val confidence = result.second
+                            val tone = ToneMapper.fromEmotion(emotionLabel)
+
+                            // Log it to see it working!
+                            Log.i("MotionSpeak", "Emotion: $emotionLabel (${(confidence*100).toInt()}%) -> Tone: $tone")
+                        }
+                    }.start()
+                }
+            }
+            // ------------------------------
+
             lm.detectAsync(prepared, SystemClock.elapsedRealtime())
             val t3              = if (PIPELINE_PROFILING) System.nanoTime() else 0L
             imageProxy.close()
