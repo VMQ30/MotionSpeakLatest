@@ -402,8 +402,13 @@ class SettingsActivity : BaseActivity() {
 
     private fun bindReplayTutorial() {
         findViewById<View>(R.id.rowReplayTutorial).setOnClickListener {
+            appSettings.isReplayTutorialActive = true
+            appSettings.hasCompletedInitialOnboarding = true
+            appSettings.isCameraTooltipEligible = false
             appSettings.isOnboardingDone = false
-            startActivity(Intent(this, OnboardingActivity::class.java))
+            startActivity(Intent(this, OnboardingActivity::class.java).apply {
+                putExtra(OnboardingActivity.EXTRA_IS_REPLAY, true)
+            })
             finish()
         }
     }

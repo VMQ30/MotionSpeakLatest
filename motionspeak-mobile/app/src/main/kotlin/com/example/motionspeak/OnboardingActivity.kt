@@ -138,6 +138,14 @@ class OnboardingActivity : BaseActivity() {
 
     private fun completeOnboarding(userName: String?) {
         if (userName != null) appSettings.userName = userName
+        val isReplay = intent.getBooleanExtra(EXTRA_IS_REPLAY, false) || appSettings.isReplayTutorialActive
+        appSettings.isReplayTutorialActive = false
+        if (isReplay) {
+            appSettings.isCameraTooltipEligible = false
+        } else if (!appSettings.hasSeenCameraTooltip) {
+            appSettings.hasCompletedInitialOnboarding = true
+            appSettings.isCameraTooltipEligible = true
+        }
         appSettings.isOnboardingDone = true
         startActivity(Intent(this, HomeActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -209,7 +217,8 @@ class OnboardingActivity : BaseActivity() {
             .start()
     }
 
-    private companion object {
+    companion object {
+        const val EXTRA_IS_REPLAY = "extra_is_replay"
         const val STATE_PENDING_NAME = "pending_name"
     }
 }

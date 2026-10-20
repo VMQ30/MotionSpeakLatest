@@ -17,6 +17,10 @@ class AppSettings(context: Context) {
         private const val KEY_SHOW_FILIPINO = "show_filipino"
         private const val KEY_FRONT_CAMERA = "front_camera"
         private const val KEY_ONBOARDING = "onboarding_done"
+        private const val KEY_INITIAL_ONBOARDING_DONE = "initial_onboarding_done"
+        private const val KEY_CAMERA_TOOLTIP_SEEN = "camera_tooltip_seen_v2"
+        private const val KEY_CAMERA_TOOLTIP_ELIGIBLE = "camera_tooltip_eligible"
+        private const val KEY_REPLAY_ACTIVE = "replay_tutorial_active"
         private const val KEY_TRANSLATION_MODE = "translation_mode"
         private const val KEY_USER_NAME = "user_name"
         private const val KEY_FONT_SIZE = "font_size"
@@ -82,6 +86,22 @@ class AppSettings(context: Context) {
     var isOnboardingDone: Boolean
         get() = onboardingPrefs.getBoolean(KEY_ONBOARDING, false)
         set(v) = onboardingPrefs.edit().putBoolean(KEY_ONBOARDING, v).apply()
+
+    var hasCompletedInitialOnboarding: Boolean
+        get() = onboardingPrefs.getBoolean(KEY_INITIAL_ONBOARDING_DONE, false)
+        set(v) = onboardingPrefs.edit().putBoolean(KEY_INITIAL_ONBOARDING_DONE, v).apply()
+
+    var isReplayTutorialActive: Boolean
+        get() = onboardingPrefs.getBoolean(KEY_REPLAY_ACTIVE, false)
+        set(v) = onboardingPrefs.edit().putBoolean(KEY_REPLAY_ACTIVE, v).apply()
+
+    var hasSeenCameraTooltip: Boolean
+        get() = onboardingPrefs.getBoolean(KEY_CAMERA_TOOLTIP_SEEN, false)
+        set(v) = onboardingPrefs.edit().putBoolean(KEY_CAMERA_TOOLTIP_SEEN, v).apply()
+
+    var isCameraTooltipEligible: Boolean
+        get() = onboardingPrefs.getBoolean(KEY_CAMERA_TOOLTIP_ELIGIBLE, false)
+        set(v) = onboardingPrefs.edit().putBoolean(KEY_CAMERA_TOOLTIP_ELIGIBLE, v).apply()
 
     /**
      * Optional first name for the Home greeting, stored on this phone only.

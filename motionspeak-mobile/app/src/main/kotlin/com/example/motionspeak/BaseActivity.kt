@@ -41,6 +41,12 @@ abstract class BaseActivity : AppCompatActivity() {
             appliedFontScale = expectedScale
             recreate()
         }
+        CameraTooltipHelper.onActivityResumed(this)
+    }
+
+    override fun onPause() {
+        CameraTooltipHelper.onActivityPaused(this)
+        super.onPause()
     }
 
     /**
@@ -49,6 +55,7 @@ abstract class BaseActivity : AppCompatActivity() {
      */
     override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
         findViewById<SiriGlowFloatingActionButton>(R.id.fabTranslate)?.onUserInteraction()
+        CameraTooltipHelper.onUserInteraction(this, ev)
         return super.dispatchTouchEvent(ev)
     }
 }

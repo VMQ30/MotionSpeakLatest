@@ -345,6 +345,7 @@ object BottomNavHelper {
             fab.setOnTouchListener { v, event ->
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
+                        CameraTooltipHelper.dismissTooltip(activity, animated = false)
                         v.isPressed = true
                         sosTriggered = false
                         pressStartMs = System.currentTimeMillis()
@@ -410,6 +411,7 @@ object BottomNavHelper {
     }
 
     fun openTranslator(activity: Activity) {
+        CameraTooltipHelper.onCameraOpened(activity)
         activity.startActivity(Intent(activity, MainActivity::class.java))
     }
 }
