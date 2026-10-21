@@ -10,17 +10,33 @@ import kotlin.math.roundToInt
 
 private const val TAG = "PredictionService"
 private const val SEQUENCE_LENGTH = 30
-private const val FEATURE_SIZE = 350
+// FEATURE_SIZE is shared with HandLandmarkHelper; the authoritative declaration is
+// `internal const val FEATURE_SIZE = 350` in HandLandmarkHelper.kt.
 private const val NUM_CLASSES = 60
 private const val PAD = 3
 private const val LEFT_FLAG = 171
 private const val RIGHT_FLAG = 172
 
 class PredictionService(private val context: Context) {
+
+    /** Which sign-language vocabulary the interpreter is running. */
+    enum class Vocabulary { WORDS, LETTERS }
+
+    companion object {
+        /** Intent extra key: desired starting Vocabulary for the translator screen. */
+        const val EXTRA_START_VOCABULARY = "extra_start_vocabulary"
+    }
+
     private var interpreter: Interpreter? = null
     private var labels: List<String> = emptyList()
     private val frameBuffer = ArrayDeque<FloatArray>()
-    private var isReady = false
+
+    /**
+     * True once [init] has loaded the model and labels successfully.
+     * Internal so [MainActivity] can check it without reflection.
+     */
+    internal var isReady = false
+        private set
 
     var onResult: ((String) -> Unit)? = null
     var onCollecting: ((Float) -> Unit)? = null

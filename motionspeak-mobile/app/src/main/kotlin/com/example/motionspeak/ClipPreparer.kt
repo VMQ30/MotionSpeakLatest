@@ -4,6 +4,7 @@ import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sqrt
 
 // ── Mirrored from motionspeak-ml/app/services/clip_prep.py and extract.py ───────────
 // Tap mode prepares a recorded sign the way training clips were prepared, so
@@ -19,6 +20,114 @@ internal const val TAP_MAX_MISSING_HAND_SECONDS = 0.25  // clip_prep.MAX_MISSING
 internal const val TAP_MAX_ANALYZED_FRAMES = 120        // clip_prep.MAX_ANALYZED_FRAMES
 internal const val TAP_TRIM_PAD_FRAMES = 4              // extract.TRIM_PAD_FRAMES
 internal const val TAP_DEFAULT_SOURCE_FPS = 30.0        // extract.DEFAULT_SOURCE_FPS
+
+// ── Quality-gate helpers ──────────────────────────────────────────────────────────────
+// clip_prep.py thresholds (mirrored).
+
+/**
+ * Minimum squared velocity summed over wrist + pose joints for a window to be
+ * considered "moving". Mirrors clip_prep.MIN_MOTION_ENERGY.
+ */
+private const val MIN_MOTION_ENERGY = 1e-4f
+
+/**
+ * Minimum fraction of frames in a window that must have pose landmarks present.
+ * Mirrors clip_prep.WINDOW_POSE_COVERAGE.
+ */
+private const val WINDOW_POSE_COVERAGE = 0.5
+
+// ── Feature-vector layout constants ──────────────────────────────────────────────────
+// Indices within the 147-float TAP feature vector (preprocessor.py).
+// Layout: [left_hand(63) | right_hand(63) | pose(15*3=45)] → but TAP_FEATURE_SIZE=147
+// Pose block starts at index 63+63=126? No — the tap feature vector is 147-float
+// which matches a 49-landmark layout. Pose wrist proxy is at index 126.
+// Left-hand present flag is at index 126, right at 127 in the 147-vector layout.
+// Actually: hands are normalized (63 floats each = 21 lmks × 3), pose at 126..146.
+// "pose present" = at least one pose landmark is non-zero in the pose block.
+private const val POSE_BLOCK_START = 126   // first pose feature index in TAP vector
+private const val POSE_BLOCK_END   = 147   // exclusive
+
+/** True if the hand detection looks geometrically valid (not a collapsed/zero detection). */
+internal fun handExtentOk(vec: FloatArray): Boolean {
+    // A real hand spans a visible region; a collapsed detection has all-zero coords.
+    // Check the left-hand block (indices 0..62) or right-hand block (63..125).
+    // At least one block should show non-trivial spread.
+    var leftSpread = 0f
+    var rightSpread = 0f
+    for (j in 0 until 21) {
+        leftSpread  += vec[j * 3] * vec[j * 3] + vec[j * 3 + 1] * vec[j * 3 + 1]
+        rightSpread += vec[63 + j * 3] * vec[63 + j * 3] + vec[63 + j * 3 + 1] * vec[63 + j * 3 + 1]
+    }
+    return leftSpread > 1e-8f || rightSpread > 1e-8f
+}
+
+/** True if this frame carries pose landmarks (non-zero values in the pose block). */
+internal fun posePresent(vec: FloatArray): Boolean {
+    if (vec.size < POSE_BLOCK_END) return false
+    for (i in POSE_BLOCK_START until POSE_BLOCK_END) {
+        if (vec[i] != 0f) return true
+    }
+    return false
+}
+
+/**
+ * True if the window contains enough motion energy.
+ * Mirrors clip_prep.has_sufficient_motion(): sums squared frame-to-frame
+ * differences at the wrist positions and compares against MIN_MOTION_ENERGY.
+ */
+internal fun hasSufficientMotion(window: List<FloatArray>): Boolean {
+    if (window.size < 2) return false
+    var energy = 0f
+    for (i in 1 until window.size) {
+        val prev = window[i - 1]
+        val curr = window[i]
+        // left wrist (index 0..2) and right wrist (index 63..65)
+        for (base in intArrayOf(0, 63)) {
+            val dx = curr[base]     - prev[base]
+            val dy = curr[base + 1] - prev[base + 1]
+            energy += dx * dx + dy * dy
+        }
+    }
+    return energy > MIN_MOTION_ENERGY
+}
+
+/**
+ * True if enough frames in the window have pose landmarks.
+ * Mirrors clip_prep.has_sufficient_pose_coverage().
+ */
+internal fun hasSufficientPoseCoverage(window: List<FloatArray>): Boolean {
+    if (window.isEmpty()) return false
+    val poseCount = window.count { posePresent(it) }
+    return poseCount.toDouble() / window.size >= WINDOW_POSE_COVERAGE
+}
+
+/**
+ * Index of the frame with the highest total velocity (sum of squared frame-to-frame
+ * wrist deltas). Mirrors preprocessor.peak_velocity_index().
+ * Returns the midpoint when the list is too short.
+ */
+internal fun peakVelocityIndex(frames: List<FloatArray>): Int {
+    if (frames.size < 2) return frames.size / 2
+    var peakIdx = 0
+    var peakVel = -1f
+    for (i in 1 until frames.size) {
+        val prev = frames[i - 1]
+        val curr = frames[i]
+        var vel = 0f
+        for (base in intArrayOf(0, 63)) {
+            val dx = curr[base]     - prev[base]
+            val dy = curr[base + 1] - prev[base + 1]
+            vel += sqrt(dx * dx + dy * dy)
+        }
+        if (vel > peakVel) {
+            peakVel = vel
+            peakIdx = i
+        }
+    }
+    return peakIdx
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────
 
 /** One camera frame captured during a tap recording. [features] is the
  * NORMALIZED 147-float vector when MediaPipe detected a hand, null otherwise.

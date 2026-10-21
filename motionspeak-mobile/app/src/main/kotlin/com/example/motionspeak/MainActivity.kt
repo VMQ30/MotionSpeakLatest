@@ -39,6 +39,14 @@ internal val teardownExecutor = Executors.newSingleThreadExecutor { r ->
 
 class MainActivity : AppCompatActivity() {
 
+    companion object {
+        /**
+         * Intent extra key: the vocabulary ("words" or "letters") the translator
+         * should open on. Sent by WordDetailActivity's "Try it yourself" button.
+         */
+        const val EXTRA_START_VOCABULARY = PredictionService.EXTRA_START_VOCABULARY
+    }
+
     private lateinit var binding   : ActivityMainBinding
     private var predictor : PredictionService? = null
     private var landmarker: HandLandmarkHelper? = null
@@ -341,26 +349,6 @@ class MainActivity : AppCompatActivity() {
                 Motion.hide(binding.tvFilipinoResult, View.GONE)
             }
         }
-
-        binding.btnEmergency.setOnTouchListener { _, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    emergencyHoldStart = SystemClock.elapsedRealtime()
-                    binding.btnEmergency.postDelayed(emergencyRunnable, 2000)
-                    true
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    binding.btnEmergency.removeCallbacks(emergencyRunnable)
-                    true
-                }
-                else -> false
-            }
-        }
-    }
-
-    private val emergencyRunnable = Runnable {
-        speak("Help me")
-        Toast.makeText(this, "Emergency alert played", Toast.LENGTH_LONG).show()
     }
 
     private fun updateFilipinoToggleLabel() {

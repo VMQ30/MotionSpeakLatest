@@ -163,6 +163,19 @@ class HandLandmarkHelper(
         @Volatile private var instance: HandLandmarkHelper? = null
         private val buildLock = Any()
 
+        /**
+         * Eagerly builds the helper in the background so the first [acquire]
+         * returns an already-warm instance. Safe to call multiple times; no-ops
+         * once the instance exists.
+         */
+        fun prewarm(context: Context) {
+            if (instance != null) return
+            synchronized(buildLock) {
+                if (instance != null) return
+                instance = HandLandmarkHelper(context.applicationContext)
+            }
+        }
+
         fun acquire(context: Context, onResult: (LandmarkResult) -> Unit): HandLandmarkHelper {
             instance?.let { return install(it, onResult) }
             synchronized(buildLock) {
