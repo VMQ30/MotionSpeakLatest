@@ -51,7 +51,7 @@ internal fun filipinoDisplay(text: String): String = text.trim().toTitleCase()
 internal fun translatorStartVocabulary(requested: String?, hasLetters: Boolean): PredictionService.Vocabulary? =
     if (requested == VOCAB_LETTERS && hasLetters) PredictionService.Vocabulary.LETTERS else null
 
-enum class VocabularyFilter { ALL, MEDICAL, CONVERSATIONAL }
+enum class VocabularyFilter { ALL, MEDICAL, CONVERSATIONAL, WORDS, LETTERS }
 
 /**
  * Categories (lowercase, as the backend sends them) that the Conversational pill
@@ -69,6 +69,8 @@ internal fun matchesFilter(word: WordBankWord, filter: VocabularyFilter): Boolea
     VocabularyFilter.MEDICAL ->
         effectiveVocabulary(word) == VOCAB_WORDS &&
             word.category.trim().lowercase() !in CONVERSATIONAL_CATEGORIES
+    VocabularyFilter.WORDS -> effectiveVocabulary(word) == VOCAB_WORDS
+    VocabularyFilter.LETTERS -> effectiveVocabulary(word) == VOCAB_LETTERS
 }
 
 data class GridCategory(val name: String, val wordCount: Int)

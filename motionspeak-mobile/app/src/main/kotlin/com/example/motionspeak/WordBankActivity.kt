@@ -242,6 +242,8 @@ class WordBankActivity : AppCompatActivity() {
             VocabularyFilter.ALL -> "$n Filipino Sign Language word$s"
             VocabularyFilter.MEDICAL -> "$n medical sign$s"
             VocabularyFilter.CONVERSATIONAL -> "$n conversational sign$s"
+            VocabularyFilter.WORDS -> "$n word$s"
+            VocabularyFilter.LETTERS -> "$n letter$s"
         }
     }
 

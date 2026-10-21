@@ -330,6 +330,20 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun showOverlay() {
+        if (overlayShown) return
+        overlayShown = true
+        Motion.fadeTo(binding.overlayView, 1f, Motion.QUICK, Motion.ENTER)
+    }
+
+    private fun hideOverlay() {
+        if (!overlayShown) return
+        overlayShown = false
+        Motion.fadeTo(binding.overlayView, 0f, Motion.STANDARD, Motion.EXIT) {
+            if (!overlayShown) binding.overlayView.clear()
+        }
+    }
+
     private fun flushCollectingState() {
         val pct = pendingCollectPct
         if (pct >= 0 && pct != lastShownPct) {
@@ -493,5 +507,9 @@ class MainActivity : AppCompatActivity() {
         speech?.release()
         speech = null
         super.onDestroy()
+    }
+
+    companion object {
+        const val EXTRA_START_VOCABULARY = "extra_start_vocabulary"
     }
 }
