@@ -31,7 +31,7 @@ private const val SEARCH_DEBOUNCE_MS = 250L
 // if nothing has arrived after this long, so fast loads never flash it.
 private const val SPINNER_DELAY_MS = 300L
 
-class WordBankActivity : AppCompatActivity() {
+class WordBankActivity : BaseActivity() {
 
     // Search debounce — see setupSearch()
     private val searchHandler = Handler(Looper.getMainLooper())

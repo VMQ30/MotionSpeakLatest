@@ -56,40 +56,40 @@ class WordVocabularyTest {
     // ── gridCategories ────────────────────────────────────────────────────────
 
     private val bank = listOf(
-        word(1, "HELLO", "Greeting"),
-        word(2, "GOOD MORNING", "greeting"),
+        word(1, "HELLO", "Greetings"),
+        word(2, "GOOD MORNING", "greetings"),
         word(3, "A", "Alphabet"),
         word(4, "B", "Alphabet"),
-        word(5, "MOTHER", "Family"),
+        word(5, "FEVER", "Medical"),
     )
 
     @Test
     fun allKeepsEveryCategoryInOrderWithTotals() {
         assertEquals(
-            listOf(GridCategory("Family", 1), GridCategory("Greeting", 2),
+            listOf(GridCategory("Medical", 1), GridCategory("Greetings", 2),
                    GridCategory("Alphabet", 2), GridCategory("Colors", 0)),
-            gridCategories(bank, listOf("Family", "Greeting", "Alphabet", "Colors"), VocabularyFilter.ALL),
+            gridCategories(bank, listOf("Medical", "Greetings", "Alphabet", "Colors"), VocabularyFilter.ALL),
         )
     }
 
     // Review Focus 1 (grid side).
     @Test
     fun gridCategoriesFilterByVocabulary() {
-        val names = listOf("Family", "Greeting", "Alphabet", "Colors")
+        val names = listOf("Medical", "Greetings", "Alphabet", "Colors")
         assertEquals(
-            listOf(GridCategory("Family", 1), GridCategory("Greeting", 2)),
-            gridCategories(bank, names, VocabularyFilter.WORDS),
+            listOf(GridCategory("Medical", 1)),
+            gridCategories(bank, names, VocabularyFilter.MEDICAL),
         )
         assertEquals(
-            listOf(GridCategory("Alphabet", 2)),
-            gridCategories(bank, names, VocabularyFilter.LETTERS),
+            listOf(GridCategory("Greetings", 2)),
+            gridCategories(bank, names, VocabularyFilter.CONVERSATIONAL),
         )
     }
 
     @Test
     fun mixedCategoryCountsOnlyMatchingWords() {
-        val mixed = listOf(word(1, "A", "Mixed"), word(2, "APPLE", "Mixed"))
-        assertEquals(listOf(GridCategory("Mixed", 1)), gridCategories(mixed, listOf("Mixed"), VocabularyFilter.LETTERS))
-        assertEquals(listOf(GridCategory("Mixed", 1)), gridCategories(mixed, listOf("Mixed"), VocabularyFilter.WORDS))
+        val mixed = listOf(word(1, "A", "Greetings"), word(2, "HELLO", "Greetings"), word(3, "FEVER", "Medical"))
+        assertEquals(listOf(GridCategory("Greetings", 1)), gridCategories(mixed, listOf("Greetings"), VocabularyFilter.CONVERSATIONAL))
+        assertEquals(listOf(GridCategory("Medical", 1)), gridCategories(mixed, listOf("Medical"), VocabularyFilter.MEDICAL))
     }
 }

@@ -40,7 +40,7 @@
         </LinearLayout>
     </com.google.android.material.bottomappbar.BottomAppBar>
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
+    <com.example.motionspeak.SiriGlowFloatingActionButton
         android:id="@+id/fabTranslate"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

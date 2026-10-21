@@ -1,6 +1,7 @@
 package com.example.motionspeak
 
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.os.Bundle
 import android.view.View
 import android.widget.SeekBar
@@ -9,10 +10,12 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.google.android.material.button.MaterialButton
+import com.example.motionspeak.SiglaApplication.Companion.wrapFontScale
 
 /**
  * The profile card's name line: the stored name, or a friendly fallback when
@@ -34,34 +37,41 @@ internal fun profileInitial(userName: String?): String =
  * Preferences managed:
  *   - Volume level (0–100%)
  *   - Voice type: Male / Female (for TTS)
- *   - Text size: 80%–150% via SeekBar (default 100%)
+ *   - Font size: 80–125% via SeekBar + Small / Normal / Large presets
  *   - Dark / Light mode toggle
  *   - Reset to default
  *   - Replay onboarding tutorial
  *   - Name (profile card, "Tap to change your name")
  */
-class SettingsActivity : AppCompatActivity() {
+class SettingsActivity : BaseActivity() {
 
     private lateinit var appSettings: AppSettings
+    private var speech: SpeechPlayer? = null
 
     // In-memory state, mirrors AppSettings (the store MainActivity/WordDetailActivity's
     // TTS actually reads — everything here must go through it, not a separate prefs file)
     private var currentVolume   = 0
     private var currentVoice    = "MALE"
     private var currentDarkMode = false
+    private var currentFontSize = AppSettings.FONT_SIZE_NORMAL
+    private var currentHaptic   = AppSettings.HAPTIC_LIGHT
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
 
         appSettings = AppSettings.getInstance(this)
+        speech = SpeechPlayer(this, appSettings, lifecycleScope)
 
         BottomNavHelper.setup(this, Tab.SETTINGS)
         loadPreferences()
         bindProfileCard()
         bindVolumeSeekBar()
         bindVoiceToggle()
+        bindTestAudio()
+        bindFontSizeControls()
         bindDarkModeSwitch()
+        bindHapticToggle()
         bindResetButton()
         bindReplayTutorial()
     }
@@ -79,6 +89,8 @@ class SettingsActivity : AppCompatActivity() {
         currentVolume = appSettings.volume
         currentVoice = if (appSettings.voiceType == AppSettings.VOICE_FEMALE) "FEMALE" else "MALE"
         currentDarkMode = appSettings.isDarkMode
+        currentFontSize = appSettings.fontSize
+        currentHaptic = appSettings.hapticFeedback
 
         // Volume
         findViewById<SeekBar>(R.id.seekVolume)?.progress = currentVolume
@@ -86,6 +98,12 @@ class SettingsActivity : AppCompatActivity() {
 
         // Voice
         applyVoiceSelection(currentVoice, animate = false)
+
+        // Font size
+        applyFontSizeSelection(currentFontSize, animate = false)
+
+        // Haptic feedback
+        applyHapticSelection(currentHaptic)
 
         // Dark mode
         val darkSwitch = findViewById<SwitchMaterial>(R.id.switchDarkMode)
@@ -121,11 +139,13 @@ class SettingsActivity : AppCompatActivity() {
             // The chosen Voice is cached against the preference, so changing it
             // has to drop the cache or playback would keep the old voice.
             TtsVoiceHelper.invalidate()
+            speech?.applyVoice()
         }
         findViewById<View>(R.id.btnVoiceFemale)?.setOnClickListener {
             applyVoiceSelection("FEMALE")
             appSettings.voiceType = AppSettings.VOICE_FEMALE
             TtsVoiceHelper.invalidate()
+            speech?.applyVoice()
         }
     }
 
@@ -133,10 +153,10 @@ class SettingsActivity : AppCompatActivity() {
         currentVoice = voice
         val male   = findViewById<TextView>(R.id.btnVoiceMale)
         val female = findViewById<TextView>(R.id.btnVoiceFemale)
-        val onColor  = getColor(R.color.ms_on_brand)
-        val offColor = getColor(R.color.ms_brand_text)
-        val onTint   = getColorStateList(R.color.ms_brand)
-        val offTint  = getColorStateList(R.color.ms_tint)
+        val onColor  = getColor(R.color.ms_cat_violet_text)
+        val offColor = getColor(R.color.ms_cat_violet_accent)
+        val onTint   = getColorStateList(R.color.ms_cat_violet_bg)
+        val offTint  = getColorStateList(R.color.ms_cat_violet_tint)
 
         if (voice == "MALE") {
             male?.backgroundTintList = onTint
@@ -149,6 +169,87 @@ class SettingsActivity : AppCompatActivity() {
             male?.backgroundTintList = offTint
             male?.setTextColor(offColor)
         }
+    }
+
+    // ── Test audio ────────────────────────────────────────────────────────────
+
+    private fun bindTestAudio() {
+        findViewById<View>(R.id.btnTestAudio)?.setOnClickListener {
+            Haptics.tick(it)
+            speech?.speak("Kamusta, magandang araw!", queueUntilReady = true)
+            Toast.makeText(this, "Testing audio: \"Kamusta, magandang araw!\"", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // ── Font size ─────────────────────────────────────────────────────────────
+
+    private fun bindFontSizeControls() {
+        val seekBar   = findViewById<SeekBar>(R.id.seekFontSize)
+        val btnSmall  = findViewById<TextView>(R.id.btnFontSmall)
+        val btnNormal = findViewById<TextView>(R.id.btnFontNormal)
+        val btnLarge  = findViewById<TextView>(R.id.btnFontLarge)
+
+        // SeekBar spans FONT_SIZE_SMALL..FONT_SIZE_LARGE (80..125), max = range size (45).
+        seekBar?.max = AppSettings.FONT_SIZE_LARGE - AppSettings.FONT_SIZE_SMALL
+        seekBar?.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
+                val pct = progress + AppSettings.FONT_SIZE_SMALL
+                currentFontSize = pct
+                findViewById<TextView>(R.id.tvFontSizeValue)?.text = "$pct%"
+                if (fromUser) {
+                    applyFontSizeButtons(pct)
+                }
+            }
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {
+                val pct = (sb?.progress ?: 0) + AppSettings.FONT_SIZE_SMALL
+                saveFontSize(pct)
+            }
+        })
+
+        btnSmall?.setOnClickListener  { applyFontSizeSelection(AppSettings.FONT_SIZE_SMALL);  saveFontSize(AppSettings.FONT_SIZE_SMALL) }
+        btnNormal?.setOnClickListener { applyFontSizeSelection(AppSettings.FONT_SIZE_NORMAL); saveFontSize(AppSettings.FONT_SIZE_NORMAL) }
+        btnLarge?.setOnClickListener  { applyFontSizeSelection(AppSettings.FONT_SIZE_LARGE);  saveFontSize(AppSettings.FONT_SIZE_LARGE) }
+    }
+
+    @Suppress("UNUSED_PARAMETER")
+    private fun applyFontSizeSelection(pct: Int, animate: Boolean = true) {
+        currentFontSize = pct
+        // SeekBar progress = pct − FONT_SIZE_SMALL, so 80→0, 100→20, 125→45
+        findViewById<SeekBar>(R.id.seekFontSize)?.progress = pct - AppSettings.FONT_SIZE_SMALL
+        findViewById<TextView>(R.id.tvFontSizeValue)?.text = "$pct%"
+        applyFontSizeButtons(pct)
+    }
+
+    /** Highlights whichever preset button exactly matches [pct]. */
+    private fun applyFontSizeButtons(pct: Int) {
+        val btnSmall  = findViewById<TextView>(R.id.btnFontSmall)
+        val btnNormal = findViewById<TextView>(R.id.btnFontNormal)
+        val btnLarge  = findViewById<TextView>(R.id.btnFontLarge)
+        val onColor  = getColor(R.color.ms_cat_violet_text)
+        val offColor = getColor(R.color.ms_cat_violet_accent)
+        val onTint   = getColorStateList(R.color.ms_cat_violet_bg)
+        val offTint  = getColorStateList(R.color.ms_cat_violet_tint)
+
+        fun style(btn: TextView?, active: Boolean) {
+            btn?.backgroundTintList = if (active) onTint else offTint
+            btn?.setTextColor(if (active) onColor else offColor)
+        }
+        style(btnSmall,  pct == AppSettings.FONT_SIZE_SMALL)
+        style(btnNormal, pct == AppSettings.FONT_SIZE_NORMAL)
+        style(btnLarge,  pct == AppSettings.FONT_SIZE_LARGE)
+    }
+
+    /**
+     * Persists the new font size, then recreates so the settings screen
+     * re-inflates at the updated scale immediately. All other screens apply
+     * the new scale via BaseActivity.
+     */
+    private fun saveFontSize(pct: Int) {
+        if (appSettings.fontSize == pct) return
+        appSettings.fontSize = pct
+        SiglaApplication.applyFontScale(applicationContext, pct)
+        recreate()
     }
 
     // ── Dark mode ─────────────────────────────────────────────────────────────
@@ -171,6 +272,44 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.tvDarkModeSubtitle)?.text = label
     }
 
+    // ── Haptic feedback ────────────────────────────────────────────────────────
+
+    private fun bindHapticToggle() {
+        findViewById<View>(R.id.btnHapticOff)?.setOnClickListener {
+            applyHapticSelection(AppSettings.HAPTIC_OFF)
+            appSettings.hapticFeedback = AppSettings.HAPTIC_OFF
+        }
+        findViewById<View>(R.id.btnHapticLight)?.setOnClickListener {
+            applyHapticSelection(AppSettings.HAPTIC_LIGHT)
+            appSettings.hapticFeedback = AppSettings.HAPTIC_LIGHT
+            Haptics.trigger(this, it, AppSettings.HAPTIC_LIGHT)
+        }
+        findViewById<View>(R.id.btnHapticMax)?.setOnClickListener {
+            applyHapticSelection(AppSettings.HAPTIC_MAX)
+            appSettings.hapticFeedback = AppSettings.HAPTIC_MAX
+            Haptics.trigger(this, it, AppSettings.HAPTIC_MAX)
+        }
+    }
+
+    private fun applyHapticSelection(mode: String) {
+        currentHaptic = mode
+        val btnOff   = findViewById<TextView>(R.id.btnHapticOff)
+        val btnLight = findViewById<TextView>(R.id.btnHapticLight)
+        val btnMax   = findViewById<TextView>(R.id.btnHapticMax)
+        val onColor  = getColor(R.color.ms_cat_violet_text)
+        val offColor = getColor(R.color.ms_cat_violet_accent)
+        val onTint   = getColorStateList(R.color.ms_cat_violet_bg)
+        val offTint  = getColorStateList(R.color.ms_cat_violet_tint)
+
+        fun style(btn: TextView?, active: Boolean) {
+            btn?.backgroundTintList = if (active) onTint else offTint
+            btn?.setTextColor(if (active) onColor else offColor)
+        }
+        style(btnOff,   mode == AppSettings.HAPTIC_OFF)
+        style(btnLight, mode == AppSettings.HAPTIC_LIGHT)
+        style(btnMax,   mode == AppSettings.HAPTIC_MAX)
+    }
+
     // ── Reset to default ──────────────────────────────────────────────────────
 
     private fun bindResetButton() {
@@ -187,6 +326,7 @@ class SettingsActivity : AppCompatActivity() {
             view.findViewById<MaterialButton>(R.id.btnConfirmCancel).setOnClickListener { dialog.dismiss() }
             view.findViewById<MaterialButton>(R.id.btnConfirmAction).setOnClickListener {
                 appSettings.resetToDefault()
+                SiglaApplication.applyFontScale(applicationContext, AppSettings.FONT_SIZE_NORMAL)
                 TtsVoiceHelper.invalidate()   // resets voiceType as well
                 loadPreferences()
                 refreshProfileCard()
@@ -198,6 +338,8 @@ class SettingsActivity : AppCompatActivity() {
 
                 Toast.makeText(this, "Settings reset to default.", Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
+                // Recreate so font scale is re-applied immediately after reset.
+                recreate()
             }
 
             dialog.show()
@@ -226,6 +368,9 @@ class SettingsActivity : AppCompatActivity() {
         til.hint = "Your first name"
         til.counterMaxLength = 40
         til.isCounterEnabled = true
+        til.boxStrokeColor = getColor(R.color.ms_cat_violet_bg)
+        til.setBoxStrokeColorStateList(getColorStateList(R.color.ms_cat_violet_bg))
+        til.defaultHintTextColor = getColorStateList(R.color.ms_cat_violet_accent)
         et.setText(current)
         et.setSelection(current.length)
 
@@ -238,6 +383,9 @@ class SettingsActivity : AppCompatActivity() {
 
         dialog.setOnShowListener {
             et.requestFocus()
+            val violetColor = getColor(R.color.ms_cat_violet_accent)
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(violetColor)
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(violetColor)
             // A blank name is a valid choice here (it clears the greeting back
             // to "no name"), unlike WordBankActivity's category-name dialogs.
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
@@ -254,10 +402,21 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun bindReplayTutorial() {
         findViewById<View>(R.id.rowReplayTutorial).setOnClickListener {
+            appSettings.isReplayTutorialActive = true
+            appSettings.hasCompletedInitialOnboarding = true
+            appSettings.isCameraTooltipEligible = false
             appSettings.isOnboardingDone = false
-            startActivity(Intent(this, OnboardingActivity::class.java))
+            startActivity(Intent(this, OnboardingActivity::class.java).apply {
+                putExtra(OnboardingActivity.EXTRA_IS_REPLAY, true)
+            })
             finish()
         }
+    }
+
+    override fun onDestroy() {
+        speech?.release()
+        speech = null
+        super.onDestroy()
     }
 
     // ── Back press ────────────────────────────────────────────────────────────

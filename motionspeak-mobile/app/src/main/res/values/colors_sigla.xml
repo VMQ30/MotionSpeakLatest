@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <resources>
-    <color name="ms_brand">#3B82F6</color>
-    <color name="ms_logo_blue">#1A387E</color>
-    <color name="ms_brand_text">#13306B</color>
+    <color name="ms_brand">#50A9A9</color>
+    <color name="ms_logo_blue">#FFFFFF</color>
+    <color name="ms_brand_text">#258279</color>
     <color name="ms_bg">#F8FAFC</color>
     <color name="ms_tint">#FFFFFF</color>
     <color name="ms_bar_bg">#FFFFFF</color>
@@ -25,4 +25,60 @@
     <color name="ms_amber_soft">#FFFBEB</color>
     <color name="ms_illus_soft">#C9D8FA</color>
     <color name="ms_illus_mid">#9DB8F2</color>
+
+    <!-- ── Category card spectrum: blue → teal → violet (light theme) ── -->
+    <!-- Deep blue (saturated, medium-dark) -->
+    <color name="ms_cat_blue_bg">#1D4ED8</color>
+    <color name="ms_cat_blue_text">#FFFFFF</color>
+    <color name="ms_cat_blue_text_secondary">#CCE0F2FF</color>
+    <!-- Sky blue (lighter, desaturated) -->
+    <color name="ms_cat_sky_bg">#0EA5E9</color>
+    <color name="ms_cat_sky_text">#FFFFFF</color>
+    <color name="ms_cat_sky_text_secondary">#CCDCEEFF</color>
+    <!-- Teal (primary brand hue — used for Favorites card) -->
+    <color name="ms_cat_teal_bg">#0F766E</color>
+    <color name="ms_cat_teal_text">#FFFFFF</color>
+    <color name="ms_cat_teal_text_secondary">#CCDBF2EF</color>
+    <!-- Cyan-teal (brighter, higher saturation) -->
+    <color name="ms_cat_cyan_bg">#06B6D4</color>
+    <color name="ms_cat_cyan_text">#FFFFFF</color>
+    <color name="ms_cat_cyan_text_secondary">#CCDAF5F9</color>
+    <!-- Indigo (bridge to violet, medium saturation) -->
+    <color name="ms_cat_indigo_bg">#4338CA</color>
+    <color name="ms_cat_indigo_text">#FFFFFF</color>
+    <color name="ms_cat_indigo_text_secondary">#CCE0DEFF</color>
+    <!-- Purple (vibrant purple-violet, rich saturation) -->
+    <color name="ms_cat_purple_bg">#7E22CE</color>
+    <color name="ms_cat_purple_text">#FFFFFF</color>
+    <color name="ms_cat_purple_text_secondary">#CCE9D5FF</color>
+    <!-- ── Home slightly dark electric blue scheme (light theme) ── -->
+    <color name="ms_home_brand">#1E40AF</color> <!-- Rich, slightly dark electric blue -->
+    <color name="ms_home_on_brand">#FFFFFF</color>
+    <color name="ms_home_on_brand_secondary">#CCDCEEFF</color>
+    <color name="ms_home_accent">#1D4ED8</color> <!-- High-contrast electric blue text/icons -->
+    <color name="ms_home_tint">#EFF6FF</color> <!-- Subtle ice-blue tint for badges -->
+
+    <!-- Violet scheme additions for Settings (light theme heuristics) -->
+    <color name="ms_cat_violet_bg">#6D28D9</color> <!-- Rich, slightly dark electric violet for selected states & profile -->
+    <color name="ms_cat_violet_text">#FFFFFF</color>
+    <color name="ms_cat_violet_text_secondary">#CCE9D5FF</color>
+    <color name="ms_cat_violet_tint">#F3E8FF</color> <!-- Soft lavender tint for unselected buttons & badges -->
+    <color name="ms_cat_violet_accent">#6D28D9</color> <!-- High-contrast violet text/icons -->
+    <color name="ms_cat_violet_disc">#26FFFFFF</color>
+
+    <!-- Siri glowing outline spectrum for circular hand button -->
+    <color name="ms_siri_light_blue">#38BDF8</color>
+    <color name="ms_siri_teal">#2DD4BF</color>
+    <color name="ms_siri_electric_blue">#0066FF</color>
+    <color name="ms_siri_electric_violet">#8B5CF6</color>
+
+    <!-- Scarlet emergency alert color -->
+    <color name="ms_scarlet">#DC2626</color>
+
+    <!-- Camera status indicator colors -->
+    <color name="ms_status_ready_text">#047857</color> <!-- Dark green font -->
+    <color name="ms_status_not_ready_text">#991B1B</color> <!-- Dark red font -->
+    <color name="ms_status_ready_green">#10B981</color> <!-- Green dot -->
+    <color name="ms_status_ready_light_green">#4ADE80</color> <!-- Light green dot -->
 </resources>
+

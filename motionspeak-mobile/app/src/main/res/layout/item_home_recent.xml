@@ -16,14 +16,15 @@
     <FrameLayout
         android:layout_width="@dimen/ms_badge_size"
         android:layout_height="@dimen/ms_badge_size"
-        android:background="@drawable/bg_ms_circle_tint">
+        android:background="@drawable/bg_ms_circle_tint"
+        android:backgroundTint="@color/ms_home_tint">
         <ImageView
             android:layout_width="20dp"
             android:layout_height="20dp"
             android:layout_gravity="center"
             android:importantForAccessibility="no"
             android:src="@drawable/ic_chat_line"
-            android:tint="@color/ms_brand_text" />
+            android:tint="@color/ms_home_accent" />
     </FrameLayout>
 
     <LinearLayout

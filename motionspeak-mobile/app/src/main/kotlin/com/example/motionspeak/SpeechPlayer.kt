@@ -17,8 +17,8 @@ private val speechLane = Executors.newSingleThreadExecutor { r ->
 }.asCoroutineDispatcher()
 
 /**
- * The app's text-to-speech: English, the user's preferred voice and volume.
- * MainActivity and WordDetailActivity each built and tore this down by hand.
+ * The app's text-to-speech: Filipino, the user's preferred voice and volume.
+ * MainActivity, WordDetailActivity, and SettingsActivity each use this player.
  *
  * The voice is applied before every utterance. After the first call this is
  * TtsVoiceHelper's cached fast path, and it means a voice changed in Settings
@@ -39,7 +39,7 @@ class SpeechPlayer(
         // Activity, that would leak its ServiceConnection.
         tts = TextToSpeech(context.applicationContext) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                tts?.language = Locale.ENGLISH
+                tts?.let { TtsVoiceHelper.applyFilipinoLocale(it) }
                 ready = true
                 pending?.let { speak(it) }
                 pending = null
@@ -68,6 +68,17 @@ class SpeechPlayer(
         scope.launch(speechLane) {
             TtsVoiceHelper.applyPreferredVoice(engine, appSettings)
             engine.speak(text, TextToSpeech.QUEUE_FLUSH, params, null)
+        }
+    }
+
+    /**
+     * Pre-applies the preferred voice immediately in the background so
+     * changing the voice takes effect with zero latency on the next utterance.
+     */
+    fun applyVoice() {
+        val engine = tts ?: return
+        scope.launch(speechLane) {
+            TtsVoiceHelper.applyPreferredVoice(engine, appSettings)
         }
     }
 

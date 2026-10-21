@@ -65,7 +65,7 @@ internal fun wordDownloadPrompt(wordName: String, metered: Boolean): WordDownloa
  * both portrait and landscape, and a fixed-height box either shrank portrait
  * clips to a strip or left dead bands around landscape ones.
  */
-class WordDetailActivity : AppCompatActivity() {
+class WordDetailActivity : BaseActivity() {
 
     companion object {
         const val EXTRA_WORD_ID = "extra_word_id"
@@ -176,7 +176,16 @@ class WordDetailActivity : AppCompatActivity() {
 
         bindViews()
         btnBack.setOnClickListener { finish() }
-        btnSpeak.setOnClickListener { word?.let { speakWord(it.label) } }
+        btnSpeak.setOnClickListener {
+            word?.let {
+                val toSpeak = if (appSettings.showFilipino && !it.filipino_translation.isNullOrBlank()) {
+                    it.filipino_translation
+                } else {
+                    it.label
+                }
+                speakWord(toSpeak)
+            }
+        }
         setupPlayerControls()
 
         speech = SpeechPlayer(this, appSettings, lifecycleScope)

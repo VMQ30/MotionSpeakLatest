@@ -68,17 +68,6 @@
             android:text="Live" />
     </LinearLayout>
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnFlipCamera"
-        style="@style/Widget.Sigla.IconButton"
-        android:layout_marginTop="@dimen/ms_space_16"
-        android:layout_marginEnd="@dimen/ms_space_16"
-        android:contentDescription="Flip camera"
-        app:backgroundTint="@color/ms_bg"
-        app:icon="@drawable/ic_camera_flip"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
     <!-- Result card, floating under the top controls -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardResult"
@@ -261,7 +250,9 @@
 
         <FrameLayout
             android:layout_width="100dp"
-            android:layout_height="100dp">
+            android:layout_height="100dp"
+            android:clipChildren="false"
+            android:clipToPadding="false">
 
             <com.google.android.material.progressindicator.CircularProgressIndicator
                 android:id="@+id/tapRecordRing"
@@ -274,7 +265,7 @@
                 app:trackCornerRadius="0dp"
                 app:trackThickness="5dp" />
 
-            <com.google.android.material.button.MaterialButton
+            <com.example.motionspeak.SiriGlowMaterialButton
                 android:id="@+id/btnTapRecord"
                 android:layout_width="84dp"
                 android:layout_height="84dp"
@@ -283,14 +274,13 @@
                 android:insetBottom="0dp"
                 android:padding="0dp"
                 android:fontFamily="@font/poppins_semibold"
-                android:text="Tap to sign"
+                android:text="Sign"
                 android:textAllCaps="false"
                 android:textColor="@color/ms_on_brand"
                 android:textSize="@dimen/ms_text_caption"
                 app:backgroundTint="@color/ms_brand"
                 app:cornerRadius="42dp"
-                app:strokeColor="@color/ms_bg"
-                app:strokeWidth="4dp" />
+                app:strokeWidth="0dp" />
         </FrameLayout>
     </LinearLayout>
 
@@ -408,18 +398,19 @@
                 android:background="@drawable/bg_ms_pill"
                 android:backgroundTint="@color/ms_divider" />
 
-            <!-- Status + SOS on one row -->
+            <!-- Status row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginBottom="@dimen/ms_space_12"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
                 <View
                     android:id="@+id/statusDot"
-                    android:layout_width="8dp"
-                    android:layout_height="8dp"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
                     android:background="@drawable/bg_ms_status_dot"
-                    android:backgroundTint="@color/ms_text_secondary" />
+                    android:backgroundTint="@color/ms_scarlet" />
                 <TextView
                     android:id="@+id/tvStatus"
                     style="@style/Sigla.Text.BodyStrong"
@@ -427,23 +418,18 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:layout_marginStart="@dimen/ms_space_8"
-                    android:layout_marginEnd="@dimen/ms_space_12"
                     android:ellipsize="end"
                     android:maxLines="2"
-                    android:text="Starting…" />
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnEmergency"
-                    style="@style/Widget.Sigla.Chip"
-                    android:contentDescription="Hold for two seconds to play an emergency alert"
-                    android:text="Hold for SOS"
-                    android:textColor="@color/ms_on_dark"
-                    app:backgroundTint="@color/ms_danger" />
+                    android:text="Not ready"
+                    android:textColor="@color/ms_status_not_ready_text" />
             </LinearLayout>
 
-            <!-- Words / Letters (shown when a letters model is loaded) + Filipino -->
+            <!-- Words / Letters (shown when a letters model is loaded) + Filipino + Flip Camera -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/ms_space_8"
+                android:gravity="center"
                 android:orientation="horizontal">
                 <LinearLayout
                     android:id="@+id/btnToggleVocabulary"
@@ -466,7 +452,16 @@
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnToggleFilipino"
                     style="@style/Widget.Sigla.Chip"
+                    android:layout_marginEnd="@dimen/ms_space_8"
                     android:text="Filipino" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnFlipCamera"
+                    style="@style/Widget.Sigla.IconButton"
+                    android:contentDescription="Flip camera"
+                    app:backgroundTint="@color/ms_bg"
+                    app:icon="@drawable/ic_camera_flip"
+                    app:strokeColor="@color/ms_brand_text"
+                    app:strokeWidth="2.5dp" />
             </LinearLayout>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>

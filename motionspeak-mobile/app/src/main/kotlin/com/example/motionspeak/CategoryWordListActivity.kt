@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
  * dropdown from the main page is intentionally absent since the user is
  * already inside one category.
  */
-class CategoryWordListActivity : AppCompatActivity() {
+class CategoryWordListActivity : BaseActivity() {
 
     companion object {
         const val EXTRA_CATEGORY_NAME = "extra_category_name"

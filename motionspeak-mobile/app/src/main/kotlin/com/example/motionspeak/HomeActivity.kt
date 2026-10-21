@@ -1,6 +1,10 @@
 package com.example.motionspeak
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.content.res.ColorStateList
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -25,10 +29,25 @@ import java.util.Calendar
 // for launch and the entrance animations to finish first.
 private const val PRELOAD_DELAY_MS = 1500L
 
-class HomeActivity : AppCompatActivity() {
+class HomeActivity : BaseActivity() {
 
     private lateinit var binding: ActivityHomeBinding
     private lateinit var appSettings: AppSettings
+
+    // Home rebuilds its rows on every onResume; they stagger in only the first
+    // time this screen instance renders them (app-motion spec §4.2).
+    private var categoriesEntrancePlayed = false
+    private var recentEntrancePlayed = false
+
+    // Real-time clock receiver to dynamically update the greeting as time passes
+    // (every minute via ACTION_TIME_TICK, or when time or timezone is changed).
+    private val rtcReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (::binding.isInitialized) {
+                renderGreeting()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,14 +71,35 @@ class HomeActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         BottomNavHelper.setup(this, Tab.HOME)
-        binding.btnHeroStart.setOnClickListener { BottomNavHelper.openTranslator(this) }
-        binding.actionSignDictionary.setOnClickListener { BottomNavHelper.open(this, Tab.WORD_BANK) }
-        binding.actionMediSignReference.setOnClickListener { BottomNavHelper.open(this, Tab.WORD_BANK) }
-        binding.actionAppSettings.setOnClickListener { BottomNavHelper.open(this, Tab.SETTINGS) }
+        binding.homeSearch.setOnClickListener { BottomNavHelper.openWordBankSearch(this) }
+        binding.btnHeroStart.setOnClickListener {
+            Haptics.trigger(it)
+            BottomNavHelper.openTranslator(this)
+        }
+        binding.tvCategoriesViewAll.setOnClickListener { BottomNavHelper.open(this, Tab.WORD_BANK) }
+        binding.tvRecentViewAll.setOnClickListener { BottomNavHelper.open(this, Tab.HISTORY) }
 
         // Home is the root: back leaves the app. finishAffinity() also closes the
         // other tab screens kept alive behind it by the bottom bar.
         onBackPressedDispatcher.addCallback(this) { finishAffinity() }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_TIME_TICK)
+            addAction(Intent.ACTION_TIME_CHANGED)
+            addAction(Intent.ACTION_TIMEZONE_CHANGED)
+        }
+        ContextCompat.registerReceiver(this, rtcReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        try {
+            unregisterReceiver(rtcReceiver)
+        } catch (_: IllegalArgumentException) {
+        }
     }
 
     override fun onResume() {
@@ -80,8 +120,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun renderGreeting() {
-        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        val greeting = homeGreeting(hour, appSettings.userName)
+        val greeting = dynamicRtcGreeting(appSettings.userName)
         binding.tvGreetingTitle.text = greeting.title
         binding.tvGreetingSubtitle.text = greeting.subtitle.orEmpty()
         binding.tvGreetingSubtitle.isVisible = greeting.subtitle != null
@@ -89,5 +128,76 @@ class HomeActivity : AppCompatActivity() {
         val name = appSettings.userName?.trim()?.takeIf { it.isNotEmpty() }
         binding.tvAvatar.isVisible = name != null
         binding.tvAvatar.text = name?.take(1)?.uppercase().orEmpty()
+    }
+
+    private fun renderCategories(categories: List<HomeCategory>) {
+        val grid = binding.gridCategories
+        grid.removeAllViews()
+        grid.isVisible = categories.isNotEmpty()
+        binding.tvCategoriesEmpty.showEmptyState(categories.isEmpty())
+        val animate = shouldPlayListEntrance(
+            categoriesEntrancePlayed, categories.size, systemAnimationsEnabled(this)
+        )
+        if (animate || categories.isNotEmpty()) categoriesEntrancePlayed = true
+        val stepMs = resources.getInteger(R.integer.motion_list_stagger).toLong()
+
+        val brand = ContextCompat.getColor(this, R.color.ms_home_brand)
+        val onBrand = ContextCompat.getColor(this, R.color.ms_home_on_brand)
+        val onBrandSecondary = ContextCompat.getColor(this, R.color.ms_home_on_brand_secondary)
+        val gap = resources.getDimensionPixelSize(R.dimen.ms_space_12) / 2
+
+        categories.forEachIndexed { index, category ->
+            val item = ItemHomeCategoryBinding.inflate(layoutInflater, grid, false)
+            item.tvCategoryName.text = category.name.toTitleCase()
+            item.tvCategoryCount.text = resources.getQuantityString(
+                R.plurals.home_word_count, category.wordCount, category.wordCount
+            )
+            // The first card is the navy highlight, like the reference.
+            if (index == 0) {
+                item.root.setCardBackgroundColor(brand)
+                item.tvCategoryName.setTextColor(onBrand)
+                item.tvCategoryCount.setTextColor(onBrandSecondary)
+                item.ivCategoryIcon.imageTintList = ColorStateList.valueOf(onBrand)
+            }
+            item.root.setOnClickListener {
+                startActivity(
+                    Intent(this, CategoryWordListActivity::class.java)
+                        .putExtra(CategoryWordListActivity.EXTRA_CATEGORY_NAME, category.name)
+                )
+            }
+            val params = GridLayout.LayoutParams(
+                GridLayout.spec(GridLayout.UNDEFINED),
+                GridLayout.spec(GridLayout.UNDEFINED, 1f),
+            ).apply {
+                width = 0
+                setMargins(gap, gap, gap, gap)
+            }
+            if (animate) item.root.visibility = View.INVISIBLE
+            grid.addView(item.root, params)
+            if (animate) Motion.reveal(item.root, startDelay = staggerDelayMs(index, stepMs))
+        }
+    }
+
+    private fun renderRecent(entries: List<TranslationEntry>) {
+        binding.listRecent.removeAllViews()
+        binding.recentEmpty.showEmptyState(entries.isEmpty())
+        val animate = shouldPlayListEntrance(
+            recentEntrancePlayed, entries.size, systemAnimationsEnabled(this)
+        )
+        if (animate || entries.isNotEmpty()) recentEntrancePlayed = true
+        val stepMs = resources.getInteger(R.integer.motion_list_stagger).toLong()
+        val now = System.currentTimeMillis()
+        val zone = TimeZone.getDefault()
+        for ((index, entry) in entries.withIndex()) {
+            val row = ItemHomeRecentBinding.inflate(layoutInflater, binding.listRecent, false)
+            row.tvRecentWord.text = entry.word.toTitleCase()
+            val day = if (isSameLocalDay(entry.timestamp, now, zone)) "Today"
+                      else TranslationHistoryManager.formatDate(entry.timestamp)
+            row.tvRecentMeta.text = "$day · ${TranslationHistoryManager.formatTime(entry.timestamp)}"
+            row.root.setOnClickListener { BottomNavHelper.open(this, Tab.HISTORY) }
+            if (animate) row.root.visibility = View.INVISIBLE
+            binding.listRecent.addView(row.root)
+            if (animate) Motion.reveal(row.root, startDelay = staggerDelayMs(index, stepMs))
+        }
     }
 }

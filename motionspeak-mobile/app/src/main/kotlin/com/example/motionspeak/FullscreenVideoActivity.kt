@@ -26,7 +26,7 @@ import com.google.android.material.button.MaterialButton
  * and speed, and hands its final position back so the detail screen resumes
  * where fullscreen left off.
  */
-class FullscreenVideoActivity : AppCompatActivity() {
+class FullscreenVideoActivity : BaseActivity() {
 
     companion object {
         private const val EXTRA_SOURCE = "extra_source"

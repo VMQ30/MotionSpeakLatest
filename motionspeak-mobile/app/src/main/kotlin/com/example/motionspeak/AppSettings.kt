@@ -17,8 +17,14 @@ class AppSettings(context: Context) {
         private const val KEY_SHOW_FILIPINO = "show_filipino"
         private const val KEY_FRONT_CAMERA = "front_camera"
         private const val KEY_ONBOARDING = "onboarding_done"
+        private const val KEY_INITIAL_ONBOARDING_DONE = "initial_onboarding_done"
+        private const val KEY_CAMERA_TOOLTIP_SEEN = "camera_tooltip_seen_v2"
+        private const val KEY_CAMERA_TOOLTIP_ELIGIBLE = "camera_tooltip_eligible"
+        private const val KEY_REPLAY_ACTIVE = "replay_tutorial_active"
         private const val KEY_TRANSLATION_MODE = "translation_mode"
         private const val KEY_USER_NAME = "user_name"
+        private const val KEY_FONT_SIZE = "font_size"
+        private const val KEY_HAPTIC_FEEDBACK = "haptic_feedback"
         // Light is the default from the revamp on (spec §4). A stored value always
         // wins, so users who switched dark mode on keep it.
         private const val DEFAULT_DARK_MODE = false
@@ -27,6 +33,15 @@ class AppSettings(context: Context) {
 
         const val VOICE_FEMALE = "female"
         const val VOICE_MALE = "male"
+
+        const val HAPTIC_OFF = "off"
+        const val HAPTIC_LIGHT = "light"
+        const val HAPTIC_MAX = "max"
+
+        /** Font-size scale stored as an integer percentage (80 = Small, 100 = Normal, 125 = Large). */
+        const val FONT_SIZE_SMALL  = 80
+        const val FONT_SIZE_NORMAL = 100
+        const val FONT_SIZE_LARGE  = 125
 
         @Volatile private var INSTANCE: AppSettings? = null
 
@@ -72,6 +87,22 @@ class AppSettings(context: Context) {
         get() = onboardingPrefs.getBoolean(KEY_ONBOARDING, false)
         set(v) = onboardingPrefs.edit().putBoolean(KEY_ONBOARDING, v).apply()
 
+    var hasCompletedInitialOnboarding: Boolean
+        get() = onboardingPrefs.getBoolean(KEY_INITIAL_ONBOARDING_DONE, false)
+        set(v) = onboardingPrefs.edit().putBoolean(KEY_INITIAL_ONBOARDING_DONE, v).apply()
+
+    var isReplayTutorialActive: Boolean
+        get() = onboardingPrefs.getBoolean(KEY_REPLAY_ACTIVE, false)
+        set(v) = onboardingPrefs.edit().putBoolean(KEY_REPLAY_ACTIVE, v).apply()
+
+    var hasSeenCameraTooltip: Boolean
+        get() = onboardingPrefs.getBoolean(KEY_CAMERA_TOOLTIP_SEEN, false)
+        set(v) = onboardingPrefs.edit().putBoolean(KEY_CAMERA_TOOLTIP_SEEN, v).apply()
+
+    var isCameraTooltipEligible: Boolean
+        get() = onboardingPrefs.getBoolean(KEY_CAMERA_TOOLTIP_ELIGIBLE, false)
+        set(v) = onboardingPrefs.edit().putBoolean(KEY_CAMERA_TOOLTIP_ELIGIBLE, v).apply()
+
     /**
      * Optional first name for the Home greeting, stored on this phone only.
      * Trimmed on write; blank is stored as null so "no name" has one meaning.
@@ -85,12 +116,28 @@ class AppSettings(context: Context) {
             }.apply()
         }
 
+    /**
+     * UI font-size scale as an integer percentage.
+     * One of FONT_SIZE_SMALL (80), FONT_SIZE_NORMAL (100), or FONT_SIZE_LARGE (125).
+     * The slider in Settings maps 80–125 continuously; the preset buttons snap to
+     * one of the three values and move the slider thumb with them.
+     */
+    var fontSize: Int
+        get() = prefs.getInt(KEY_FONT_SIZE, FONT_SIZE_NORMAL)
+        set(v) = prefs.edit().putInt(KEY_FONT_SIZE, v).apply()
+
+    var hapticFeedback: String
+        get() = prefs.getString(KEY_HAPTIC_FEEDBACK, HAPTIC_LIGHT) ?: HAPTIC_LIGHT
+        set(v) = prefs.edit().putString(KEY_HAPTIC_FEEDBACK, v).apply()
+
     fun resetToDefault() {
         prefs.edit()
             .putInt(KEY_VOLUME, 80)
             .putString(KEY_VOICE_TYPE, VOICE_FEMALE)
             .putBoolean(KEY_DARK_MODE, DEFAULT_DARK_MODE)
             .putBoolean(KEY_SHOW_FILIPINO, true)
+            .putInt(KEY_FONT_SIZE, FONT_SIZE_NORMAL)
+            .putString(KEY_HAPTIC_FEEDBACK, HAPTIC_LIGHT)
             .apply()
     }
 }

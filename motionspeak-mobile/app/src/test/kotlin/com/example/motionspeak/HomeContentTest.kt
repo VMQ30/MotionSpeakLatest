@@ -27,25 +27,45 @@ class HomeContentTest {
 
     @Test
     fun timeOfDayBoundaries() {
-        assertEquals("Good morning", homeGreeting(0, null).title)
-        assertEquals("Good morning", homeGreeting(11, null).title)
-        assertEquals("Good afternoon", homeGreeting(12, null).title)
-        assertEquals("Good afternoon", homeGreeting(17, null).title)
-        assertEquals("Good evening", homeGreeting(18, null).title)
-        assertEquals("Good evening", homeGreeting(23, null).title)
+        // 5:00 PM - 3:59 AM (Evening)
+        assertEquals("Good evening 🌙", homeGreeting(0, null).title)
+        assertEquals("Good evening 🌙", homeGreeting(3, null).title)
+        // 4:00 AM - 11:59 AM (Morning)
+        assertEquals("Good morning ☀️", homeGreeting(4, null).title)
+        assertEquals("Good morning ☀️", homeGreeting(11, null).title)
+        // 12:00 PM - 4:59 PM (Afternoon)
+        assertEquals("Good afternoon 🌤️", homeGreeting(12, null).title)
+        assertEquals("Good afternoon 🌤️", homeGreeting(16, null).title)
+        // 5:00 PM - 3:59 AM (Evening)
+        assertEquals("Good evening 🌙", homeGreeting(17, null).title)
+        assertEquals("Good evening 🌙", homeGreeting(18, null).title)
+        assertEquals("Good evening 🌙", homeGreeting(23, null).title)
+    }
+
+    @Test
+    fun dynamicRtcGreetingFollowsCalendar() {
+        val calMorning = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 8) }
+        val calAfternoon = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 14) }
+        val calEvening = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 20) }
+        val calLateNight = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 1) }
+
+        assertEquals("Good morning ☀️", dynamicRtcGreeting(null, calMorning).title)
+        assertEquals("Good afternoon 🌤️", dynamicRtcGreeting(null, calAfternoon).title)
+        assertEquals("Good evening 🌙", dynamicRtcGreeting(null, calEvening).title)
+        assertEquals("Good evening 🌙", dynamicRtcGreeting(null, calLateNight).title)
     }
 
     @Test
     fun nameMovesTimeLineToSubtitle() {
         val g = homeGreeting(9, "  Maria ")
         assertEquals("Hi Maria!", g.title)
-        assertEquals("Good morning", g.subtitle)
+        assertEquals("Good morning ☀️", g.subtitle)
     }
 
     @Test
     fun noNameMeansNoSubtitle() {
         val g = homeGreeting(20, null)
-        assertEquals("Good evening", g.title)
+        assertEquals("Good evening 🌙", g.title)
         assertNull(g.subtitle)
     }
 
@@ -53,7 +73,7 @@ class HomeContentTest {
     @Test
     fun blankNameTreatedAsNoName() {
         val g = homeGreeting(14, "   ")
-        assertEquals("Good afternoon", g.title)
+        assertEquals("Good afternoon 🌤️", g.title)
         assertNull(g.subtitle)
     }
 
