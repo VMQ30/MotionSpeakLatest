@@ -8,21 +8,15 @@ import android.content.res.ColorStateList
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.View
-import android.widget.GridLayout
 import androidx.activity.addCallback
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import com.example.motionspeak.databinding.ActivityHomeBinding
-import com.example.motionspeak.databinding.ItemHomeCategoryBinding
-import com.example.motionspeak.databinding.ItemHomeRecentBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Calendar
-import java.util.TimeZone
 
 /**
  * Home (spec §3, §5), the first screen after SplashActivity's intro.
@@ -59,21 +53,6 @@ class HomeActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         appSettings = AppSettings.getInstance(this)
 
-        // Build hand tracking now, in the background, so the translator opens
-        // ready instead of on "Loading hand tracking…" — on slower phones that
-        // first build takes seconds. No-op once built (see HandLandmarkHelper.Cache).
-        // Same idea for the recognition models: a first-time user's download
-        // starts here rather than when they open the translator; throttled
-        // inside, so returning to Home does not re-hit the server.
-        // Both are scheduled BEFORE the onboarding redirect, so a new user's
-        // onboarding time is spent loading — that is exactly the user who would
-        // wait most.
-        //
-        // Delayed past launch: started immediately they competed with Splash →
-        // Home's own first frames and made those stutters visibly longer. On the
-        // main Handler with the app context rather than this view, so it still
-        // runs when Home finishes straight into onboarding. Opening the
-        // translator sooner is fine: it builds on demand and prewarm no-ops.
         val app = applicationContext
         Handler(Looper.getMainLooper()).postDelayed({
             HandLandmarkHelper.Cache.prewarm(app)
@@ -131,25 +110,12 @@ class HomeActivity : BaseActivity() {
     private fun refresh() {
         renderGreeting()
 
-        val historyManager = TranslationHistoryManager.getInstance(this)
-        val entries = historyManager.getAll()
-        // Favorites/translated-today are on-device and instant; wordsAvailable
-        // needs the cached word bank, loaded below with the categories grid, so
-        // the stat banner's word count updates in the same pass as the grid.
-        binding.tvStatTotal.text = historyManager.getTranslatedToday().toString()
-        binding.tvStatFavorites.text = FavoritesManager.getInstance(this).getAll().size.toString()
-
-        renderRecent(recentEntries(entries))
-
         lifecycleScope.launch {
             val words = withContext(Dispatchers.IO) {
                 ModelUpdateManager.loadCachedWordBank(this@HomeActivity)
             }.orEmpty()
-            val names = withContext(Dispatchers.IO) {
-                ModelUpdateManager.loadCachedCategories(this@HomeActivity)
-            }.orEmpty().map { it.name }
-            binding.tvStatWords.text = words.size.toString()
-            renderCategories(homeCategories(words, names))
+            val count = if (words.isNotEmpty()) words.size else 37
+            binding.tvSignDictionaryCount.text = "$count medical FSL signs"
         }
     }
 

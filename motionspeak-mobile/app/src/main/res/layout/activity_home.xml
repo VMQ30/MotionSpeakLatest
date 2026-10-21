@@ -74,34 +74,6 @@
                     tools:visibility="visible" />
             </LinearLayout>
 
-            <!-- Search → Word Bank -->
-            <LinearLayout
-                android:id="@+id/homeSearch"
-                android:layout_width="match_parent"
-                android:layout_height="@dimen/ms_search_height"
-                android:layout_marginTop="@dimen/ms_space_16"
-                android:background="@drawable/bg_ms_search"
-                android:clickable="true"
-                android:contentDescription="Search FSL signs"
-                android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="@dimen/ms_space_16"
-                android:paddingEnd="@dimen/ms_space_16">
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:importantForAccessibility="no"
-                    android:src="@drawable/ic_search_line"
-                    android:tint="@color/ms_text_secondary" />
-                <TextView
-                    style="@style/Sigla.Text.Secondary"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="@dimen/ms_space_12"
-                    android:importantForAccessibility="no"
-                    android:text="Search FSL signs" />
-            </LinearLayout>
 
             <!-- Hero -->
             <com.google.android.material.card.MaterialCardView
@@ -167,22 +139,38 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Stats: one tint strip, three columns split by thin dividers -->
-            <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.Sigla.Card.Tint"
+
+            <!-- Quick Actions -->
+            <TextView
+                style="@style/Sigla.Text.Section"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/ms_space_16">
+                android:layout_marginTop="@dimen/ms_space_20"
+                android:text="QUICK ACTIONS"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:textColor="@color/ms_text_secondary" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/ms_space_8"
+                app:cardCornerRadius="@dimen/ms_radius_lg"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="@color/ms_divider"
+                app:cardBackgroundColor="@color/ms_tint">
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:paddingStart="@dimen/ms_space_8"
-                    android:paddingTop="@dimen/ms_space_16"
-                    android:paddingEnd="@dimen/ms_space_8"
-                    android:paddingBottom="@dimen/ms_space_16">
+                    android:orientation="vertical">
+
+                    <!-- Row 1: Sign Dictionary -->
                     <LinearLayout
-                        android:layout_width="0dp"
+                        android:id="@+id/actionSignDictionary"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:gravity="center_horizontal"
@@ -195,12 +183,17 @@
                             android:layout_width="match_parent" android:layout_height="wrap_content"
                             android:gravity="center" android:text="Words" />
                     </LinearLayout>
+
                     <View
-                        android:layout_width="1dp"
-                        android:layout_height="match_parent"
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="68dp"
                         android:background="@color/ms_divider" />
+
+                    <!-- Row 2: MediSIGN Reference -->
                     <LinearLayout
-                        android:layout_width="0dp"
+                        android:id="@+id/actionMediSignReference"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:gravity="center_horizontal"
@@ -213,12 +206,17 @@
                             android:layout_width="match_parent" android:layout_height="wrap_content"
                             android:gravity="center" android:text="Translated today" />
                     </LinearLayout>
+
                     <View
-                        android:layout_width="1dp"
-                        android:layout_height="match_parent"
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="68dp"
                         android:background="@color/ms_divider" />
+
+                    <!-- Row 3: App Settings -->
                     <LinearLayout
-                        android:layout_width="0dp"
+                        android:id="@+id/actionAppSettings"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:gravity="center_horizontal"
@@ -270,13 +268,28 @@
                 android:columnCount="2"
                 android:useDefaultMargins="false" />
 
-            <TextView
-                android:id="@+id/tvCategoriesEmpty"
-                style="@style/Sigla.Text.Secondary"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Connect to the internet once to download the word bank."
-                android:visibility="gone" />
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="@dimen/ms_space_12"
+                            android:orientation="vertical">
+                            <TextView
+                                style="@style/Sigla.Text.BodyStrong"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="App Settings"
+                                android:textSize="15sp"
+                                android:textColor="@color/ms_text" />
+                            <TextView
+                                style="@style/Sigla.Text.Caption"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Font, language, TTS &amp; more"
+                                android:textSize="12sp"
+                                android:textColor="@color/ms_text_secondary" />
+                        </LinearLayout>
 
             <!-- Recent translations -->
             <LinearLayout
@@ -303,11 +316,6 @@
                     android:text="View all" />
             </LinearLayout>
 
-            <LinearLayout
-                android:id="@+id/listRecent"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical" />
 
             <LinearLayout
                 android:id="@+id/recentEmpty"
