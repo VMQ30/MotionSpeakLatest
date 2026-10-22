@@ -1,6 +1,9 @@
 package com.example.motionspeak
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
@@ -30,8 +33,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 private const val TAG = "MainActivity"
 private const val CAMERA_PERMISSION = 100
-private const val LIVE_RESULT_VISIBLE_MS = 2000L
-private const val WORD_BANK_REFRESH_INTERVAL_MS = 5 * 60 * 1000L
 
 internal val teardownExecutor = Executors.newSingleThreadExecutor { r ->
     Thread(r, "sigla-teardown").apply { isDaemon = true }
@@ -74,17 +75,8 @@ class MainActivity : AppCompatActivity() {
     private val overlayPostPending = AtomicBoolean(false)
     private var lastShownPct    = -1
 
-    private var showFilipino       = true
-    private var emergencyHoldStart = 0L
-
-    private val hideResult = Runnable { Motion.hide(binding.cardResult, View.INVISIBLE) }
-    private fun scheduleResultHide() {
-        binding.cardResult.removeCallbacks(hideResult)
-        binding.cardResult.postDelayed(hideResult, LIVE_RESULT_VISIBLE_MS)
-    }
-
-    @Volatile private var filipinoMap: Map<String, String> = emptyMap()
-    private var lastWordBankRefresh = 0L
+    private var lastResultTime = 0L
+    private var lastEmittedWord: String? = null
     private var lastLabel: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -94,16 +86,13 @@ class MainActivity : AppCompatActivity() {
 
         historyManager = TranslationHistoryManager.getInstance(this)
         appSettings = AppSettings.getInstance(this)
-        showFilipino = appSettings.showFilipino
         isFrontCamera = appSettings.isFrontCamera
 
         setupComplete = true
         initTts()
         startVision()
-        loadFilipinoTranslations()
         setupButtons()
         binding.btnBack.setOnClickListener { finish() }
-        updateFilipinoToggleLabel()
     }
 
     private fun startVision() {
@@ -161,8 +150,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun stopVision() {
-        binding.cardResult.removeCallbacks(hideResult)
-        Motion.hideNow(binding.cardResult, View.INVISIBLE)
         if (!visionActive) return
         visionActive = false
         pendingOverlayResult = null
@@ -187,47 +174,28 @@ class MainActivity : AppCompatActivity() {
     private fun initTts() { speech = SpeechPlayer(this, appSettings, lifecycleScope) }
     private fun speak(text: String) { speech?.speak(text) }
 
-    private fun loadFilipinoTranslations() {
-        val now = SystemClock.elapsedRealtime()
-        if (lastWordBankRefresh != 0L && now - lastWordBankRefresh < WORD_BANK_REFRESH_INTERVAL_MS) return
-        lastWordBankRefresh = now
-        lifecycleScope.launch(Dispatchers.IO) { refreshWordBank() }
-    }
-
-    private suspend fun refreshWordBank() {
-        val cached = ModelUpdateManager.loadCachedWordBank(this@MainActivity) ?: emptyList()
-        val words: List<WordBankWord> =
-            when (val refresh = refreshWordBank(this@MainActivity, cached)) {
-                is WordBankRefresh.Updated -> refresh.words
-                else -> cached
-            }
-
-        val map = mutableMapOf<String, String>()
-        for (word in words) {
-            val translation = word.filipino_translation
-            if (!translation.isNullOrBlank()) map[word.label.lowercase()] = translation
-        }
-        if (map.isEmpty() && filipinoMap.isNotEmpty()) return
-        if (map == filipinoMap) return
-
-        words.forEach { word ->
-            if (!word.filipino_translation.isNullOrBlank()) {
-                historyManager.setTranslation(word.label.lowercase(), word.filipino_translation)
-            }
-        }
-
-        withContext(Dispatchers.Main) { filipinoMap = map }
-    }
-
     private enum class StatusKind { LOADING, READY, ERROR }
     private fun setStatus(text: String, kind: StatusKind) {
         Motion.swapText(binding.tvStatus, text)
-        val colour = when (kind) {
-            StatusKind.LOADING -> R.color.ms_text_secondary
-            StatusKind.READY -> R.color.ms_success
-            StatusKind.ERROR -> R.color.ms_danger
+        when (kind) {
+            StatusKind.LOADING -> {
+                binding.statusSpinner.visibility = View.VISIBLE
+                binding.statusDot.visibility = View.GONE
+                binding.tvStatus.setTextColor(ContextCompat.getColor(this, R.color.ms_text_secondary))
+            }
+            StatusKind.READY -> {
+                binding.statusSpinner.visibility = View.GONE
+                binding.statusDot.visibility = View.VISIBLE
+                Motion.tintTo(binding.statusDot, ContextCompat.getColor(this, R.color.ms_success))
+                binding.tvStatus.setTextColor(ContextCompat.getColor(this, R.color.ms_status_ready_text))
+            }
+            StatusKind.ERROR -> {
+                binding.statusSpinner.visibility = View.GONE
+                binding.statusDot.visibility = View.VISIBLE
+                Motion.tintTo(binding.statusDot, ContextCompat.getColor(this, R.color.ms_danger))
+                binding.tvStatus.setTextColor(ContextCompat.getColor(this, R.color.ms_status_not_ready_text))
+            }
         }
-        Motion.tintTo(binding.statusDot, ContextCompat.getColor(this, colour))
     }
 
     private fun setupCallbacks() {
@@ -260,30 +228,28 @@ class MainActivity : AppCompatActivity() {
         val word = label.replace("_", " ").split(" ").joinToString(" ") {
             it.replaceFirstChar { char -> char.uppercase() }
         }
-        val filipino = getFilipinoTranslation(label)
+        val textToAppend = word
 
-        if (Motion.isShowing(binding.cardResult)) {
-            Motion.swapText(binding.tvResult, word)
-            if (filipino != null && showFilipino) {
-                Motion.swapText(binding.tvFilipinoResult, filipino)
-            } else {
-                Motion.hide(binding.tvFilipinoResult, View.GONE)
-            }
-        } else {
-            binding.tvResult.text = word
-            if (filipino != null && showFilipino) {
-                binding.tvFilipinoResult.text = filipino
-                Motion.reveal(binding.tvFilipinoResult)
-            } else {
-                binding.tvFilipinoResult.visibility = View.GONE
-            }
-            Motion.emphasize(binding.cardResult)
+        // Avoid rapid duplicates of the same word within 1 second
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastResultTime < 1000L && label == lastEmittedWord) {
+            return
+        }
+        lastResultTime = now
+        lastEmittedWord = label
+
+        val current = binding.tvMessage.text.toString().trim()
+        val updated = if (current.isEmpty()) textToAppend else "$current $textToAppend"
+
+        binding.tvMessage.text = updated
+
+        binding.scrollMessageBox.post {
+            binding.scrollMessageBox.fullScroll(View.FOCUS_DOWN)
         }
 
         Haptics.confirm(binding.root)
-        speak(label)
+        speak(textToAppend)
         lifecycleScope.launch(Dispatchers.IO) { historyManager.add(label, 100, "motion") }
-        scheduleResultHide()
     }
 
     private fun enqueueOverlayUpdate(result: LandmarkResult) {
@@ -343,29 +309,27 @@ class MainActivity : AppCompatActivity() {
             bindCamera()
         }
 
-        binding.btnToggleFilipino.setOnClickListener {
-            showFilipino = !showFilipino
-            appSettings.showFilipino = showFilipino
-            updateFilipinoToggleLabel()
-            val translation = if (showFilipino) lastLabel?.let { getFilipinoTranslation(it) } else null
-            if (translation != null) {
-                binding.tvFilipinoResult.text = translation
-                Motion.reveal(binding.tvFilipinoResult)
-            } else {
-                Motion.hide(binding.tvFilipinoResult, View.GONE)
+        binding.btnClearMessage.setOnClickListener {
+            binding.tvMessage.text = ""
+            lastEmittedWord = null
+        }
+
+        binding.btnCopyMessage.setOnClickListener {
+            val text = binding.tvMessage.text.toString().trim()
+            if (text.isNotEmpty()) {
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                val clip = ClipData.newPlainText("MotionSpeak translation", text)
+                clipboard.setPrimaryClip(clip)
+                Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show()
             }
         }
-    }
 
-    private fun updateFilipinoToggleLabel() {
-        val bg = if (showFilipino) R.color.ms_brand else R.color.ms_tint
-        val fg = if (showFilipino) R.color.ms_on_brand else R.color.ms_brand_text
-        Motion.tintTo(binding.btnToggleFilipino, ContextCompat.getColor(this, bg), Motion.QUICK)
-        binding.btnToggleFilipino.setTextColor(ContextCompat.getColor(this, fg))
-    }
-
-    private fun getFilipinoTranslation(label: String): String? {
-        return filipinoMap[label.lowercase()]
+        binding.btnSpeakMessage.setOnClickListener {
+            val text = binding.tvMessage.text.toString().trim()
+            if (text.isNotEmpty()) {
+                speak(text)
+            }
+        }
     }
 
     private fun startCamera() {
