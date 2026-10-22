@@ -44,29 +44,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <LinearLayout
-        android:id="@+id/btnToggleMode"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:background="@drawable/bg_ms_pill"
-        android:orientation="horizontal"
-        android:paddingStart="@dimen/ms_space_4"
-        android:paddingEnd="@dimen/ms_space_4"
-        app:layout_constraintBottom_toBottomOf="@id/btnBack"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@id/btnBack">
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/segModeTap"
-            style="@style/Widget.Sigla.Chip"
-            android:text="Tap" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/segModeLive"
-            style="@style/Widget.Sigla.Chip"
-            android:text="Live" />
-    </LinearLayout>
 
     <!-- Result card, floating under the top controls -->
     <com.google.android.material.card.MaterialCardView
@@ -217,72 +194,6 @@
         tools:text="Low light. Move to a brighter spot."
         tools:visibility="visible" />
 
-    <!-- Tap mode: prompt + record button, just above the sheet -->
-    <LinearLayout
-        android:id="@+id/tapControls"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="@dimen/ms_space_16"
-        android:gravity="center_horizontal"
-        android:orientation="vertical"
-        android:visibility="gone"
-        app:layout_constraintBottom_toTopOf="@id/bottomSheet"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        tools:visibility="visible">
-
-        <TextView
-            android:id="@+id/tvTapPrompt"
-            style="@style/Sigla.Text.Body"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/ms_space_12"
-            android:background="@drawable/bg_ms_pill"
-            android:backgroundTint="#A6000000"
-            android:paddingStart="@dimen/ms_space_16"
-            android:paddingTop="@dimen/ms_space_4"
-            android:paddingEnd="@dimen/ms_space_16"
-            android:paddingBottom="@dimen/ms_space_4"
-            android:textColor="@color/ms_on_dark"
-            android:visibility="gone"
-            tools:text="Recording… 1.8s"
-            tools:visibility="visible" />
-
-        <FrameLayout
-            android:layout_width="100dp"
-            android:layout_height="100dp"
-            android:clipChildren="false"
-            android:clipToPadding="false">
-
-            <com.google.android.material.progressindicator.CircularProgressIndicator
-                android:id="@+id/tapRecordRing"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:max="100"
-                android:visibility="invisible"
-                app:indicatorColor="@color/ms_danger"
-                app:indicatorSize="92dp"
-                app:trackCornerRadius="0dp"
-                app:trackThickness="5dp" />
-
-            <com.example.motionspeak.SiriGlowMaterialButton
-                android:id="@+id/btnTapRecord"
-                android:layout_width="84dp"
-                android:layout_height="84dp"
-                android:layout_gravity="center"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:padding="0dp"
-                android:fontFamily="@font/poppins_semibold"
-                android:text="Sign"
-                android:textAllCaps="false"
-                android:textColor="@color/ms_on_brand"
-                android:textSize="@dimen/ms_text_caption"
-                app:backgroundTint="@color/ms_brand"
-                app:cornerRadius="42dp"
-                app:strokeWidth="0dp" />
-        </FrameLayout>
-    </LinearLayout>
 
     <!-- Live mode readout, in the same place as the record button. Its children
          are shown/hidden individually by renderTapState(); with all three gone the
