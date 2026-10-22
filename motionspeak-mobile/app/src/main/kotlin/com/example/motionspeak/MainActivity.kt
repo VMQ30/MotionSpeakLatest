@@ -12,6 +12,12 @@ import android.view.MotionEvent
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import android.content.Context
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
+import android.hardware.camera2.CaptureRequest
+import android.util.Range
+import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
@@ -19,6 +25,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.button.MaterialButton
 import com.example.motionspeak.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -31,21 +38,17 @@ import java.util.concurrent.atomic.AtomicBoolean
 private const val TAG = "MainActivity"
 private const val CAMERA_PERMISSION = 100
 private const val LIVE_RESULT_VISIBLE_MS = 2000L
+private const val RESULT_FILIPINO_DELAY_MS = 80L
+private const val MOTION_INDICATOR_TEXT = "● MOTION"
 private const val WORD_BANK_REFRESH_INTERVAL_MS = 5 * 60 * 1000L
+private val PIPELINE_PROFILING = BuildConfig.DEBUG
+internal const val MIN_ACCEPTABLE_FPS = 24
 
 internal val teardownExecutor = Executors.newSingleThreadExecutor { r ->
     Thread(r, "sigla-teardown").apply { isDaemon = true }
 }
 
 class MainActivity : AppCompatActivity() {
-
-    companion object {
-        /**
-         * Intent extra key: the vocabulary ("words" or "letters") the translator
-         * should open on. Sent by WordDetailActivity's "Try it yourself" button.
-         */
-        const val EXTRA_START_VOCABULARY = PredictionService.EXTRA_START_VOCABULARY
-    }
 
     private lateinit var binding   : ActivityMainBinding
     private var predictor : PredictionService? = null
@@ -69,13 +72,20 @@ class MainActivity : AppCompatActivity() {
     private val frameMatrix = Matrix()
 
     @Volatile private var pendingCollectPct    = -1
+    @Volatile private var pendingCollectFrames = -1
     @Volatile private var pendingOverlayResult: LandmarkResult? = null
     private var overlayShown = true
     private val overlayPostPending = AtomicBoolean(false)
     private var lastShownPct    = -1
+    private var lastShownFrames = -1
+
+    private val motionIndicatorColor: Int by lazy {
+        ContextCompat.getColor(this, android.R.color.holo_orange_light)
+    }
 
     private var showFilipino       = true
     private var emergencyHoldStart = 0L
+    @Volatile private var tapMode = true
 
     private val hideResult = Runnable { Motion.hide(binding.cardResult, View.INVISIBLE) }
     private fun scheduleResultHide() {
@@ -140,7 +150,6 @@ class MainActivity : AppCompatActivity() {
                         service.close()
                         false
                     } else {
-                        helper.isFrontCamera = isFrontCamera
                         landmarker = helper
                         predictor  = service
                         setupCallbacks()
@@ -175,11 +184,14 @@ class MainActivity : AppCompatActivity() {
 
         HandLandmarkHelper.Cache.release(landmarkSink)
         landmarkSink = null
+        CaptureRateMonitor.onLowCaptureRate = null
         landmarker = null
 
         val doomedPredictor = predictor
         predictor = null
-        if (doomedPredictor != null) teardownExecutor.execute { doomedPredictor.close() }
+        if (doomedPredictor != null) {
+            teardownExecutor.execute { doomedPredictor.close() }
+        }
 
         emotionClassifier?.close()
         emotionClassifier = null
@@ -235,15 +247,7 @@ class MainActivity : AppCompatActivity() {
         val predictor = this.predictor ?: return
         predictor.onResult = { label -> runOnUiThread { showResult(label) } }
         predictor.onCollecting = { progress ->
-            val pct = (progress.coerceIn(0f, 1f) * 100).toInt().coerceIn(0, 100)
-            pendingCollectPct = pct
-            runOnUiThread {
-                if (pct != lastShownPct) {
-                    lastShownPct = pct
-                    binding.progressBuffer.setProgress(pct, true)
-                    binding.tvBufferPercent.text = "$pct%"
-                }
-            }
+            pendingCollectPct = (progress * 100).toInt()
         }
     }
 
@@ -283,7 +287,11 @@ class MainActivity : AppCompatActivity() {
 
         Haptics.confirm(binding.root)
         speak(label)
-        lifecycleScope.launch(Dispatchers.IO) { historyManager.add(label, 100, "motion") }
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            historyManager.add(label, 100, "motion") // Confidence assumed 100 for now
+        }
+
         scheduleResultHide()
     }
 
@@ -298,16 +306,20 @@ class MainActivity : AppCompatActivity() {
         val displayed = pendingOverlayResult
         try {
             if (visionActive && displayed != null) {
-                val faceLms = if (displayed.faceLandmarks.isNotEmpty()) displayed.faceLandmarks else (emotionClassifier?.lastFaceLandmarks ?: emptyList())
-                binding.overlayView.visibility = View.VISIBLE
-                binding.overlayView.alpha = 1f
-                binding.overlayView.setLandmarks(
-                    displayed.landmarks,
-                    faceLms,
-                    displayed.sourceWidth.toFloat(),
-                    displayed.sourceHeight.toFloat(),
-                    isFrontCamera
-                )
+                val action = overlayAction(overlayShown, displayed.landmarks.isNotEmpty())
+                if (action == OverlayAction.DRAW || action == OverlayAction.DRAW_AND_SHOW) {
+                    binding.overlayView.setLandmarks(
+                        displayed.landmarks,
+                        displayed.sourceWidth.toFloat(),
+                        displayed.sourceHeight.toFloat(),
+                        isFrontCamera,
+                    )
+                }
+                when (action) {
+                    OverlayAction.DRAW_AND_SHOW -> showOverlay()
+                    OverlayAction.HIDE -> hideOverlay()
+                    OverlayAction.DRAW, OverlayAction.SKIP -> Unit
+                }
                 flushCollectingState()
             }
         } finally {
@@ -319,29 +331,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun flushCollectingState() {
-        val pct = pendingCollectPct.coerceIn(0, 100)
-        if (pct != lastShownPct) {
+        val pct = pendingCollectPct
+        if (pct >= 0 && pct != lastShownPct) {
             lastShownPct = pct
             binding.progressBuffer.setProgress(pct, true)
-            binding.tvBufferPercent.text = "$pct%"
+            binding.tvBufferPercent.text    = "$pct%"
         }
-    }
-
-    private fun showOverlay() {
-        binding.overlayView.visibility = View.VISIBLE
-        binding.overlayView.alpha = 1f
-    }
-
-    private fun hideOverlay() {
-        binding.overlayView.clear()
     }
 
     private fun setupButtons() {
         binding.btnFlipCamera.setOnClickListener {
             isFrontCamera = !isFrontCamera
             appSettings.isFrontCamera = isFrontCamera
-            landmarker?.isFrontCamera = isFrontCamera
-            predictor?.reset()
+            predictor?.processFrame(FloatArray(350)) // reset
             bindCamera()
         }
 
@@ -357,6 +359,26 @@ class MainActivity : AppCompatActivity() {
                 Motion.hide(binding.tvFilipinoResult, View.GONE)
             }
         }
+
+        binding.btnEmergency.setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    emergencyHoldStart = SystemClock.elapsedRealtime()
+                    binding.btnEmergency.postDelayed(emergencyRunnable, 2000)
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    binding.btnEmergency.removeCallbacks(emergencyRunnable)
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    private val emergencyRunnable = Runnable {
+        speak("Help me")
+        Toast.makeText(this, "Emergency alert played", Toast.LENGTH_LONG).show()
     }
 
     private fun updateFilipinoToggleLabel() {
@@ -367,7 +389,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun getFilipinoTranslation(label: String): String? {
-        return filipinoMap[label.lowercase()]
+        return filipinoMap[label.lowercase()]?.let { filipinoDisplay(it) }
     }
 
     private fun startCamera() {
@@ -384,7 +406,9 @@ class MainActivity : AppCompatActivity() {
         CaptureRateMonitor.reset()
 
         val previewBuilder = Preview.Builder()
-        val preview = previewBuilder.build().also { it.setSurfaceProvider(binding.cameraPreview.surfaceProvider) }
+        val preview = previewBuilder.build().also {
+            it.setSurfaceProvider(binding.cameraPreview.surfaceProvider)
+        }
 
         binding.cameraPreview.scaleX = 1f
         binding.cameraPreview.scaleY = 1f
@@ -409,7 +433,7 @@ class MainActivity : AppCompatActivity() {
             val rotationDegrees = imageProxy.imageInfo.rotationDegrees
             val prepared        = prepareBitmap(bitmap, rotationDegrees)
 
-            // --- EMOTION PIPELINE ---
+            // --- YOUR EMOTION PIPELINE ---
             val now = System.currentTimeMillis()
             if (now - lastEmotionCheckTime > 500L) {
                 lastEmotionCheckTime = now

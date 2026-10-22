@@ -8,8 +8,6 @@ import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.core.Delegate
 import com.google.mediapipe.tasks.vision.core.RunningMode
-import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarker
-import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarkerResult
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
@@ -19,75 +17,17 @@ import kotlin.math.sqrt
 private const val TAG = "HandLandmarkHelper"
 
 internal const val FEATURE_SIZE = 350
-internal const val POSE_BASE    = 126
-internal val POSE_KEYPOINTS = intArrayOf(0, 11, 12, 13, 14, 15, 16)
-internal const val POSE_LSHOULDER = 1
-internal const val POSE_RSHOULDER = 2
-internal const val MAX_HAND_EXTENT = 5.0f
-
-internal fun normalizeHandBlock(features: FloatArray, base: Int) {
-    val wx = features[base]
-    val wy = features[base + 1]
-    val wz = features[base + 2]
-    val mx = features[base + 9 * 3]
-    val my = features[base + 9 * 3 + 1]
-    var d = sqrt((mx - wx) * (mx - wx) + (my - wy) * (my - wy))
-    if (d < 1e-6f) d = 1e-6f
-    for (j in 0..20) {
-        features[base + j * 3]     = (features[base + j * 3]     - wx) / d
-        features[base + j * 3 + 1] = (features[base + j * 3 + 1] - wy) / d
-        features[base + j * 3 + 2] = (features[base + j * 3 + 2] - wz) / d
-    }
-}
-
-internal fun normalizePoseBlock(features: FloatArray) {
-    var present = false
-    val end = minOf(features.size, POSE_BASE + 21)
-    for (k in POSE_BASE until end) {
-        if (features[k] != 0f) { present = true; break }
-    }
-    if (!present) return
-    val lsx = features[POSE_BASE + POSE_LSHOULDER * 3]
-    val lsy = features[POSE_BASE + POSE_LSHOULDER * 3 + 1]
-    val lsz = features[POSE_BASE + POSE_LSHOULDER * 3 + 2]
-    val rsx = features[POSE_BASE + POSE_RSHOULDER * 3]
-    val rsy = features[POSE_BASE + POSE_RSHOULDER * 3 + 1]
-    val rsz = features[POSE_BASE + POSE_RSHOULDER * 3 + 2]
-    val cx = (lsx + rsx) / 2f
-    val cy = (lsy + rsy) / 2f
-    val cz = (lsz + rsz) / 2f
-    var sw = sqrt((rsx - lsx) * (rsx - lsx) + (rsy - lsy) * (rsy - lsy))
-    if (sw < 1e-6f) sw = 1e-6f
-    for (k in 0..6) {
-        features[POSE_BASE + k * 3]     = (features[POSE_BASE + k * 3]     - cx) / sw
-        features[POSE_BASE + k * 3 + 1] = (features[POSE_BASE + k * 3 + 1] - cy) / sw
-        features[POSE_BASE + k * 3 + 2] = (features[POSE_BASE + k * 3 + 2] - cz) / sw
-    }
-}
-
-internal fun normalizeFrame(frame: FloatArray) {
-    for (hand in 0..1) {
-        val base = hand * 63
-        var present = false
-        for (k in base until base + 63) {
-            if (frame[k] != 0f) { present = true; break }
-        }
-        if (present) normalizeHandBlock(frame, base)
-    }
-    normalizePoseBlock(frame)
-}
-
 private const val LEFT_FLAG = 171
 private const val RIGHT_FLAG = 172
 private const val MOTION_SCALE = 5.0f
 
+// Exact indices from your meta.json
 private val POSE_IDX = intArrayOf(0, 2, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 23, 24)
 
 data class LandmarkResult(
     val handsDetected: Int,
     val features: FloatArray,
     val landmarks: List<FloatArray> = emptyList(),
-    val faceLandmarks: List<FloatArray> = emptyList(),
     val sourceWidth: Int = 1,
     val sourceHeight: Int = 1
 )
@@ -97,99 +37,52 @@ class HandLandmarkHelper(
     private val onResult: ((LandmarkResult) -> Unit)? = null
 ) {
     @Volatile var resultSink: ((LandmarkResult) -> Unit)? = onResult
-    @Volatile var isFrontCamera: Boolean = false
     private var landmarker: HandLandmarker? = null
     @Volatile private var poseLandmarker: PoseLandmarker? = null
     @Volatile private var lastPoseResult: PoseLandmarkerResult? = null
-    @Volatile private var faceLandmarker: FaceLandmarker? = null
-    @Volatile private var lastFaceResult: FaceLandmarkerResult? = null
-
     @Volatile private var lastSubmitNs = 0L
     @Volatile private var lastSourceWidth = 1
     @Volatile private var lastSourceHeight = 1
-    @Volatile private var lastFrameTimeMs = 0L
 
-    private var prevRawCoords: FloatArray? = null
+    private var prevRawCoords: FloatArray? = null // Store previous raw coords for motion
 
     init {
-        try {
-            val handOptions = HandLandmarker.HandLandmarkerOptions.builder()
-                .setBaseOptions(BaseOptions.builder().setModelAssetPath("hand_landmarker.task").setDelegate(Delegate.GPU).build())
-                .setRunningMode(RunningMode.LIVE_STREAM)
-                .setNumHands(2)
-                .setResultListener { result, _ -> resultSink?.invoke(parseResult(result, lastPoseResult, lastFaceResult)) }
-                .build()
-            landmarker = HandLandmarker.createFromOptions(context, handOptions)
-        } catch (e: Exception) {
-            Log.e(TAG, "HandLandmarker init failed: ${e.message}", e)
-        }
+        val handOptions = HandLandmarker.HandLandmarkerOptions.builder()
+            .setBaseOptions(BaseOptions.builder().setModelAssetPath("hand_landmarker.task").setDelegate(Delegate.GPU).build())
+            .setRunningMode(RunningMode.LIVE_STREAM)
+            .setNumHands(2)
+            .setResultListener { result, _ -> resultSink?.invoke(parseResult(result, lastPoseResult)) }
+            .build()
+        landmarker = HandLandmarker.createFromOptions(context, handOptions)
 
-        try {
-            val poseOptions = PoseLandmarker.PoseLandmarkerOptions.builder()
-                .setBaseOptions(BaseOptions.builder().setModelAssetPath("pose_landmarker_lite.task").setDelegate(Delegate.GPU).build())
-                .setRunningMode(RunningMode.LIVE_STREAM)
-                .setNumPoses(1)
-                .setResultListener { result, _ -> lastPoseResult = result }
-                .build()
-            poseLandmarker = PoseLandmarker.createFromOptions(context, poseOptions)
-        } catch (e: Exception) {
-            Log.e(TAG, "PoseLandmarker init failed: ${e.message}", e)
-        }
-
-        try {
-            val faceOptions = FaceLandmarker.FaceLandmarkerOptions.builder()
-                .setBaseOptions(BaseOptions.builder().setModelAssetPath("face_landmarker.task").build())
-                .setRunningMode(RunningMode.LIVE_STREAM)
-                .setNumFaces(1)
-                .setResultListener { result, _ -> lastFaceResult = result }
-                .build()
-            faceLandmarker = FaceLandmarker.createFromOptions(context, faceOptions)
-        } catch (e: Exception) {
-            Log.e(TAG, "FaceLandmarker init failed: ${e.message}", e)
-        }
+        val poseOptions = PoseLandmarker.PoseLandmarkerOptions.builder()
+            .setBaseOptions(BaseOptions.builder().setModelAssetPath("pose_landmarker_lite.task").setDelegate(Delegate.GPU).build())
+            .setRunningMode(RunningMode.LIVE_STREAM)
+            .setNumPoses(1)
+            .setResultListener { result, _ -> lastPoseResult = result }
+            .build()
+        poseLandmarker = PoseLandmarker.createFromOptions(context, poseOptions)
     }
 
     fun detectAsync(bitmap: Bitmap, frameTimestampMs: Long) {
+        val lmk = landmarker ?: return
         val mpImage = BitmapImageBuilder(bitmap).build()
         lastSourceWidth = bitmap.width
         lastSourceHeight = bitmap.height
         lastSubmitNs = System.nanoTime()
-
-        val ts = maxOf(frameTimestampMs, lastFrameTimeMs + 1)
-        lastFrameTimeMs = ts
-
-        try {
-            landmarker?.detectAsync(mpImage, ts)
-        } catch (e: Exception) {
-            Log.e(TAG, "hand detectAsync error: ${e.message}")
-        }
-
-        try {
-            poseLandmarker?.detectAsync(mpImage, ts)
-        } catch (e: Exception) {
-            Log.e(TAG, "pose detectAsync error: ${e.message}")
-        }
-
-        try {
-            faceLandmarker?.detectAsync(mpImage, ts)
-        } catch (e: Exception) {
-            Log.e(TAG, "face detectAsync error: ${e.message}")
-        }
+        lmk.detectAsync(mpImage, frameTimestampMs)
+        poseLandmarker?.detectAsync(mpImage, frameTimestampMs)
     }
 
-    private fun parseResult(
-        result: HandLandmarkerResult,
-        pose: PoseLandmarkerResult?,
-        face: FaceLandmarkerResult?
-    ): LandmarkResult {
+    private fun parseResult(result: HandLandmarkerResult, pose: PoseLandmarkerResult?): LandmarkResult {
         val baseFeat = FloatArray(173)
-        val currentRawCoords = FloatArray(171)
+        val currentRawCoords = FloatArray(171) // For motion calculations
 
+        // 1. Hands Base (126 features)
         val numHands = minOf(result.landmarks().size, 2)
         for (i in 0 until numHands) {
             val lms = result.landmarks()[i]
-            val rawIsLeft = result.handednesses().getOrNull(i)?.getOrNull(0)?.categoryName() == "Left"
-            val isLeft = if (isFrontCamera) !rawIsLeft else rawIsLeft
+            val isLeft = result.handednesses().getOrNull(i)?.getOrNull(0)?.categoryName() == "Left"
             val base = if (isLeft) 0 else 63
 
             if (isLeft) baseFeat[LEFT_FLAG] = 1.0f else baseFeat[RIGHT_FLAG] = 1.0f
@@ -205,6 +98,7 @@ class HandLandmarkHelper(
             }
         }
 
+        // 2. Pose Base (45 features)
         val poseLms = pose?.landmarks()?.firstOrNull()
         if (poseLms != null) {
             for (k in POSE_IDX.indices) {
@@ -219,13 +113,16 @@ class HandLandmarkHelper(
             }
         }
 
-        for (i in 0 until 171 step 3) baseFeat[i + 2] = 0f
+        // -- NO-Z STEP -- (Python zeros out Z in raw features)
+        for (i in 0 until 171 step 3) {
+            baseFeat[i + 2] = 0f
+        }
 
+        // 3. Hand Shape (126 features)
         val handShapeFeat = FloatArray(126)
         for (i in 0 until numHands) {
             val lms = result.landmarks()[i]
-            val rawIsLeft = result.handednesses().getOrNull(i)?.getOrNull(0)?.categoryName() == "Left"
-            val isLeft = if (isFrontCamera) !rawIsLeft else rawIsLeft
+            val isLeft = result.handednesses().getOrNull(i)?.getOrNull(0)?.categoryName() == "Left"
             val base = if (isLeft) 0 else 63
 
             val wx = lms[0].x(); val wy = lms[0].y(); val wz = lms[0].z()
@@ -240,124 +137,49 @@ class HandLandmarkHelper(
             }
         }
 
+        // 4. Motion (51 features)
         val motionFeat = FloatArray(51)
         if (prevRawCoords != null) {
+            // Pose deltas
             for (k in 0 until 15) {
                 motionFeat[k * 3] = (currentRawCoords[126 + k * 3] - prevRawCoords!![126 + k * 3]) * MOTION_SCALE
                 motionFeat[k * 3 + 1] = (currentRawCoords[126 + k * 3 + 1] - prevRawCoords!![126 + k * 3 + 1]) * MOTION_SCALE
                 motionFeat[k * 3 + 2] = (currentRawCoords[126 + k * 3 + 2] - prevRawCoords!![126 + k * 3 + 2]) * MOTION_SCALE
             }
+            // Wrist deltas
             motionFeat[45] = (currentRawCoords[0] - prevRawCoords!![0]) * MOTION_SCALE
             motionFeat[46] = (currentRawCoords[1] - prevRawCoords!![1]) * MOTION_SCALE
             motionFeat[47] = (currentRawCoords[2] - prevRawCoords!![2]) * MOTION_SCALE
+
             motionFeat[48] = (currentRawCoords[63] - prevRawCoords!![63]) * MOTION_SCALE
             motionFeat[49] = (currentRawCoords[64] - prevRawCoords!![64]) * MOTION_SCALE
             motionFeat[50] = (currentRawCoords[65] - prevRawCoords!![65]) * MOTION_SCALE
         }
         prevRawCoords = currentRawCoords
 
+        // Combine
         val finalFeatures = FloatArray(350)
         System.arraycopy(baseFeat, 0, finalFeatures, 0, 173)
         System.arraycopy(handShapeFeat, 0, finalFeatures, 173, 126)
         System.arraycopy(motionFeat, 0, finalFeatures, 299, 51)
 
-        // Build normalized (x,y) hand landmark arrays for the overlay renderer.
-        // Each hand is a FloatArray of 42 floats: interleaved x,y for 21 landmarks.
-        val overlayLandmarks = ArrayList<FloatArray>(numHands)
-        for (i in 0 until numHands) {
-            val lms = result.landmarks()[i]
-            val coords = FloatArray(42)
-            for (j in 0 until 21) {
-                coords[j * 2]     = lms[j].x()
-                coords[j * 2 + 1] = lms[j].y()
-            }
-            overlayLandmarks.add(coords)
-        }
-
-        // Build normalized (x,y) face landmark array for the overlay renderer.
-        val overlayFaceLandmarks = ArrayList<FloatArray>(1)
-        val faceLms = face?.faceLandmarks()?.firstOrNull()
-        if (faceLms != null) {
-            val coords = FloatArray(faceLms.size * 2)
-            for (j in faceLms.indices) {
-                coords[j * 2]     = faceLms[j].x()
-                coords[j * 2 + 1] = faceLms[j].y()
-            }
-            overlayFaceLandmarks.add(coords)
-        } else {
-            // Fallback: extract face keypoints from Pose (nose, eyes, ears, mouth)
-            val pLms = pose?.landmarks()?.firstOrNull()
-            if (pLms != null && pLms.size > 10) {
-                val coords = FloatArray(22)
-                for (j in 0..10) {
-                    coords[j * 2]     = pLms[j].x()
-                    coords[j * 2 + 1] = pLms[j].y()
-                }
-                overlayFaceLandmarks.add(coords)
-            }
-        }
-
-        return LandmarkResult(
-            handsDetected = numHands,
-            features = finalFeatures,
-            landmarks = overlayLandmarks,
-            faceLandmarks = overlayFaceLandmarks,
-            sourceWidth = lastSourceWidth,
-            sourceHeight = lastSourceHeight
-        )
+        return LandmarkResult(numHands, finalFeatures, sourceWidth = lastSourceWidth, sourceHeight = lastSourceHeight)
     }
 
     fun close() {
         landmarker?.close()
         poseLandmarker?.close()
-        faceLandmarker?.close()
     }
 
     object Cache {
-        @Volatile private var instance: HandLandmarkHelper? = null
+        @Volatile
+        private var instance: HandLandmarkHelper? = null
         private val buildLock = Any()
 
-        /**
-         * Guards against two concurrent prewarm threads (e.g. first-launch Home fires
-         * the timer, user completes onboarding, a new Home instance fires it again while
-         * the first thread is still inside the slow MediaPipe GPU init).
-         */
-        @Volatile private var prewarmInFlight = false
-
-        /**
-         * Eagerly builds the helper on a dedicated background thread so the first
-         * [acquire] returns an already-warm instance. Must NOT be called from the
-         * main thread directly — Home wraps it in Handler.postDelayed but that
-         * still runs on the main looper, so we always offload to a new thread.
-         *
-         * Safe to call many times: exits immediately when an instance already exists
-         * or a prewarm thread is already running.
-         */
-        fun prewarm(context: Context) {
-            // Double-checked read outside the lock for the fast path.
-            if (instance != null || prewarmInFlight) return
-            val appCtx = context.applicationContext
-            synchronized(buildLock) {
-                if (instance != null || prewarmInFlight) return
-                prewarmInFlight = true
-            }
-            Thread({
-                try {
-                    synchronized(buildLock) {
-                        // acquire() may have beaten us here — don't double-init.
-                        if (instance == null) {
-                            instance = HandLandmarkHelper(appCtx)
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "prewarm failed: ${e.message}", e)
-                } finally {
-                    prewarmInFlight = false
-                }
-            }, "sigla-prewarm").apply { isDaemon = true; start() }
-        }
-
-        fun acquire(context: Context, onResult: (LandmarkResult) -> Unit): HandLandmarkHelper {
+        fun acquire(
+            context: Context,
+            onResult: (LandmarkResult) -> Unit,
+        ): HandLandmarkHelper {
             instance?.let { return install(it, onResult) }
             synchronized(buildLock) {
                 instance?.let { return install(it, onResult) }
@@ -368,7 +190,10 @@ class HandLandmarkHelper(
         }
 
         @Synchronized
-        private fun install(helper: HandLandmarkHelper, onResult: (LandmarkResult) -> Unit): HandLandmarkHelper {
+        private fun install(
+            helper: HandLandmarkHelper,
+            onResult: (LandmarkResult) -> Unit,
+        ): HandLandmarkHelper {
             helper.resultSink = onResult
             return helper
         }
@@ -376,7 +201,9 @@ class HandLandmarkHelper(
         @Synchronized
         fun release(sink: ((LandmarkResult) -> Unit)?) {
             val current = instance ?: return
-            if (sink == null || current.resultSink === sink) current.resultSink = null
+            if (sink == null || current.resultSink === sink) {
+                current.resultSink = null
+            }
         }
     }
 }
