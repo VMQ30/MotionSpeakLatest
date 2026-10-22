@@ -342,24 +342,6 @@
                 android:layout_marginTop="@dimen/ms_space_8"
                 android:gravity="center"
                 android:orientation="horizontal">
-                <LinearLayout
-                    android:id="@+id/btnToggleVocabulary"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:visibility="gone"
-                    tools:visibility="visible">
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/chipWords"
-                        style="@style/Widget.Sigla.Chip"
-                        android:layout_marginEnd="@dimen/ms_space_8"
-                        android:text="Words" />
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/chipLetters"
-                        style="@style/Widget.Sigla.Chip"
-                        android:layout_marginEnd="@dimen/ms_space_8"
-                        android:text="Letters" />
-                </LinearLayout>
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnToggleFilipino"
                     style="@style/Widget.Sigla.Chip"

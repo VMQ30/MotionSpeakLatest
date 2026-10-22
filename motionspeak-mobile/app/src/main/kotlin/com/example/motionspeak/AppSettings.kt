@@ -21,15 +21,10 @@ class AppSettings(context: Context) {
         private const val KEY_CAMERA_TOOLTIP_SEEN = "camera_tooltip_seen_v2"
         private const val KEY_CAMERA_TOOLTIP_ELIGIBLE = "camera_tooltip_eligible"
         private const val KEY_REPLAY_ACTIVE = "replay_tutorial_active"
-        private const val KEY_TRANSLATION_MODE = "translation_mode"
         private const val KEY_USER_NAME = "user_name"
         private const val KEY_FONT_SIZE = "font_size"
         private const val KEY_HAPTIC_FEEDBACK = "haptic_feedback"
-        // Light is the default from the revamp on (spec §4). A stored value always
-        // wins, so users who switched dark mode on keep it.
         private const val DEFAULT_DARK_MODE = false
-        const val MODE_TAP = "tap"
-        const val MODE_LIVE = "live"
 
         const val VOICE_FEMALE = "female"
         const val VOICE_MALE = "male"
@@ -72,16 +67,6 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean(KEY_FRONT_CAMERA, false)
         set(v) = prefs.edit().putBoolean(KEY_FRONT_CAMERA, v).apply()
 
-    /**
-     * Tap-to-sign or realtime. Defaults to Tap whenever this preference has no
-     * stored value — which includes fresh installs, but ALSO any existing
-     * install upgrading to a build that introduced this key, since
-     * SharedPreferences cannot distinguish the two. An upgrading user who never
-     * touched this setting is silently switched into Tap mode.
-     */
-    var translationMode: String
-        get() = prefs.getString(KEY_TRANSLATION_MODE, MODE_TAP) ?: MODE_TAP
-        set(v) = prefs.edit().putString(KEY_TRANSLATION_MODE, v).apply()
 
     var isOnboardingDone: Boolean
         get() = onboardingPrefs.getBoolean(KEY_ONBOARDING, false)
