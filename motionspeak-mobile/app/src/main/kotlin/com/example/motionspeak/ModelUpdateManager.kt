@@ -569,27 +569,26 @@ object ModelUpdateManager {
         }
     }
 
-    // Suspend + IO: this reads and Gson-parses the entire word bank, and was
-    // being called from lifecycleScope.launch (the Main dispatcher) during
-    // WordBankActivity.onCreate — blocking the first frame.
     suspend fun loadCachedWordBank(context: Context): List<WordBankWord>? =
         withContext(Dispatchers.IO) {
             val file = File(context.filesDir, WORD_BANK_CACHE_FILE)
-            if (!file.exists()) return@withContext null
+            if (!file.exists()) return@withContext defaultWordBank()
             try {
-                gson.fromJson<List<WordBankWord>>(file.readText(), WORD_BANK_TYPE)
+                val words = gson.fromJson<List<WordBankWord>>(file.readText(), WORD_BANK_TYPE)
+                if (words.isNullOrEmpty()) defaultWordBank() else filterAndNormalizeToLabels(words)
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to load cached word bank: ${e.message}")
-                null
+                defaultWordBank()
             }
         }
 
     suspend fun cacheWordBank(context: Context, words: List<WordBankWord>) {
         withContext(Dispatchers.IO) {
             try {
+                val normalized = filterAndNormalizeToLabels(words)
                 val file = File(context.filesDir, WORD_BANK_CACHE_FILE)
-                file.writeText(gson.toJson(words))
-                Log.i(TAG, "Word bank cached (${words.size} words)")
+                file.writeText(gson.toJson(normalized))
+                Log.i(TAG, "Word bank cached (${normalized.size} words)")
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to cache word bank: ${e.message}")
             }
@@ -613,24 +612,17 @@ object ModelUpdateManager {
         }
     }
 
-    suspend fun loadCachedCategories(context: Context): List<CategoryItem>? =
+    suspend fun loadCachedCategories(@Suppress("UNUSED_PARAMETER") context: Context): List<CategoryItem>? =
         withContext(Dispatchers.IO) {
-            val file = File(context.filesDir, CATEGORIES_CACHE_FILE)
-            if (!file.exists()) return@withContext null
-            try {
-                gson.fromJson<List<CategoryItem>>(file.readText(), CATEGORIES_TYPE)
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to load cached categories: ${e.message}")
-                null
-            }
+            defaultCategories()
         }
 
-    suspend fun cacheCategories(context: Context, categories: List<CategoryItem>) {
+    suspend fun cacheCategories(context: Context, @Suppress("UNUSED_PARAMETER") categories: List<CategoryItem>) {
         withContext(Dispatchers.IO) {
             try {
                 val file = File(context.filesDir, CATEGORIES_CACHE_FILE)
-                file.writeText(gson.toJson(categories))
-                Log.i(TAG, "Categories cached (${categories.size})")
+                file.writeText(gson.toJson(defaultCategories()))
+                Log.i(TAG, "Categories cached (${defaultCategories().size})")
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to cache categories: ${e.message}")
             }

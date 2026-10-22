@@ -30,7 +30,8 @@ internal fun classifyWordBankResponse(
 suspend fun refreshWordBank(context: Context, current: List<WordBankWord>): WordBankRefresh {
     val result = try {
         val response = ApiClient.get().getWordBank()
-        classifyWordBankResponse(response.isSuccessful, response.body()?.words, current)
+        val fresh = response.body()?.words?.let { filterAndNormalizeToLabels(it) } ?: defaultWordBank()
+        classifyWordBankResponse(response.isSuccessful, fresh, current)
     } catch (e: Exception) {
         return WordBankRefresh.NetworkError
     }
