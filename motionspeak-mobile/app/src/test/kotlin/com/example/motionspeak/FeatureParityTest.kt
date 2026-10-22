@@ -244,7 +244,7 @@ class FeatureParityTest {
 
     @Test
     fun layoutConstantParity() {
-        assertEquals(147, FEATURE_SIZE)
+        assertEquals(147, TAP_FEATURE_SIZE)
         assertEquals(126, POSE_BASE)
         assertEquals(1, POSE_LSHOULDER)
         assertEquals(2, POSE_RSHOULDER)

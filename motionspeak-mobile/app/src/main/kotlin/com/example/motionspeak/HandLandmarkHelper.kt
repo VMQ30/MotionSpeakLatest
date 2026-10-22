@@ -19,6 +19,64 @@ import kotlin.math.sqrt
 private const val TAG = "HandLandmarkHelper"
 
 internal const val FEATURE_SIZE = 350
+internal const val POSE_BASE    = 126
+internal val POSE_KEYPOINTS = intArrayOf(0, 11, 12, 13, 14, 15, 16)
+internal const val POSE_LSHOULDER = 1
+internal const val POSE_RSHOULDER = 2
+internal const val MAX_HAND_EXTENT = 5.0f
+
+internal fun normalizeHandBlock(features: FloatArray, base: Int) {
+    val wx = features[base]
+    val wy = features[base + 1]
+    val wz = features[base + 2]
+    val mx = features[base + 9 * 3]
+    val my = features[base + 9 * 3 + 1]
+    var d = sqrt((mx - wx) * (mx - wx) + (my - wy) * (my - wy))
+    if (d < 1e-6f) d = 1e-6f
+    for (j in 0..20) {
+        features[base + j * 3]     = (features[base + j * 3]     - wx) / d
+        features[base + j * 3 + 1] = (features[base + j * 3 + 1] - wy) / d
+        features[base + j * 3 + 2] = (features[base + j * 3 + 2] - wz) / d
+    }
+}
+
+internal fun normalizePoseBlock(features: FloatArray) {
+    var present = false
+    val end = minOf(features.size, POSE_BASE + 21)
+    for (k in POSE_BASE until end) {
+        if (features[k] != 0f) { present = true; break }
+    }
+    if (!present) return
+    val lsx = features[POSE_BASE + POSE_LSHOULDER * 3]
+    val lsy = features[POSE_BASE + POSE_LSHOULDER * 3 + 1]
+    val lsz = features[POSE_BASE + POSE_LSHOULDER * 3 + 2]
+    val rsx = features[POSE_BASE + POSE_RSHOULDER * 3]
+    val rsy = features[POSE_BASE + POSE_RSHOULDER * 3 + 1]
+    val rsz = features[POSE_BASE + POSE_RSHOULDER * 3 + 2]
+    val cx = (lsx + rsx) / 2f
+    val cy = (lsy + rsy) / 2f
+    val cz = (lsz + rsz) / 2f
+    var sw = sqrt((rsx - lsx) * (rsx - lsx) + (rsy - lsy) * (rsy - lsy))
+    if (sw < 1e-6f) sw = 1e-6f
+    for (k in 0..6) {
+        features[POSE_BASE + k * 3]     = (features[POSE_BASE + k * 3]     - cx) / sw
+        features[POSE_BASE + k * 3 + 1] = (features[POSE_BASE + k * 3 + 1] - cy) / sw
+        features[POSE_BASE + k * 3 + 2] = (features[POSE_BASE + k * 3 + 2] - cz) / sw
+    }
+}
+
+internal fun normalizeFrame(frame: FloatArray) {
+    for (hand in 0..1) {
+        val base = hand * 63
+        var present = false
+        for (k in base until base + 63) {
+            if (frame[k] != 0f) { present = true; break }
+        }
+        if (present) normalizeHandBlock(frame, base)
+    }
+    normalizePoseBlock(frame)
+}
+
 private const val LEFT_FLAG = 171
 private const val RIGHT_FLAG = 172
 private const val MOTION_SCALE = 5.0f
@@ -39,6 +97,7 @@ class HandLandmarkHelper(
     private val onResult: ((LandmarkResult) -> Unit)? = null
 ) {
     @Volatile var resultSink: ((LandmarkResult) -> Unit)? = onResult
+    @Volatile var isFrontCamera: Boolean = false
     private var landmarker: HandLandmarker? = null
     @Volatile private var poseLandmarker: PoseLandmarker? = null
     @Volatile private var lastPoseResult: PoseLandmarkerResult? = null
@@ -129,7 +188,8 @@ class HandLandmarkHelper(
         val numHands = minOf(result.landmarks().size, 2)
         for (i in 0 until numHands) {
             val lms = result.landmarks()[i]
-            val isLeft = result.handednesses().getOrNull(i)?.getOrNull(0)?.categoryName() == "Left"
+            val rawIsLeft = result.handednesses().getOrNull(i)?.getOrNull(0)?.categoryName() == "Left"
+            val isLeft = if (isFrontCamera) !rawIsLeft else rawIsLeft
             val base = if (isLeft) 0 else 63
 
             if (isLeft) baseFeat[LEFT_FLAG] = 1.0f else baseFeat[RIGHT_FLAG] = 1.0f
@@ -164,7 +224,8 @@ class HandLandmarkHelper(
         val handShapeFeat = FloatArray(126)
         for (i in 0 until numHands) {
             val lms = result.landmarks()[i]
-            val isLeft = result.handednesses().getOrNull(i)?.getOrNull(0)?.categoryName() == "Left"
+            val rawIsLeft = result.handednesses().getOrNull(i)?.getOrNull(0)?.categoryName() == "Left"
+            val isLeft = if (isFrontCamera) !rawIsLeft else rawIsLeft
             val base = if (isLeft) 0 else 63
 
             val wx = lms[0].x(); val wy = lms[0].y(); val wz = lms[0].z()

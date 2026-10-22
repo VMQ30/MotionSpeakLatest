@@ -140,6 +140,7 @@ class MainActivity : AppCompatActivity() {
                         service.close()
                         false
                     } else {
+                        helper.isFrontCamera = isFrontCamera
                         landmarker = helper
                         predictor  = service
                         setupCallbacks()
@@ -339,6 +340,7 @@ class MainActivity : AppCompatActivity() {
         binding.btnFlipCamera.setOnClickListener {
             isFrontCamera = !isFrontCamera
             appSettings.isFrontCamera = isFrontCamera
+            landmarker?.isFrontCamera = isFrontCamera
             predictor?.reset()
             bindCamera()
         }
