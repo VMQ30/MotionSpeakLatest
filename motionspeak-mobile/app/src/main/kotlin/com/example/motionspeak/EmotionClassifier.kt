@@ -18,6 +18,10 @@ class EmotionClassifier(private val context: Context) {
     private var faceLandmarker: FaceLandmarker? = null
     private var emotionInterpreter: Interpreter? = null
 
+    /** Latest face landmark coordinates (x,y pairs) for overlay rendering. */
+    @Volatile var lastFaceLandmarks: List<FloatArray> = emptyList()
+        private set
+
     private val emotionLabels = listOf(
         "angry", "contempt", "disgust", "fear", "happy", "neutral", "sad", "surprise"
     )
@@ -62,7 +66,18 @@ class EmotionClassifier(private val context: Context) {
             // 1. Detect face and get bounding box
             val mpImage = BitmapImageBuilder(bitmap).build()
             val result = fl.detect(mpImage)
-            val face = result.faceLandmarks().firstOrNull() ?: return null
+            val face = result.faceLandmarks().firstOrNull() ?: run {
+                lastFaceLandmarks = emptyList()
+                return null
+            }
+
+            // Store face landmarks for overlay rendering
+            val coords = FloatArray(face.size * 2)
+            for (i in face.indices) {
+                coords[i * 2]     = face[i].x()
+                coords[i * 2 + 1] = face[i].y()
+            }
+            lastFaceLandmarks = listOf(coords)
 
             var minX = 1f; var maxX = 0f; var minY = 1f; var maxY = 0f
             for (lm in face) {

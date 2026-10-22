@@ -233,7 +233,17 @@ class MainActivity : AppCompatActivity() {
     private fun setupCallbacks() {
         val predictor = this.predictor ?: return
         predictor.onResult = { label -> runOnUiThread { showResult(label) } }
-        predictor.onCollecting = { progress -> pendingCollectPct = (progress * 100).toInt() }
+        predictor.onCollecting = { progress ->
+            val pct = (progress.coerceIn(0f, 1f) * 100).toInt().coerceIn(0, 100)
+            pendingCollectPct = pct
+            runOnUiThread {
+                if (pct != lastShownPct) {
+                    lastShownPct = pct
+                    binding.progressBuffer.setProgress(pct, true)
+                    binding.tvBufferPercent.text = "$pct%"
+                }
+            }
+        }
     }
 
     private fun onPredictorLoaded(service: PredictionService) {
@@ -287,15 +297,16 @@ class MainActivity : AppCompatActivity() {
         val displayed = pendingOverlayResult
         try {
             if (visionActive && displayed != null) {
-                val action = overlayAction(overlayShown, displayed.landmarks.isNotEmpty())
-                if (action == OverlayAction.DRAW || action == OverlayAction.DRAW_AND_SHOW) {
-                    binding.overlayView.setLandmarks(displayed.landmarks, displayed.sourceWidth.toFloat(), displayed.sourceHeight.toFloat(), isFrontCamera)
-                }
-                when (action) {
-                    OverlayAction.DRAW_AND_SHOW -> showOverlay()
-                    OverlayAction.HIDE -> hideOverlay()
-                    OverlayAction.DRAW, OverlayAction.SKIP -> Unit
-                }
+                val faceLms = if (displayed.faceLandmarks.isNotEmpty()) displayed.faceLandmarks else (emotionClassifier?.lastFaceLandmarks ?: emptyList())
+                binding.overlayView.visibility = View.VISIBLE
+                binding.overlayView.alpha = 1f
+                binding.overlayView.setLandmarks(
+                    displayed.landmarks,
+                    faceLms,
+                    displayed.sourceWidth.toFloat(),
+                    displayed.sourceHeight.toFloat(),
+                    isFrontCamera
+                )
                 flushCollectingState()
             }
         } finally {
@@ -307,8 +318,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun flushCollectingState() {
-        val pct = pendingCollectPct
-        if (pct >= 0 && pct != lastShownPct) {
+        val pct = pendingCollectPct.coerceIn(0, 100)
+        if (pct != lastShownPct) {
             lastShownPct = pct
             binding.progressBuffer.setProgress(pct, true)
             binding.tvBufferPercent.text = "$pct%"
@@ -316,24 +327,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showOverlay() {
-        if (overlayShown) return
-        overlayShown = true
-        Motion.fadeTo(binding.overlayView, 1f, Motion.QUICK, Motion.ENTER)
+        binding.overlayView.visibility = View.VISIBLE
+        binding.overlayView.alpha = 1f
     }
 
     private fun hideOverlay() {
-        if (!overlayShown) return
-        overlayShown = false
-        Motion.fadeTo(binding.overlayView, 0f, Motion.STANDARD, Motion.EXIT) {
-            if (!overlayShown) binding.overlayView.clear()
-        }
+        binding.overlayView.clear()
     }
 
     private fun setupButtons() {
         binding.btnFlipCamera.setOnClickListener {
             isFrontCamera = !isFrontCamera
             appSettings.isFrontCamera = isFrontCamera
-            predictor?.processFrame(FloatArray(350))
+            predictor?.reset()
             bindCamera()
         }
 

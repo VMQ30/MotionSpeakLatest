@@ -1,6 +1,6 @@
 package com.example.motionspeak
 
-// Pure decisions for the word screens and "Try it yourself" (spec §5–6).
+// Pure decisions for the word screens and "Try it yourself" (spec A 5–6).
 
 const val VOCAB_WORDS = "words"
 const val VOCAB_LETTERS = "letters"
@@ -33,7 +33,7 @@ internal fun wordDisplayLabel(word: WordBankWord): String =
  * The display form of a label when only the label is known (History entries and
  * the translator's result). Same fallback rule as [effectiveVocabulary]: a single
  * capital A–Z is a letter and stays as it is; anything else is a word, in title
- * case ("BLUE" -> "Blue").
+ * case ("FEVER" -> "Fever").
  */
 internal fun labelDisplay(label: String): String =
     if (SINGLE_CAPITAL_LETTER.matches(label)) label else label.toTitleCase()
@@ -58,7 +58,7 @@ enum class VocabularyFilter { ALL, MEDICAL, CONVERSATIONAL }
  * covers. Every other category of words is Medical. Letters (the alphabet) are
  * in neither pill and only show under All. To move a category, edit this set.
  */
-internal val CONVERSATIONAL_CATEGORIES: Set<String> = setOf("greetings")
+internal val CONVERSATIONAL_CATEGORIES: Set<String> = setOf("greetings", "greeting", "conversational", "conversation")
 
 /** Whether [word] belongs under the given Word Bank pill. */
 internal fun matchesFilter(word: WordBankWord, filter: VocabularyFilter): Boolean = when (filter) {

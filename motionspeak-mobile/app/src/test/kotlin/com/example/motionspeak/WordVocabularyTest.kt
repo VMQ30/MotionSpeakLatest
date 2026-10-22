@@ -9,7 +9,7 @@ class WordVocabularyTest {
     private fun word(id: Int, label: String, category: String = "Greeting", vocabulary: String? = null) =
         WordBankWord(id = id, label = label, category = category, vocabulary = vocabulary)
 
-    // ── effectiveVocabulary ───────────────────────────────────────────────────
+    // ── effectiveVocabulary ─────────────────────────────────────────────────────────────
 
     @Test
     fun usesTheBackendValueWhenPresent() {
@@ -22,18 +22,18 @@ class WordVocabularyTest {
     @Test
     fun fallsBackToSingleCapitalLetterRule() {
         assertEquals(VOCAB_LETTERS, effectiveVocabulary(word(1, "M")))
-        assertEquals(VOCAB_WORDS, effectiveVocabulary(word(2, "MONDAY")))
+        assertEquals(VOCAB_WORDS, effectiveVocabulary(word(2, "FEVER")))
         assertEquals(VOCAB_WORDS, effectiveVocabulary(word(3, "m")))
         assertEquals(VOCAB_WORDS, effectiveVocabulary(word(4, "NG")))
     }
 
     @Test
     fun unknownBackendValueFallsBackToTheRule() {
-        assertEquals(VOCAB_LETTERS, effectiveVocabulary(word(1, "B", vocabulary = "numbers")))
+        assertEquals(VOCAB_LETTERS, effectiveVocabulary(word(1, "B", vocabulary = "emergency")))
         assertEquals(VOCAB_WORDS, effectiveVocabulary(word(2, "HELLO", vocabulary = "")))
     }
 
-    // ── translatorStartVocabulary ─────────────────────────────────────────────
+    // ── translatorStartVocabulary ───────────────────────────────────────────────────────
 
     @Test
     fun lettersRequestOpensOnLetters() {
@@ -50,10 +50,10 @@ class WordVocabularyTest {
     fun wordsNullAndUnknownRequestsChangeNothing() {
         assertNull(translatorStartVocabulary("words", hasLetters = true))
         assertNull(translatorStartVocabulary(null, hasLetters = true))
-        assertNull(translatorStartVocabulary("shapes", hasLetters = true))
+        assertNull(translatorStartVocabulary("emergency", hasLetters = true))
     }
 
-    // ── gridCategories ────────────────────────────────────────────────────────
+    // ── gridCategories ─────────────────────────────────────────────────────────────────
 
     private val bank = listOf(
         word(1, "HELLO", "Greetings"),
@@ -67,15 +67,15 @@ class WordVocabularyTest {
     fun allKeepsEveryCategoryInOrderWithTotals() {
         assertEquals(
             listOf(GridCategory("Medical", 1), GridCategory("Greetings", 2),
-                   GridCategory("Alphabet", 2), GridCategory("Colors", 0)),
-            gridCategories(bank, listOf("Medical", "Greetings", "Alphabet", "Colors"), VocabularyFilter.ALL),
+                   GridCategory("Alphabet", 2), GridCategory("Emergency", 0)),
+            gridCategories(bank, listOf("Medical", "Greetings", "Alphabet", "Emergency"), VocabularyFilter.ALL),
         )
     }
 
     // Review Focus 1 (grid side).
     @Test
     fun gridCategoriesFilterByVocabulary() {
-        val names = listOf("Medical", "Greetings", "Alphabet", "Colors")
+        val names = listOf("Medical", "Greetings", "Alphabet", "Emergency")
         assertEquals(
             listOf(GridCategory("Medical", 1)),
             gridCategories(bank, names, VocabularyFilter.MEDICAL),

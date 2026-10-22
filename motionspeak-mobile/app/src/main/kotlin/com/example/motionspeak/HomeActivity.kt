@@ -6,8 +6,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.ColorStateList
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.view.View
 import android.widget.GridLayout
 import androidx.activity.addCallback
@@ -31,9 +29,6 @@ import java.util.TimeZone
  * the network. Recomputed on every onResume so a translation made a moment ago
  * shows up immediately.
  */
-// How long after Home is created the background preloads start: long enough
-// for launch and the entrance animations to finish first.
-private const val PRELOAD_DELAY_MS = 1500L
 
 class HomeActivity : BaseActivity() {
 
@@ -59,26 +54,12 @@ class HomeActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         appSettings = AppSettings.getInstance(this)
 
-        // Build hand tracking now, in the background, so the translator opens
-        // ready instead of on "Loading hand tracking…" — on slower phones that
-        // first build takes seconds. No-op once built (see HandLandmarkHelper.Cache).
-        // Same idea for the recognition models: a first-time user's download
-        // starts here rather than when they open the translator; throttled
-        // inside, so returning to Home does not re-hit the server.
-        // Both are scheduled BEFORE the onboarding redirect, so a new user's
-        // onboarding time is spent loading — that is exactly the user who would
-        // wait most.
-        //
-        // Delayed past launch: started immediately they competed with Splash →
-        // Home's own first frames and made those stutters visibly longer. On the
-        // main Handler with the app context rather than this view, so it still
-        // runs when Home finishes straight into onboarding. Opening the
-        // translator sooner is fine: it builds on demand and prewarm no-ops.
-        val app = applicationContext
-        Handler(Looper.getMainLooper()).postDelayed({
-            HandLandmarkHelper.Cache.prewarm(app)
-            ModelUpdateManager.prefetch(app)
-        }, PRELOAD_DELAY_MS)
+        // Camera models (HandLandmarker, PoseLandmarker, FaceLandmarker) are NOT
+        // prewarmed here. Loading them with Delegate.GPU on a background thread
+        // causes EGL context creation that competes with Android's RenderThread
+        // for the GPU driver lock, blocking the main looper and triggering ANR.
+        // MainActivity already loads them asynchronously on Dispatchers.IO with
+        // an in-UI "Loading hand tracking…" state, so prewarming is unnecessary.
 
         // First launch (or "Replay tutorial"): onboarding comes first and finishes
         // back into Home. Moved here from MainActivity, which is no longer the launcher.

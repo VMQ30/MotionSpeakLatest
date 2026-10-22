@@ -30,6 +30,7 @@ class PredictionService(private val context: Context) {
     private var interpreter: Interpreter? = null
     private var labels: List<String> = emptyList()
     private val frameBuffer = ArrayDeque<FloatArray>()
+    private var inactiveStreak = 0
 
     /**
      * True once [init] has loaded the model and labels successfully.
@@ -54,12 +55,32 @@ class PredictionService(private val context: Context) {
 
     fun processFrame(features: FloatArray) {
         if (!isReady) return
-        frameBuffer.addLast(features)
-        if (frameBuffer.size > 100) frameBuffer.removeFirst()
 
-        if (frameBuffer.size >= 15) {
-            onCollecting?.invoke(frameBuffer.size / 30f)
-            runInference()
+        val hasHands = features.size > RIGHT_FLAG && (features[LEFT_FLAG] > 0f || features[RIGHT_FLAG] > 0f)
+
+        if (hasHands) {
+            inactiveStreak = 0
+            frameBuffer.addLast(features)
+            if (frameBuffer.size > 60) frameBuffer.removeFirst()
+
+            val progress = (frameBuffer.size / 30f).coerceIn(0f, 1f)
+            onCollecting?.invoke(progress)
+
+            if (frameBuffer.size >= 15) {
+                runInference()
+            }
+        } else {
+            inactiveStreak++
+            if (inactiveStreak >= 8) {
+                if (frameBuffer.size >= 15) {
+                    runInference()
+                }
+                frameBuffer.clear()
+                inactiveStreak = 0
+                onCollecting?.invoke(0f)
+            } else if (frameBuffer.isEmpty()) {
+                onCollecting?.invoke(0f)
+            }
         }
     }
 
@@ -104,6 +125,8 @@ class PredictionService(private val context: Context) {
             val label = labels.getOrElse(maxIdx) { "Unknown" }
             onResult?.invoke(label)
             frameBuffer.clear()
+            inactiveStreak = 0
+            onCollecting?.invoke(0f)
         }
     }
 
@@ -119,8 +142,16 @@ class PredictionService(private val context: Context) {
         return context.assets.open(filename).bufferedReader().readLines()
     }
 
+    fun reset() {
+        frameBuffer.clear()
+        inactiveStreak = 0
+        onCollecting?.invoke(0f)
+    }
+
     fun close() {
         interpreter?.close()
         isReady = false
+        frameBuffer.clear()
+        inactiveStreak = 0
     }
 }
