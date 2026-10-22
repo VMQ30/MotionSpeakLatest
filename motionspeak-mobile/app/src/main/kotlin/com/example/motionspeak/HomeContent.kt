@@ -82,8 +82,8 @@ data class HomeCategory(val name: String, val wordCount: Int)
  */
 internal fun homeCategories(
     words: List<WordBankWord>,
-    categoryNames: List<String>,
-    limit: Int = 4,
+    categoryNames: List<String> = listOf(CATEGORY_MEDICAL, CATEGORY_GENERAL),
+    limit: Int = 2,
 ): List<HomeCategory> {
     val counts = HashMap<String, Int>()
     val firstSpelling = LinkedHashMap<String, String>()

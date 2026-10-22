@@ -5,6 +5,9 @@ import android.util.Log
 
 private const val TAG = "CaptureRateMonitor"
 
+/** Minimum acceptable capture fps; must equal TARGET_SAMPLE_FPS in motionspeak-ml. */
+internal const val MIN_ACCEPTABLE_FPS = 24
+
 /**
  * Watches the rate at which camera frames actually reach the analyzer.
  *

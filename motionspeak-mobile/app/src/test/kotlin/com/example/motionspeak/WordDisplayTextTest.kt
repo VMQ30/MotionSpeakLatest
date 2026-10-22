@@ -8,7 +8,7 @@ class WordDisplayTextTest {
     private fun word(label: String, vocabulary: String? = null) =
         WordBankWord(id = 1, label = label, vocabulary = vocabulary)
 
-    // ── wordDisplayLabel ──────────────────────────────────────────────────────
+    // ── wordDisplayLabel ─────────────────────────────────────────────────────────────
 
     @Test
     fun allCapsWordsBecomeTitleCase() {
@@ -27,7 +27,7 @@ class WordDisplayTextTest {
 
     @Test
     fun recognisedWordsBecomeTitleCase() {
-        assertEquals("Blue", labelDisplay("BLUE"))
+        assertEquals("Fever", labelDisplay("FEVER"))
         assertEquals("No", labelDisplay("NO"))
         assertEquals("Good Afternoon", labelDisplay("GOOD AFTERNOON"))
     }
@@ -38,7 +38,7 @@ class WordDisplayTextTest {
         assertEquals("B", labelDisplay("B"))
     }
 
-    // ── filipinoDisplay ───────────────────────────────────────────────────────
+    // ── filipinoDisplay ─────────────────────────────────────────────────────────────────
 
     @Test
     fun allCapsFilipinoBecomesTitleCase() {
