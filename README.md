@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="motionspeak-mobile/app/src/main/res/drawable-xxxhdpi/splash_icon.webp" alt="MotionSpeak logo" width="160">
+<img src="motionspeak-mobile/app/src/main/ic_launcher-playstore.png" alt="MotionSpeak logo" width="160">
 
 # MotionSpeak
 
@@ -25,6 +25,7 @@ Translate Filipino Sign Language gestures and facial expressions into spoken and
 **MotionSpeak** is an assistive communication system bridging the gap between individuals who sign in Filipino Sign Language (FSL) and the hearing/non-signing community. By pairing real-time camera computer vision with on-device machine learning, MotionSpeak translates both hand gestures and facial expressions into clear text and natural synthesized speech in real time.
 
 ### Why MotionSpeak?
+
 - **100% On-Device Translation**: Inference executes entirely on-device via TensorFlow Lite and Google MediaPipe. No internet connection is needed to translate signs, ensuring instant responsiveness, complete user privacy, and zero reliance on cloud latency.
 - **Emotion & Tone Awareness**: Sign language is inherently multi-modal. MotionSpeak concurrently analyzes facial landmarks to classify emotional nuances (Neutral, Happy, Questioning, Surprised) and maps them to contextual speech inflection.
 - **Self-Contained & Lightweight**: All active models, labels, and offline word assets are bundled locally, removing external backend server or database dependencies.
@@ -32,9 +33,10 @@ Translate Filipino Sign Language gestures and facial expressions into spoken and
 
 ---
 
-## ✨ Key Features
+## Key Features
 
-### 📱 Mobile Application (`motionspeak-mobile/`)
+### Mobile Application (`motionspeak-mobile/`)
+
 - **Real-Time Translation Modes**:
   - **Live Mode**: Continuous sign recognition with dynamic gesture buffering and visual progress indicators.
   - **Tap Mode**: On-demand gesture capture for deliberate, single-sign recognition.
@@ -48,6 +50,7 @@ Translate Filipino Sign Language gestures and facial expressions into spoken and
 - **Speech Synthesis (TTS)**: Multi-pitch and tone-adjusted voice feedback matching detected facial expressions.
 
 ### 🧠 ML Service (`motionspeak-ml/`)
+
 - **Landmark Extraction**: Automated pipelines using MediaPipe Holistic/Hands/Pose to extract 3D spatial coordinate sequences.
 - **Model Architectures**: Deep learning sequence classification models (LSTM / GRU / Bidirectional) optimized and quantized for mobile TFLite runtime.
 - **Facial Expression Pipeline**: Real-time facial action unit analysis and emotion classification.
@@ -55,7 +58,7 @@ Translate Filipino Sign Language gestures and facial expressions into spoken and
 
 ---
 
-## 🏛️ System Architecture
+## System Architecture
 
 ```text
  ┌────────────────────────────────────────────────────────┐
@@ -82,21 +85,21 @@ Translate Filipino Sign Language gestures and facial expressions into spoken and
 
 ---
 
-## 🎨 Design System & Theme
+## Design System & Theme
 
 MotionSpeak features a high-contrast, accessible design palette tailored for readability and visual clarity:
 
-| Swatch | Role | Hex | Purpose |
-|---|---|---|---|
-| ![](https://img.shields.io/badge/-%20%20%20%20-13306B?style=flat-square) | **Brand Navy** | `#13306B` | Primary action buttons, mobile headers, and core identity |
-| ![](https://img.shields.io/badge/-%20%20%20%20-1E3A8A?style=flat-square) | **Secondary Navy** | `#1E3A8A` | Navigation, links, and secondary accents |
-| ![](https://img.shields.io/badge/-%20%20%20%20-EEF3FC?style=flat-square) | **Light Tint** | `#EEF3FC` | Card surfaces, container tints, and highlighted sections |
-| ![](https://img.shields.io/badge/-%20%20%20%20-0F1B33?style=flat-square) | **Ink Text** | `#0F1B33` | Primary typography and icon color |
-| ![](https://img.shields.io/badge/-%20%20%20%20-0C1430?style=flat-square) | **Tonal Dark** | `#0C1430` | Dark mode background and camera drawer surfaces |
+| Swatch                                                                   | Role               | Hex       | Purpose                                                   |
+| ------------------------------------------------------------------------ | ------------------ | --------- | --------------------------------------------------------- |
+| ![](https://img.shields.io/badge/-%20%20%20%20-13306B?style=flat-square) | **Brand Navy**     | `#13306B` | Primary action buttons, mobile headers, and core identity |
+| ![](https://img.shields.io/badge/-%20%20%20%20-1E3A8A?style=flat-square) | **Secondary Navy** | `#1E3A8A` | Navigation, links, and secondary accents                  |
+| ![](https://img.shields.io/badge/-%20%20%20%20-EEF3FC?style=flat-square) | **Light Tint**     | `#EEF3FC` | Card surfaces, container tints, and highlighted sections  |
+| ![](https://img.shields.io/badge/-%20%20%20%20-0F1B33?style=flat-square) | **Ink Text**       | `#0F1B33` | Primary typography and icon color                         |
+| ![](https://img.shields.io/badge/-%20%20%20%20-0C1430?style=flat-square) | **Tonal Dark**     | `#0C1430` | Dark mode background and camera drawer surfaces           |
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```text
 MotionSpeakLatest/
@@ -122,19 +125,19 @@ MotionSpeakLatest/
 │   │   ├── train.py             # Model training routines
 │   │   └── clip_prep.py         # Video normalization & landmark preprocessing
 │   └── tools/                   # Facial expression detection & dataset tooling
-└── docs-internal/               # Architectural specs, diagrams, and sprint plans
+└── docs/                        # Project web assets and application icons
 ```
 
 ---
 
-## ⚙️ Installation and Setup
+## Installation and Setup
 
 ### Prerequisites
 
-| Component | Minimum Version | Required For |
-|---|---|---|
+| Component          | Minimum Version             | Required For                           |
+| ------------------ | --------------------------- | -------------------------------------- |
 | **Android Studio** | Ladybug / Hedgehog (SDK 34) | Mobile app (`minSdk 24`, Android 7.0+) |
-| **Python** | 3.10 | ML Service & Dataset Tools |
+| **Python**         | 3.10                        | ML Service & Dataset Tools             |
 
 ---
 
@@ -181,17 +184,19 @@ cp .env.example .env
 Download required MediaPipe model assets into `motionspeak-ml/app/models/` following [`motionspeak-ml/app/models/README.md`](motionspeak-ml/app/models/README.md).
 
 Start the FastAPI local service:
+
 ```bash
 uvicorn app.main:app --reload --port 8000 --host 0.0.0.0
 ```
 
 ---
 
-## 🚀 Usage Guidelines
+## Usage Guidelines
 
 ### Running On-Device Mobile App
 
 The mobile application is fully functional offline:
+
 - Open the application on your Android device.
 - Grant camera and audio permissions.
 - Choose between **Live Mode** (continuous recognition) or **Tap Mode** (on-demand capture).
