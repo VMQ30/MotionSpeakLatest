@@ -380,9 +380,16 @@ class MainActivity : AppCompatActivity() {
                     Thread {
                         val result = classifier.predictTone(prepared)
                         if (result != null) {
-                            val emotionLabel = result.first
+                            val emotionLabel = result.first.replaceFirstChar { it.uppercase() }
                             val tone = ToneMapper.fromEmotion(emotionLabel)
                             Log.i("MotionSpeak", "Emotion: $emotionLabel -> Tone: $tone")
+                            runOnUiThread {
+                                binding.overlayView.setDetectedEmotion(emotionLabel)
+                            }
+                        } else {
+                            runOnUiThread {
+                                binding.overlayView.setDetectedEmotion(null)
+                            }
                         }
                     }.start()
                 }

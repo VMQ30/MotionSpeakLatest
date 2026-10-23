@@ -47,6 +47,9 @@ class EmotionClassifier(private val context: Context) {
                 FileChannel.MapMode.READ_ONLY, file.startOffset, file.declaredLength
             )
             emotionInterpreter = Interpreter(mappedByteBuffer)
+            fileChannel.close()
+            inputStream.close()
+            file.close()
 
             Log.i("EmotionClassifier", "Emotion pipeline loaded successfully")
         } catch (e: Exception) {
@@ -58,6 +61,7 @@ class EmotionClassifier(private val context: Context) {
      * Takes a camera frame, finds the face, crops it, and predicts the emotion.
      * Returns a Pair of (Emotion Label, Confidence), or null if no face found.
      */
+    @Synchronized
     fun predictTone(bitmap: Bitmap): Pair<String, Float>? {
         val fl = faceLandmarker ?: return null
         val interp = emotionInterpreter ?: return null
@@ -95,11 +99,11 @@ class EmotionClassifier(private val context: Context) {
             minY = (minY - h * 0.15f).coerceAtLeast(0f)
             maxY = (maxY + h * 0.15f).coerceAtMost(1f)
 
-            // 2. Crop the bitmap
-            val left = (minX * bitmap.width).toInt()
-            val top = (minY * bitmap.height).toInt()
-            val right = (maxX * bitmap.width).toInt()
-            val bottom = (maxY * bitmap.height).toInt()
+            // 2. Crop the bitmap safely within bitmap dimensions
+            val left = (minX * bitmap.width).toInt().coerceIn(0, (bitmap.width - 1).coerceAtLeast(0))
+            val top = (minY * bitmap.height).toInt().coerceIn(0, (bitmap.height - 1).coerceAtLeast(0))
+            val right = (maxX * bitmap.width).toInt().coerceIn(left + 1, bitmap.width)
+            val bottom = (maxY * bitmap.height).toInt().coerceIn(top + 1, bitmap.height)
             val cropWidth = right - left
             val cropHeight = bottom - top
             if (cropWidth <= 0 || cropHeight <= 0) return null
