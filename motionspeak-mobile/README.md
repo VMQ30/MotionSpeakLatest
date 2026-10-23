@@ -1,36 +1,44 @@
-# SIGLA Mobile
+# MotionSpeak Mobile
 
-Native Android application for Filipino Sign Language recognition and learning.
+Native Android application for offline-first Filipino Sign Language (FSL) recognition, facial emotion detection, and vocabulary learning.
 
 ## Features
 
-- Live camera-based sign translation with text and speech output
-- Public word bank with categories, favorites, and demonstration media
-- Device-local translation history
-- Device-local application settings and onboarding
+- **Live & Tap Camera-Based Sign Translation**: Real-time sign translation with text display and Text-to-Speech (TTS) audio feedback.
+- **Facial Emotion & Tone Recognition**: Detects facial expressions concurrently with hand gestures to provide emotional context and expressive speech.
+- **Dynamic Siri Glow Meter**: Fluid visual feedback showing gesture buffer progression and confidence state.
+- **Overhauled Camera Controls**: Floating action buttons for flipping camera, clearing text, repeating speech, and copying translation to clipboard.
+- **Comprehensive Word Bank**: Searchable FSL catalog organized by categories, complete with demonstration videos, download capabilities, and favorites.
+- **Emergency SOS Alert**: Two-second press-and-hold audible alarm and visual alert for quick assistance.
+- **On-Device Offline Inference**: Runs entirely local models powered by TensorFlow Lite and Google MediaPipe—zero latency and fully functional without an internet connection.
+- **Over-The-Air (OTA) Model Synchronization**: Seamlessly checks and downloads updated model binaries and word bank definitions when online.
+- **Device-Local Translation History & Settings**: Persistent local history storage (up to 200 entries), voice customization, and theme preferences.
 
-The mobile application has no user accounts, authentication, profiles, or notifications. It only calls public backend endpoints for the deployed recognition models, word bank, and categories.
+## Run Locally
 
-## Run locally
-
-1. Open `motionspeak-mobile` in Android Studio.
-2. Set the debug `BASE_URL` in `app/build.gradle.kts` to the backend address reachable by the Android device.
+1. Open `motionspeak-mobile` in Android Studio (Ladybug / Hedgehog, SDK 34).
+2. Set the debug `BASE_URL` in `app/build.gradle.kts` to your reachable backend API host (e.g., `http://10.0.2.2:3000/api/` for emulator or `http://<LAN_IP>:3000/api/` for physical device).
 3. Build and run the `app` configuration.
 
-From a terminal:
+From the terminal:
 
-```text
+```powershell
+# Windows
+.\gradlew.bat assembleDebug
+
+# macOS / Linux
 ./gradlew assembleDebug
 ```
 
-On Windows, use `gradlew.bat assembleDebug`.
+## Main Source Architecture
 
-## Main source areas
-
-- `MainActivity.kt` — camera translation
-- `WordBankActivity.kt` — word browsing and categories
-- `WordDetailActivity.kt` — word details and demonstration media
-- `TranslationHistoryActivity.kt` — local translation history
-- `SettingsActivity.kt` — local application preferences
-- `PredictionService.kt` — on-device model inference
-- `HandLandmarkHelper.kt` — MediaPipe landmark extraction
+- `MainActivity.kt` — CameraX pipeline, gesture buffer, tone capture, and floating controls
+- `PredictionService.kt` — On-device TFLite model inference for words and fingerspelled letters
+- `HandLandmarkHelper.kt` — MediaPipe hand landmark extraction
+- `EmotionClassifier.kt` / `ToneMapper.kt` — Facial expression detection and tone inference
+- `SiriDetectionMeterView.kt` — Animated gradient indicator and gesture buffer meter
+- `WordBankActivity.kt` & `WordDetailActivity.kt` — Word catalog, video playback, and category management
+- `ModelUpdateManager.kt` — OTA model check, SHA-256 validation, and hot-swap
+- `TranslationHistoryActivity.kt` — Local translation history records
+- `SosActivity.kt` / `SosHelper.kt` — Emergency SOS alarm system
+- `SettingsActivity.kt` — User preferences, speech volume, voice options, and onboarding replay
