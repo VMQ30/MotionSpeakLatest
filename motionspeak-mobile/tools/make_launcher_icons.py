@@ -1,11 +1,11 @@
-"""Generate the SigLa launcher icons from motionspeak-admin/public/favicon-256.svg.
+"""Generate the SigLa launcher icons from docs/assets/favicon.svg.
 
 The SVG's first <path> is the blue rounded tile; everything after it is the
 artwork. Dropping the tile and rendering with alpha gives the adaptive-icon
 foreground directly, and the tile colour becomes the adaptive background.
 
 Usage (from motionspeak-mobile/, see README.md):
-    python tools/make_launcher_icons.py ../motionspeak-admin/public/favicon-256.svg app/src/main/res
+    python tools/make_launcher_icons.py ../docs/assets/favicon.svg app/src/main/res
 """
 import io
 import os
