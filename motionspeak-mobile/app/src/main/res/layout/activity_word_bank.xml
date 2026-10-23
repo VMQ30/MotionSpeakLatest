@@ -40,7 +40,7 @@
                     style="@style/Sigla.Text.Caption"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="60 medical FSL signs" />
+                    android:text="60 FSL signs" />
             </LinearLayout>
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDownloadAllVideos"
@@ -145,15 +145,15 @@
                         android:layout_height="wrap_content"
                         android:minHeight="@dimen/ms_touch_min"
                         android:layout_marginEnd="@dimen/ms_space_8"
-                        android:text="Medical (45)" />
+                        android:text="Medical (46)" />
 
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/pillConversational"
+                        android:id="@+id/pillGeneral"
                         style="@style/Widget.Sigla.Chip"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:minHeight="@dimen/ms_touch_min"
-                        android:text="Conversational (15)" />
+                        android:text="General (14)" />
                 </LinearLayout>
             </HorizontalScrollView>
 

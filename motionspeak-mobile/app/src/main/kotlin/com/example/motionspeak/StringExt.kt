@@ -25,4 +25,4 @@ fun String.capitalizeFirst(): String =
  * user chose on purpose (e.g. deliberately-cased branding).
  */
 fun String.toTitleCase(): String =
-    lowercase().split(" ").joinToString(" ") { it.capitalizeFirst() }
+    replace('_', ' ').lowercase().split(" ").filter { it.isNotEmpty() }.joinToString(" ") { it.capitalizeFirst() }
