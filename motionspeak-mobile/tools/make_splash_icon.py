@@ -6,7 +6,9 @@ inside that circle. SplashActivity shows the same drawable at the same size, so
 the whole frame is identical from the first system-splash frame onward.
 
 Usage (from motionspeak-mobile/, see README.md):
-    python tools/make_splash_icon.py ../motionspeak-admin/public/favicon-256.svg         app/src/main/res/font/poppins_semibold.ttf         app/src/main/res/drawable-xxxhdpi/splash_icon.webp [preview.png]
+    python tools/make_splash_icon.py ../docs/assets/favicon.svg \
+        app/src/main/res/font/poppins_semibold.ttf \
+        app/src/main/res/drawable-xxxhdpi/splash_icon.webp [preview.png]
 """
 import io
 import math
