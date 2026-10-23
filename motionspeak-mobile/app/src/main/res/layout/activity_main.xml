@@ -350,26 +350,6 @@
                         android:layout_marginEnd="@dimen/ms_space_8"
                         android:text="Letters" />
                 </LinearLayout>
-            <!-- Words / Letters (shown when a letters model is loaded) + Filipino + Flip Camera -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/ms_space_8"
-                android:gravity="center"
-                android:orientation="horizontal">
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnToggleFilipino"
-                    style="@style/Widget.Sigla.Chip"
-                    android:layout_marginEnd="@dimen/ms_space_8"
-                    android:text="Filipino" />
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnFlipCamera"
-                    style="@style/Widget.Sigla.IconButton"
-                    android:contentDescription="Flip camera"
-                    app:backgroundTint="@color/ms_bg"
-                    app:icon="@drawable/ic_camera_flip"
-                    app:strokeColor="@color/ms_brand_text"
-                    app:strokeWidth="2.5dp" />
             </LinearLayout>
 
             <!-- [bottom] message box: scrollable to support incoming strings -->
