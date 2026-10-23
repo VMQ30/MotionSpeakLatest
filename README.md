@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="motionspeak-mobile/app/src/main/ic_launcher-playstore.png" alt="MotionSpeak logo" width="160">
+<img src="docs\assets\hand_ms.png" alt="MotionSpeak logo" width="160">
 
 # MotionSpeak
 
