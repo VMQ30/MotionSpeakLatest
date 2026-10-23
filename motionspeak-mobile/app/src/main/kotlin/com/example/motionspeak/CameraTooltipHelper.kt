@@ -11,13 +11,12 @@ import android.widget.FrameLayout
 import java.lang.ref.WeakReference
 
 /**
- * Manages the first-time onboarding discovery tooltip for the nav bar's hand sign button.
+ * Manages the "click here to open the camera" discovery tooltip for the nav bar's
+ * center hand sign button (fabTranslate).
  *
- * Requirements:
- *   - Only appears after the onboarding tutorial for the first time user.
- *   - Only appears when the phone has been idle (no touch interaction) for 15 seconds.
- *   - Never appears when replaying onboarding (via Settings -> Replay tutorial).
- *   - Dismisses immediately upon any user touch or interaction, or when the camera is opened.
+ * Consistently appears after every 15 seconds of user inactivity (no touch interaction)
+ * on any screen with the bottom navigation bar. Dismisses on any touch and restarts
+ * the 15-second idle timer.
  */
 object CameraTooltipHelper {
 
@@ -33,34 +32,31 @@ object CameraTooltipHelper {
         val activity = pendingActivity?.get() ?: return@Runnable
         if (activity.isFinishing || activity.isDestroyed) return@Runnable
 
-        val settings = AppSettings.getInstance(activity)
-        if (!isEligible(settings)) return@Runnable
+        // Do not display if already on camera translator screen
+        if (activity is MainActivity) return@Runnable
 
         val fab = activity.findViewById<View>(R.id.fabTranslate) ?: return@Runnable
+        if (fab.visibility != View.VISIBLE) return@Runnable
+
         showTooltip(activity, fab)
     }
 
     /**
      * Determines whether the tooltip is eligible to show.
-     * True if:
-     *   1. The user has not seen the camera tooltip yet (!hasSeenCameraTooltip).
-     *   2. The user is NOT currently replaying onboarding (!isReplayTutorialActive).
+     * Always eligible for screens with the translation FAB after 15 seconds of inactivity.
      */
-    fun isEligible(settings: AppSettings): Boolean = isCameraTooltipEligible(
-        hasSeenCameraTooltip = settings.hasSeenCameraTooltip,
-        isReplayTutorialActive = settings.isReplayTutorialActive
-    )
+    fun isEligible(settings: AppSettings? = null): Boolean = true
 
     /**
      * Called when an activity with the bottom navigation bar is resumed.
-     * Arms the 15-second idle timer if the user is eligible for the tooltip.
+     * Arms the 15-second idle timer.
      */
     fun onActivityResumed(activity: Activity) {
-        val settings = AppSettings.getInstance(activity)
-        if (!isEligible(settings)) {
+        if (activity.isFinishing || activity.isDestroyed) return
+        if (activity is MainActivity) {
+            dismissTooltip(activity, animated = false)
             return
         }
-        if (activity.findViewById<View>(R.id.fabTranslate) == null) return
         pendingActivity = WeakReference(activity)
         scheduleIdle()
     }
@@ -78,40 +74,34 @@ object CameraTooltipHelper {
     }
 
     /**
-     * Called on every touch event on the screen.
-     * If the tooltip is currently displayed, dismisses it and marks it completed.
-     * If the tooltip is pending, resets the 15-second idle countdown.
+     * Called on touch events on the screen.
+     * If the tooltip is currently displayed, dismisses it.
+     * Resets the 15-second idle countdown on any user interaction.
      */
     fun onUserInteraction(activity: Activity, event: MotionEvent?) {
-        if (event?.action == MotionEvent.ACTION_DOWN) {
-            if (isTooltipShowing) {
-                dismissTooltip(activity, animated = true)
-                markCompleted(activity)
-            } else {
-                val settings = AppSettings.getInstance(activity)
-                if (isEligible(settings)) {
-                    scheduleIdle()
+        if (event == null) return
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                if (isTooltipShowing) {
+                    dismissTooltip(activity, animated = true)
                 }
+                pendingActivity = WeakReference(activity)
+                scheduleIdle()
+            }
+            MotionEvent.ACTION_MOVE -> {
+                // Keep resetting while user is actively dragging or scrolling
+                scheduleIdle()
             }
         }
     }
 
     /**
      * Called whenever the user opens the camera (via FAB, home hero button, etc.).
-     * Cancels the tooltip permanently so the user is never prompted again.
      */
     fun onCameraOpened(activity: Activity) {
         handler.removeCallbacks(idleRunnable)
         pendingActivity = null
         dismissTooltip(activity, animated = true)
-        markCompleted(activity)
-    }
-
-    private fun markCompleted(activity: Activity) {
-        val settings = AppSettings.getInstance(activity)
-        settings.hasSeenCameraTooltip = true
-        settings.isCameraTooltipEligible = false
-        settings.hasCompletedInitialOnboarding = true
     }
 
     private fun scheduleIdle() {
@@ -127,9 +117,15 @@ object CameraTooltipHelper {
     fun showTooltip(activity: Activity, anchorView: View) {
         if (isTooltipShowing) return
         if (activity.isFinishing || activity.isDestroyed) return
+        if (activity is MainActivity) return
 
         if (anchorView.width <= 0 || anchorView.height <= 0 || !anchorView.isAttachedToWindow) {
-            anchorView.post { showTooltip(activity, anchorView) }
+            anchorView.post {
+                val act = pendingActivity?.get() ?: activity
+                if (!act.isFinishing && !act.isDestroyed) {
+                    showTooltip(act, anchorView)
+                }
+            }
             return
         }
 
@@ -196,7 +192,6 @@ object CameraTooltipHelper {
         isTooltipShowing = true
 
         tooltip.showWithAnimation()
-        markCompleted(activity)
     }
 
     /**
@@ -204,9 +199,9 @@ object CameraTooltipHelper {
      */
     fun dismissTooltip(@Suppress("UNUSED_PARAMETER") activity: Activity? = null, animated: Boolean = true) {
         val tooltip = currentTooltipView?.get()
+        currentTooltipView = null
+        isTooltipShowing = false
         if (tooltip != null) {
-            currentTooltipView = null
-            isTooltipShowing = false
             if (animated) {
                 tooltip.dismissWithAnimation()
             } else {
@@ -217,13 +212,9 @@ object CameraTooltipHelper {
 }
 
 /**
- * Pure eligibility rule function for direct unit testing.
+ * Eligibility rule function.
  */
 internal fun isCameraTooltipEligible(
-    hasSeenCameraTooltip: Boolean,
-    isReplayTutorialActive: Boolean
-): Boolean {
-    if (hasSeenCameraTooltip) return false
-    if (isReplayTutorialActive) return false
-    return true
-}
+    hasSeenCameraTooltip: Boolean = false,
+    isReplayTutorialActive: Boolean = false
+): Boolean = true

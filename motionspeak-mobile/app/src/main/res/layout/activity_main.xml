@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Translator (spec §5, mockup translator-v2.html). Camera fills the screen above
-     a compact bottom sheet; the sheet overlaps the camera by 28dp so its rounded
+<!-- Translator (spec §5). Camera fills the screen above
+     an expanded bottom sheet; the sheet overlaps the camera by 28dp so its rounded
      top corners sit on the picture. Controls float over the camera. -->
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -32,7 +32,7 @@
             android:layout_height="match_parent" />
     </FrameLayout>
 
-    <!-- Top controls over the camera -->
+    <!-- Top back button over the camera -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnBack"
         style="@style/Widget.Sigla.IconButton"
@@ -44,6 +44,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- Environment and hand warnings floating under the back button -->
 
     <!-- Result card, floating under the top controls -->
     <com.google.android.material.card.MaterialCardView
@@ -169,11 +170,8 @@
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/cardResult" />
+        app:layout_constraintTop_toBottomOf="@id/btnBack" />
 
-    <!-- Environment warning (low light, face not visible, cluttered background).
-         The message is set in code. Sits under the hands warning; if that one is
-         gone, this one moves up into its place. -->
     <TextView
         android:id="@+id/tvEnvWarning"
         style="@style/Sigla.Text.Caption"
@@ -194,80 +192,52 @@
         tools:text="Low light. Move to a brighter spot."
         tools:visibility="visible" />
 
+    <!-- Detection percentage and Siri animated gradient progress bar -->
 
     <!-- Live mode readout, in the same place as the record button. Its children
          are shown/hidden individually by renderTapState(); with all three gone the
          container collapses. -->
     <LinearLayout
-        android:id="@+id/liveReadout"
+        android:id="@+id/detectionContainer"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/ms_screen_padding"
         android:layout_marginEnd="@dimen/ms_screen_padding"
-        android:layout_marginBottom="@dimen/ms_space_16"
+        android:layout_marginBottom="@dimen/ms_space_12"
         android:orientation="vertical"
         app:layout_constraintBottom_toTopOf="@id/bottomSheet"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
-        <TextView
-            android:id="@+id/tvDetectionLabel"
-            style="@style/Sigla.Text.Caption"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="@dimen/ms_space_4"
-            android:text="Detecting"
-            android:textColor="@color/ms_on_dark" />
-
-        <ProgressBar
-            android:id="@+id/progressBuffer"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="match_parent"
-            android:layout_height="6dp"
-            android:max="100"
-            android:progress="0"
-            android:progressBackgroundTint="@color/ms_tint"
-            android:progressTint="@color/ms_brand" />
-
-        <LinearLayout
-            android:id="@+id/liveStatsRow"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/ms_space_4"
             android:gravity="center_vertical"
             android:orientation="horizontal">
+
             <TextView
-                android:id="@+id/tvFrames"
+                android:id="@+id/tvDetectionLabel"
                 style="@style/Sigla.Text.Caption"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textColor="@color/ms_on_dark"
-                tools:text="24" />
+                android:text="Detecting"
+                android:textColor="@color/ms_on_dark" />
+
             <TextView
                 android:id="@+id/tvBufferPercent"
                 style="@style/Sigla.Text.Caption"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="@dimen/ms_space_12"
-                android:textColor="@color/ms_on_dark"
-                android:text="0%" />
-            <TextView
-                android:id="@+id/tvVelocity"
-                style="@style/Sigla.Text.Caption"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="—"
+                android:text="0%"
                 android:textColor="@color/ms_on_dark" />
-            <TextView
-                android:id="@+id/tvStreak"
-                style="@style/Sigla.Text.Caption"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="@dimen/ms_space_8"
-                android:textColor="@color/ms_on_dark"
-                android:visibility="gone" />
         </LinearLayout>
+
+        <com.example.motionspeak.SiriDetectionMeterView
+            android:id="@+id/progressBuffer"
+            android:layout_width="match_parent"
+            android:layout_height="14dp" />
     </LinearLayout>
 
     <!-- Marks 28dp inside the sheet, where the camera ends. -->
@@ -279,11 +249,11 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="@id/bottomSheet" />
 
-    <!-- Bottom sheet -->
+    <!-- Expanded Drawer / Bottom Sheet -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/bottomSheet"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="280dp"
         app:cardBackgroundColor="@color/ms_bg"
         app:cardElevation="12dp"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -294,47 +264,92 @@
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:orientation="vertical"
             android:paddingStart="@dimen/ms_screen_padding"
             android:paddingTop="@dimen/ms_space_12"
             android:paddingEnd="@dimen/ms_screen_padding"
             android:paddingBottom="@dimen/ms_space_16">
 
+            <!-- Handle bar -->
             <View
                 android:layout_width="40dp"
                 android:layout_height="4dp"
                 android:layout_gravity="center_horizontal"
-                android:layout_marginBottom="@dimen/ms_space_8"
+                android:layout_marginBottom="@dimen/ms_space_12"
                 android:background="@drawable/bg_ms_pill"
                 android:backgroundTint="@color/ms_divider" />
 
-            <!-- Status row -->
+            <!-- [top] ready status -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="@dimen/ms_space_12"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
-                <View
-                    android:id="@+id/statusDot"
-                    android:layout_width="14dp"
-                    android:layout_height="14dp"
-                    android:background="@drawable/bg_ms_status_dot"
-                    android:backgroundTint="@color/ms_scarlet" />
-                <TextView
-                    android:id="@+id/tvStatus"
-                    style="@style/Sigla.Text.BodyStrong"
+
+                <!-- Ready status with loading spinner & ready indicator -->
+                <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:layout_marginStart="@dimen/ms_space_8"
-                    android:ellipsize="end"
-                    android:maxLines="2"
-                    android:text="Not ready"
-                    android:textColor="@color/ms_status_not_ready_text" />
-            </LinearLayout>
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
+                    <FrameLayout
+                        android:layout_width="16dp"
+                        android:layout_height="16dp">
+
+                        <View
+                            android:id="@+id/statusDot"
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
+                            android:layout_gravity="center"
+                            android:background="@drawable/bg_ms_status_dot"
+                            android:backgroundTint="@color/ms_scarlet"
+                            android:visibility="gone" />
+
+                        <ProgressBar
+                            android:id="@+id/statusSpinner"
+                            style="?android:attr/progressBarStyleSmall"
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:layout_gravity="center"
+                            android:indeterminateTint="@color/ms_brand" />
+                    </FrameLayout>
+
+                    <TextView
+                        android:id="@+id/tvStatus"
+                        style="@style/Sigla.Text.BodyStrong"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="@dimen/ms_space_8"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="Starting camera…"
+                        android:textColor="@color/ms_text_secondary" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/btnToggleVocabulary"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:visibility="gone"
+                    tools:visibility="visible">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/chipWords"
+                        style="@style/Widget.Sigla.Chip"
+                        android:layout_marginEnd="@dimen/ms_space_8"
+                        android:text="Words" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/chipLetters"
+                        style="@style/Widget.Sigla.Chip"
+                        android:layout_marginEnd="@dimen/ms_space_8"
+                        android:text="Letters" />
+                </LinearLayout>
             <!-- Words / Letters (shown when a letters model is loaded) + Filipino + Flip Camera -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -356,7 +371,128 @@
                     app:strokeColor="@color/ms_brand_text"
                     app:strokeWidth="2.5dp" />
             </LinearLayout>
+
+            <!-- [bottom] message box: scrollable to support incoming strings -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardMessageBox"
+                style="@style/Widget.Sigla.Card.Outlined"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_marginStart="46dp"
+                android:layout_marginEnd="46dp"
+                app:cardBackgroundColor="@color/ms_tint"
+                app:cardCornerRadius="@dimen/ms_radius_md"
+                app:strokeColor="@color/ms_divider"
+                app:strokeWidth="1dp">
+
+                <androidx.core.widget.NestedScrollView
+                    android:id="@+id/scrollMessageBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:fillViewport="true"
+                    android:scrollbars="vertical"
+                    android:fadeScrollbars="false"
+                    android:padding="@dimen/ms_space_12">
+
+                    <TextView
+                        android:id="@+id/tvMessage"
+                        style="@style/Sigla.Text"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textIsSelectable="true"
+                        android:textSize="18sp"
+                        android:lineSpacingExtra="4dp"
+                        android:textColor="@color/ms_text"
+                        android:hint="Translated signs will appear here…"
+                        android:textColorHint="@color/ms_text_secondary" />
+                </androidx.core.widget.NestedScrollView>
+            </com.google.android.material.card.MaterialCardView>
+
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
+
+    <!-- Floating action buttons sitting on top of the drawer layer-wise -->
+
+    <!-- Left side: Copy button (Purple) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCopyMessage"
+        style="@style/Widget.Sigla.IconButton"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginStart="14dp"
+        android:contentDescription="Copy message"
+        android:elevation="14dp"
+        app:elevation="14dp"
+        app:backgroundTint="@color/ms_cat_purple_bg"
+        app:cornerRadius="22dp"
+        app:icon="@drawable/ic_copy"
+        app:iconSize="20dp"
+        app:iconTint="@color/ms_cat_purple_text"
+        app:strokeWidth="0dp"
+        app:layout_constraintBottom_toBottomOf="@id/btnClearMessage"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@id/btnClearMessage" />
+
+    <!-- Right side [bottom]: Speak button (Blue) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnSpeakMessage"
+        style="@style/Widget.Sigla.IconButton"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginEnd="14dp"
+        android:layout_marginBottom="36dp"
+        android:contentDescription="Speak message"
+        android:elevation="14dp"
+        app:elevation="14dp"
+        app:backgroundTint="@color/ms_cat_blue_bg"
+        app:cornerRadius="22dp"
+        app:icon="@drawable/ic_volume_up"
+        app:iconSize="20dp"
+        app:iconTint="@color/ms_cat_blue_text"
+        app:strokeWidth="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Right side [middle]: Clear "X" button (Red) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnClearMessage"
+        style="@style/Widget.Sigla.IconButton"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginEnd="14dp"
+        android:layout_marginBottom="14dp"
+        android:contentDescription="Clear message"
+        android:elevation="14dp"
+        app:elevation="14dp"
+        app:backgroundTint="@color/ms_danger"
+        app:cornerRadius="22dp"
+        app:icon="@drawable/ic_close_line"
+        app:iconSize="20dp"
+        app:iconTint="@color/ms_on_dark"
+        app:strokeWidth="0dp"
+        app:layout_constraintBottom_toTopOf="@id/btnSpeakMessage"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Right side [top]: Flip Camera button, right anchored above the X with gap -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnFlipCamera"
+        style="@style/Widget.Sigla.IconButton"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginEnd="14dp"
+        android:layout_marginBottom="14dp"
+        android:contentDescription="Flip camera"
+        android:elevation="14dp"
+        app:elevation="14dp"
+        app:backgroundTint="@color/ms_bg"
+        app:cornerRadius="22dp"
+        app:icon="@drawable/ic_camera_flip"
+        app:iconSize="20dp"
+        app:iconTint="@color/ms_brand_text"
+        app:strokeColor="@color/ms_brand_text"
+        app:strokeWidth="2dp"
+        app:layout_constraintBottom_toTopOf="@id/btnClearMessage"
+        app:layout_constraintEnd_toEndOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
