@@ -57,7 +57,7 @@ class WordBankActivity : BaseActivity() {
     private lateinit var tvWordBankSubtitle: TextView
     private lateinit var pillAll: MaterialButton
     private lateinit var pillMedical: MaterialButton
-    private lateinit var pillConversational: MaterialButton
+    private lateinit var pillGeneral: MaterialButton
     private lateinit var listContainer: View
     private lateinit var gridEntrance: ListEntrance
     private lateinit var wordsEntrance: ListEntrance
@@ -145,7 +145,7 @@ class WordBankActivity : BaseActivity() {
         tvWordBankSubtitle = findViewById(R.id.tvWordBankSubtitle)
         pillAll = findViewById(R.id.pillAll)
         pillMedical = findViewById(R.id.pillMedical)
-        pillConversational = findViewById(R.id.pillConversational)
+        pillGeneral = findViewById(R.id.pillGeneral)
         listContainer = findViewById(R.id.listContainer)
     }
 
@@ -200,16 +200,8 @@ class WordBankActivity : BaseActivity() {
             listContainer.visibility = View.GONE
         }
 
-        // Prefer the DB categories; fall back to the categories present on the
-        // loaded words so the grid still works when /categories is empty.
-        val categoryNames: List<String> = if (dbCategories.isNotEmpty()) {
-            dbCategories.map { it.name }
-        } else {
-            allWords.map { it.category }
-                .filter { it.isNotBlank() }
-                .distinctBy { it.lowercase() }
-                .sorted()
-        }
+        // Word Bank categories are strictly Medical and General
+        val categoryNames: List<String> = listOf(CATEGORY_MEDICAL, CATEGORY_GENERAL)
 
         updatePillCounts()
         tvWordBankSubtitle.text = subtitleFor(gridFilter)
@@ -230,9 +222,9 @@ class WordBankActivity : BaseActivity() {
     /** Pill labels carry the live count of words each pill covers. */
     private fun updatePillCounts() {
         val medical = allWords.count { matchesFilter(it, VocabularyFilter.MEDICAL) }
-        val conversational = allWords.count { matchesFilter(it, VocabularyFilter.CONVERSATIONAL) }
+        val general = allWords.count { matchesFilter(it, VocabularyFilter.GENERAL) }
         pillMedical.text = "Medical ($medical)"
-        pillConversational.text = "Conversational ($conversational)"
+        pillGeneral.text = "General ($general)"
     }
 
     private fun subtitleFor(filter: VocabularyFilter): String {
@@ -241,7 +233,7 @@ class WordBankActivity : BaseActivity() {
         return when (filter) {
             VocabularyFilter.ALL -> "$n Filipino Sign Language word$s"
             VocabularyFilter.MEDICAL -> "$n medical sign$s"
-            VocabularyFilter.CONVERSATIONAL -> "$n conversational sign$s"
+            VocabularyFilter.GENERAL -> "$n general sign$s"
         }
     }
 
@@ -362,29 +354,9 @@ class WordBankActivity : BaseActivity() {
 
     private fun loadCategories() {
         lifecycleScope.launch {
-            // Show cached categories immediately (offline support)
-            val cached = ModelUpdateManager.loadCachedCategories(this@WordBankActivity)
-            if (cached != null && cached.isNotEmpty()) {
-                dbCategories = cached
-                refreshCategoryGrid()
-            }
-
-            try {
-                val response = ApiClient.get().getCategories()
-                if (response.isSuccessful) {
-                    val fresh = response.body()?.categories ?: emptyList()
-                    if (fresh.isNotEmpty() && fresh != dbCategories) {
-                        dbCategories = fresh
-                        refreshCategoryGrid()
-                        ModelUpdateManager.cacheCategories(this@WordBankActivity, fresh)
-                    }
-                }
-            } catch (e: Exception) {
-                // Network unavailable — cached categories (if any) are already shown above
-            }
-            // Note: the loading spinner is owned solely by loadWords(); categories
-            // are supplementary and must not hide/show it (they can arrive before or
-            // after the word fetch and would otherwise leave a stuck or premature state).
+            dbCategories = defaultCategories()
+            refreshCategoryGrid()
+            ModelUpdateManager.cacheCategories(this@WordBankActivity, dbCategories)
         }
     }
 
@@ -393,7 +365,7 @@ class WordBankActivity : BaseActivity() {
     private fun setupFilterPills() {
         pillAll.setOnClickListener { selectGridFilter(VocabularyFilter.ALL) }
         pillMedical.setOnClickListener { selectGridFilter(VocabularyFilter.MEDICAL) }
-        pillConversational.setOnClickListener { selectGridFilter(VocabularyFilter.CONVERSATIONAL) }
+        pillGeneral.setOnClickListener { selectGridFilter(VocabularyFilter.GENERAL) }
         renderFilterPills()
     }
 
@@ -412,7 +384,7 @@ class WordBankActivity : BaseActivity() {
         }
         style(pillAll, gridFilter == VocabularyFilter.ALL)
         style(pillMedical, gridFilter == VocabularyFilter.MEDICAL)
-        style(pillConversational, gridFilter == VocabularyFilter.CONVERSATIONAL)
+        style(pillGeneral, gridFilter == VocabularyFilter.GENERAL)
     }
 
     // ── Search ────────────────────────────────────────────────────────────────

@@ -45,6 +45,114 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <!-- Environment and hand warnings floating under the back button -->
+
+    <!-- Result card, floating under the top controls -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardResult"
+        style="@style/Widget.Sigla.Card.Outlined"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/ms_screen_padding"
+        android:layout_marginTop="@dimen/ms_space_16"
+        android:layout_marginEnd="@dimen/ms_screen_padding"
+        android:visibility="invisible"
+        app:cardCornerRadius="@dimen/ms_radius_md"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/btnBack"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="@dimen/ms_space_12">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <FrameLayout
+                android:layout_width="@dimen/ms_badge_size"
+                android:layout_height="@dimen/ms_badge_size"
+                android:background="@drawable/bg_ms_circle_tint">
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_chat_line"
+                    android:tint="@color/ms_brand_text" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="@dimen/ms_space_12"
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/tvResult"
+                    style="@style/Sigla.Text.CardTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    tools:text="GOOD MORNING" />
+                <TextView
+                    android:id="@+id/tvFilipinoResult"
+                    style="@style/Sigla.Text.Caption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:visibility="gone"
+                    tools:text="Magandang umaga"
+                    tools:visibility="visible" />
+                <!-- Facial cue read with the sign (yes/no question, WH question, negation).
+                     Hidden until the recognizer reports one. -->
+                <TextView
+                    android:id="@+id/tvFacialCue"
+                    style="@style/Sigla.Text.Caption"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/ms_space_8"
+                    android:background="@drawable/bg_ms_search"
+                    android:paddingStart="@dimen/ms_space_12"
+                    android:paddingTop="@dimen/ms_space_4"
+                    android:paddingEnd="@dimen/ms_space_12"
+                    android:paddingBottom="@dimen/ms_space_4"
+                    android:textColor="@color/ms_brand_text"
+                    android:visibility="gone"
+                    tools:text="Yes/no question"
+                    tools:visibility="visible" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Result actions -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/ms_space_12"
+            android:orientation="horizontal">
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSpeakAgain"
+                style="@style/Widget.Sigla.Chip"
+                android:layout_marginEnd="@dimen/ms_space_8"
+                android:contentDescription="Speak the translation again"
+                android:text="Speak again" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCopyResult"
+                style="@style/Widget.Sigla.Chip"
+                android:contentDescription="Copy the translation"
+                android:text="Copy" />
+        </LinearLayout>
+
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
     <TextView
         android:id="@+id/tvHandsWarning"
         style="@style/Sigla.Text.Caption"
@@ -85,6 +193,10 @@
         tools:visibility="visible" />
 
     <!-- Detection percentage and Siri animated gradient progress bar -->
+
+    <!-- Live mode readout, in the same place as the record button. Its children
+         are shown/hidden individually by renderTapState(); with all three gone the
+         container collapses. -->
     <LinearLayout
         android:id="@+id/detectionContainer"
         android:layout_width="0dp"
@@ -238,6 +350,26 @@
                         android:layout_marginEnd="@dimen/ms_space_8"
                         android:text="Letters" />
                 </LinearLayout>
+            <!-- Words / Letters (shown when a letters model is loaded) + Filipino + Flip Camera -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/ms_space_8"
+                android:gravity="center"
+                android:orientation="horizontal">
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnToggleFilipino"
+                    style="@style/Widget.Sigla.Chip"
+                    android:layout_marginEnd="@dimen/ms_space_8"
+                    android:text="Filipino" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnFlipCamera"
+                    style="@style/Widget.Sigla.IconButton"
+                    android:contentDescription="Flip camera"
+                    app:backgroundTint="@color/ms_bg"
+                    app:icon="@drawable/ic_camera_flip"
+                    app:strokeColor="@color/ms_brand_text"
+                    app:strokeWidth="2.5dp" />
             </LinearLayout>
 
             <!-- [bottom] message box: scrollable to support incoming strings -->
