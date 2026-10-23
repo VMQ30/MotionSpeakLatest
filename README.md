@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="motionspeak-mobile/app/src/main/ic_launcher-playstore.png" alt="MotionSpeak logo" width="160">
+<img src="motionspeak-mobile/app/src/main/res/drawable-xxxhdpi/splash_icon.webp" alt="MotionSpeak logo" width="160">
 
 # MotionSpeak
 
@@ -14,7 +14,7 @@ Translate Filipino Sign Language gestures and facial expressions into spoken and
 [![TensorFlow Lite](https://img.shields.io/badge/TensorFlow%20Lite-On--Device%20ML-FF6F00?style=flat-square&logo=tensorflow&logoColor=white&labelColor=0F1B33)](https://www.tensorflow.org/lite)
 [![Python](https://img.shields.io/badge/Python-FastAPI%20%26%20ML-1E3A8A?style=flat-square&logo=python&logoColor=white&labelColor=0F1B33)](https://fastapi.tiangolo.com/)
 
-[Key Features](#-key-features) · [System Architecture](#-system-architecture) · [Installation and Setup](#-installation-and-setup) · [Usage Guidelines](#-usage-guidelines) · [Project Structure](#-project-structure)
+[Key Features](#-key-features) · [System Architecture](#-system-architecture) · [Project Structure](#-project-structure) · [Installation and Setup](#-installation-and-setup) · [Usage Guidelines](#-usage-guidelines) · [Testing](#-testing)
 
 </div>
 
@@ -25,10 +25,10 @@ Translate Filipino Sign Language gestures and facial expressions into spoken and
 **MotionSpeak** is an assistive communication system bridging the gap between individuals who sign in Filipino Sign Language (FSL) and the hearing/non-signing community. By pairing real-time camera computer vision with on-device machine learning, MotionSpeak translates both hand gestures and facial expressions into clear text and natural synthesized speech in real time.
 
 ### Why MotionSpeak?
-- **100% On-Device Translation**: Inference executes locally via TensorFlow Lite and Google MediaPipe. No internet connection is needed to translate signs, ensuring real-time response times, complete privacy, and reliability anywhere.
-- **Emotion & Tone Awareness**: Sign language is multi-modal. MotionSpeak analyzes facial landmarks to classify emotional nuances (Neutral, Happy, Questioning, Surprised) and maps them to contextual speech inflection.
-- **Offline Word Bank**: Searchable FSL catalog organized by categories, complete with demonstration videos and local favorites.
-- **LLM Sentence Synthesis Ready**: Built-in architecture designed to assemble raw sequential sign glosses and emotional tone into fluent, grammatically cohesive sentences.
+- **100% On-Device Translation**: Inference executes entirely on-device via TensorFlow Lite and Google MediaPipe. No internet connection is needed to translate signs, ensuring instant responsiveness, complete user privacy, and zero reliance on cloud latency.
+- **Emotion & Tone Awareness**: Sign language is inherently multi-modal. MotionSpeak concurrently analyzes facial landmarks to classify emotional nuances (Neutral, Happy, Questioning, Surprised) and maps them to contextual speech inflection.
+- **Self-Contained & Lightweight**: All active models, labels, and offline word assets are bundled locally, removing external backend server or database dependencies.
+- **LLM Sentence Synthesis Ready**: Built-in architecture designed to assemble sequential sign glosses and emotional tone into fluent, grammatically cohesive sentences.
 
 ---
 
@@ -39,17 +39,19 @@ Translate Filipino Sign Language gestures and facial expressions into spoken and
   - **Live Mode**: Continuous sign recognition with dynamic gesture buffering and visual progress indicators.
   - **Tap Mode**: On-demand gesture capture for deliberate, single-sign recognition.
   - **Words & Letters**: Dedicated models for full sign vocabulary and fingerspelled alphabet.
-- **Facial Emotion Recognition**: Multi-point facial expression detector running alongside hand tracking to detect expressiveness and tone.
+- **Facial Emotion Recognition**: Multi-point facial expression detector running concurrently with hand tracking to capture expressiveness and conversational tone.
 - **Interactive UI with Siri Glow Meter**: Fluid, animated gradient progress meter indicating gesture buffer fullness and recognition confidence.
 - **Floating Controls**: Quick-action buttons for flipping between front and rear cameras, copying output to clipboard, repeating speech, and clearing the message stream.
-- **Offline Word Bank & Video Demonstrations**: Browse sign categories, search vocabulary, save favorites, and download demonstration videos for offline study.
+- **Offline Word Bank & Video Demonstrations**: Browse sign categories, search vocabulary, save favorites, and access local demonstration videos for offline study.
 - **Emergency SOS Alert**: Rapid 2-second press-and-hold audible alarm and visual prompt for immediate assistance.
 - **Translation History**: Device-local log of recent translations with management and export capabilities.
+- **Speech Synthesis (TTS)**: Multi-pitch and tone-adjusted voice feedback matching detected facial expressions.
 
 ### 🧠 ML Service (`motionspeak-ml/`)
 - **Landmark Extraction**: Automated pipelines using MediaPipe Holistic/Hands/Pose to extract 3D spatial coordinate sequences.
 - **Model Architectures**: Deep learning sequence classification models (LSTM / GRU / Bidirectional) optimized and quantized for mobile TFLite runtime.
 - **Facial Expression Pipeline**: Real-time facial action unit analysis and emotion classification.
+- **Offline Model Artifacts**: Pre-packaged models (`motionspeak.tflite`), label maps, and metadata in `motionspeak-mobile/model_file_v1/`.
 
 ---
 
@@ -94,6 +96,37 @@ MotionSpeak features a high-contrast, accessible design palette tailored for rea
 
 ---
 
+## 📂 Project Structure
+
+```text
+MotionSpeakLatest/
+├── motionspeak-mobile/          # Native Android Application (Kotlin)
+│   ├── app/src/main/kotlin/     # CameraX, TFLite Predictor, MediaPipe, UI Activities
+│   │   ├── MainActivity.kt      # Main camera & live translation screen
+│   │   ├── PredictionService.kt # On-device TFLite model runner
+│   │   ├── HandLandmarkHelper.kt# MediaPipe hand landmarks processor
+│   │   ├── EmotionClassifier.kt # Facial expression & tone mapper
+│   │   ├── WordBankActivity.kt  # Offline word catalog & video demos
+│   │   ├── SosActivity.kt       # Emergency alert trigger
+│   │   └── ...
+│   ├── app/src/main/res/        # Layouts, vector drawables, themes, strings
+│   ├── model_file_v1/           # Default offline TFLite model, labels, and metadata
+│   │   ├── motionspeak.tflite   # Quantized sequence classification model
+│   │   ├── labels.txt           # Vocabulary glosses
+│   │   └── meta.json            # Model parameters and input shapes
+│   └── tools/                   # Launcher and splash asset generation utilities
+├── motionspeak-ml/              # Machine Learning Engine (Python + FastAPI)
+│   ├── app/api/                 # Training and extraction endpoints
+│   ├── app/services/            # MediaPipe landmark extractors, TFLite exporters
+│   │   ├── extract.py           # Landmark extraction pipelines
+│   │   ├── train.py             # Model training routines
+│   │   └── clip_prep.py         # Video normalization & landmark preprocessing
+│   └── tools/                   # Facial expression detection & dataset tooling
+└── docs-internal/               # Architectural specs, diagrams, and sprint plans
+```
+
+---
+
 ## ⚙️ Installation and Setup
 
 ### Prerequisites
@@ -101,7 +134,7 @@ MotionSpeak features a high-contrast, accessible design palette tailored for rea
 | Component | Minimum Version | Required For |
 |---|---|---|
 | **Android Studio** | Ladybug / Hedgehog (SDK 34) | Mobile app (`minSdk 24`, Android 7.0+) |
-| **Python** | 3.10 | ML Service |
+| **Python** | 3.10 | ML Service & Dataset Tools |
 
 ---
 
@@ -114,19 +147,23 @@ cd motionspeak
 
 ---
 
-### 2. Mobile Application
+### 2. Mobile Application Setup
 
 1. Launch **Android Studio** and select **Open**, pointing to `motionspeak-mobile/`.
 2. Ensure Android SDK platform 34 and Build Tools are installed.
-3. Build and install on an emulator or physical device:
+3. Build and install on an emulator or physical Android device:
    ```powershell
    cd motionspeak-mobile
    .\gradlew.bat assembleDebug
    ```
+4. To install directly to a connected USB device:
+   ```powershell
+   .\gradlew.bat installDebug
+   ```
 
 ---
 
-### 3. Machine Learning Service
+### 3. Machine Learning Environment
 
 ```bash
 cd motionspeak-ml
@@ -141,9 +178,9 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Download the required MediaPipe model assets into `motionspeak-ml/app/models/` following [`motionspeak-ml/app/models/README.md`](motionspeak-ml/app/models/README.md).
+Download required MediaPipe model assets into `motionspeak-ml/app/models/` following [`motionspeak-ml/app/models/README.md`](motionspeak-ml/app/models/README.md).
 
-Start the FastAPI service:
+Start the FastAPI local service:
 ```bash
 uvicorn app.main:app --reload --port 8000 --host 0.0.0.0
 ```
@@ -152,37 +189,16 @@ uvicorn app.main:app --reload --port 8000 --host 0.0.0.0
 
 ## 🚀 Usage Guidelines
 
-### Running Locally
+### Running On-Device Mobile App
 
-```bash
-# Terminal 1: ML Pipeline & Training Service
-cd motionspeak-ml && venv\Scripts\activate && uvicorn app.main:app --reload --port 8000
+The mobile application is fully functional offline:
+- Open the application on your Android device.
+- Grant camera and audio permissions.
+- Choose between **Live Mode** (continuous recognition) or **Tap Mode** (on-demand capture).
+- Toggle between **Words** mode and **Letters** (fingerspelling) mode using the top chips.
+- Perform FSL gestures within camera view—predictions and emotional tone will appear with accompanying speech.
 
-# Terminal 2: Android App Build / Run
-cd motionspeak-mobile && .\gradlew.bat installDebug
-```
-
----
-
-## 📂 Project Structure
-
-```text
-MotionSpeakLatest/
-├── motionspeak-mobile/          # Native Android Application (Kotlin)
-│   ├── app/src/main/kotlin/     # CameraX, TFLite Predictor, MediaPipe, UI Activities
-│   ├── app/src/main/res/        # Layouts, vector drawables, themes, strings
-│   ├── model_file_v1/           # Default offline TFLite model, labels, and metadata
-│   └── tools/                   # App icon and asset generation utilities
-├── motionspeak-ml/              # Machine Learning Engine (Python + FastAPI)
-│   ├── app/api/                 # Training and extraction endpoints
-│   ├── app/services/            # MediaPipe landmark extractors, TFLite exporters
-│   └── tools/                   # Facial expression detection & dataset tooling
-└── docs-internal/               # Architectural specs, diagrams, and sprint plans
-```
-
----
-
-## 🧪 Testing
+### Testing & Validation
 
 ```bash
 # Android unit tests
