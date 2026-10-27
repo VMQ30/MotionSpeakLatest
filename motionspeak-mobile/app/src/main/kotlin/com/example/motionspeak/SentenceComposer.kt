@@ -183,6 +183,37 @@ class SentenceComposer(
     }
 
     /**
+     * Removes the last added token from the composer buffer so that backspaced words
+     * are never resurrected when new signs are buffered.
+     */
+    fun removeLastToken() {
+        scope.launch(dispatcher) {
+            mutex.withLock {
+                if (currentBuffer.isNotEmpty()) {
+                    currentBuffer.removeAt(currentBuffer.size - 1)
+                } else if (pendingBuffer.isNotEmpty()) {
+                    pendingBuffer.removeAt(pendingBuffer.size - 1)
+                }
+                lastEmittedLabel = currentBuffer.lastOrNull()
+            }
+        }
+    }
+
+    /**
+     * Overwrites the current buffer with a list of active tokens.
+     */
+    fun setTokens(tokens: List<String>) {
+        scope.launch(dispatcher) {
+            mutex.withLock {
+                currentBuffer.clear()
+                currentBuffer.addAll(tokens)
+                pendingBuffer.clear()
+                lastEmittedLabel = currentBuffer.lastOrNull()
+            }
+        }
+    }
+
+    /**
      * Clears all token buffers and cancels pending timers.
      */
     fun reset() {

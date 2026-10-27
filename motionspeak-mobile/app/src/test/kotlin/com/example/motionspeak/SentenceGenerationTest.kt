@@ -341,4 +341,42 @@ class SentenceGenerationTest {
         assertEquals(0, composedCount)
         composer.close()
     }
+
+    @Test
+    fun testBackspacePreventsTokenResurrectionScenario() = runTest {
+        val testDispatcher = StandardTestDispatcher(testScheduler)
+        val testScope = TestScope(testDispatcher)
+
+        var composedSentence: SentenceResult? = null
+        val composer = SentenceComposer(
+            synthesizer = synthesizer,
+            scope = testScope,
+            dispatcher = testDispatcher,
+            pauseDurationMs = 2000L,
+            dedupeWindowMs = 0L,
+            autoComposeEnabled = false
+        )
+        composer.onSentenceComposed = { result -> composedSentence = result }
+
+        // User signs "constipation"
+        composer.addToken("constipation")
+        testScheduler.advanceTimeBy(100)
+
+        // User backspaces "constipation"
+        composer.removeLastToken()
+        testScheduler.advanceTimeBy(100)
+
+        // User signs "hello"
+        composer.addToken("hello")
+        testScheduler.advanceTimeBy(100)
+
+        // User triggers composition
+        composer.triggerComposition()
+        testScheduler.advanceTimeBy(100)
+
+        assertTrue(composedSentence != null)
+        assertEquals(listOf("hello"), composedSentence?.originalTokens)
+        assertEquals("Hello.", composedSentence?.text)
+        composer.close()
+    }
 }

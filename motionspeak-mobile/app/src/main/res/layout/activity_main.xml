@@ -353,41 +353,59 @@
             </LinearLayout>
 
             <!-- [bottom] message box: scrollable to support incoming strings -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardMessageBox"
-                style="@style/Widget.Sigla.Card.Outlined"
+            <FrameLayout
+                android:id="@+id/boxMessageContainer"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
                 android:layout_marginStart="46dp"
-                android:layout_marginEnd="46dp"
-                app:cardBackgroundColor="@color/ms_tint"
-                app:cardCornerRadius="@dimen/ms_radius_md"
-                app:strokeColor="@color/ms_divider"
-                app:strokeWidth="1dp">
+                android:layout_marginEnd="46dp">
 
-                <androidx.core.widget.NestedScrollView
-                    android:id="@+id/scrollMessageBox"
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardMessageBox"
+                    style="@style/Widget.Sigla.Card.Outlined"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:fillViewport="true"
-                    android:scrollbars="vertical"
-                    android:fadeScrollbars="false"
-                    android:padding="@dimen/ms_space_12">
+                    app:cardBackgroundColor="@color/ms_tint"
+                    app:cardCornerRadius="@dimen/ms_radius_md"
+                    app:strokeColor="@color/ms_divider"
+                    app:strokeWidth="1dp">
 
-                    <TextView
-                        android:id="@+id/tvMessage"
-                        style="@style/Sigla.Text"
+                    <androidx.core.widget.NestedScrollView
+                        android:id="@+id/scrollMessageBox"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:textIsSelectable="true"
-                        android:textSize="18sp"
-                        android:lineSpacingExtra="4dp"
-                        android:textColor="@color/ms_text"
-                        android:hint="Translated signs will appear here…"
-                        android:textColorHint="@color/ms_text_secondary" />
-                </androidx.core.widget.NestedScrollView>
-            </com.google.android.material.card.MaterialCardView>
+                        android:layout_height="match_parent"
+                        android:fillViewport="true"
+                        android:scrollbars="vertical"
+                        android:fadeScrollbars="false"
+                        android:padding="@dimen/ms_space_12">
+
+                        <EditText
+                            android:id="@+id/tvMessage"
+                            style="@style/Sigla.Text"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:background="@null"
+                            android:gravity="top|start"
+                            android:inputType="textMultiLine|textCapSentences"
+                            android:textSize="18sp"
+                            android:lineSpacingExtra="4dp"
+                            android:textColor="@color/ms_text"
+                            android:hint="Translated signs will appear here…"
+                            android:textColorHint="@color/ms_text_secondary"
+                            android:importantForAutofill="no"
+                            android:cursorVisible="true"
+                            android:textCursorDrawable="@null" />
+                    </androidx.core.widget.NestedScrollView>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Siri gradient border overlay over the card outline when in sentence state -->
+                <com.example.motionspeak.SiriGradientBorderView
+                    android:id="@+id/siriBorderView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:visibility="gone" />
+            </FrameLayout>
 
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
@@ -421,7 +439,7 @@
         android:layout_width="44dp"
         android:layout_height="44dp"
         android:layout_marginEnd="14dp"
-        android:layout_marginBottom="36dp"
+        android:layout_marginBottom="28dp"
         android:contentDescription="Speak message"
         android:elevation="14dp"
         app:elevation="14dp"
@@ -434,14 +452,14 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Right side [middle]: Clear "X" button (Red) -->
+    <!-- Right side: Clear "X" button (Red) -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnClearMessage"
         style="@style/Widget.Sigla.IconButton"
         android:layout_width="44dp"
         android:layout_height="44dp"
         android:layout_marginEnd="14dp"
-        android:layout_marginBottom="14dp"
+        android:layout_marginBottom="10dp"
         android:contentDescription="Clear message"
         android:elevation="14dp"
         app:elevation="14dp"
@@ -454,14 +472,35 @@
         app:layout_constraintBottom_toTopOf="@id/btnSpeakMessage"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Right side [top]: Flip Camera button, right anchored above the X with gap -->
+    <!-- Right side: Backspace button (below Flip Camera, above Clear) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnBackspace"
+        style="@style/Widget.Sigla.IconButton"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginEnd="14dp"
+        android:layout_marginBottom="10dp"
+        android:contentDescription="Backspace"
+        android:elevation="14dp"
+        app:elevation="14dp"
+        app:backgroundTint="@color/ms_bg"
+        app:cornerRadius="22dp"
+        app:icon="@drawable/ic_backspace"
+        app:iconSize="20dp"
+        app:iconTint="@color/ms_text"
+        app:strokeColor="@color/ms_divider"
+        app:strokeWidth="1dp"
+        app:layout_constraintBottom_toTopOf="@id/btnClearMessage"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Right side [top]: Flip Camera button, right anchored above the Backspace button -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnFlipCamera"
         style="@style/Widget.Sigla.IconButton"
         android:layout_width="44dp"
         android:layout_height="44dp"
         android:layout_marginEnd="14dp"
-        android:layout_marginBottom="14dp"
+        android:layout_marginBottom="10dp"
         android:contentDescription="Flip camera"
         android:elevation="14dp"
         app:elevation="14dp"
@@ -472,7 +511,7 @@
         app:iconTint="@color/ms_brand_text"
         app:strokeColor="@color/ms_brand_text"
         app:strokeWidth="2dp"
-        app:layout_constraintBottom_toTopOf="@id/btnClearMessage"
+        app:layout_constraintBottom_toTopOf="@id/btnBackspace"
         app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- Centered floating action button to turn signed words into a sentence -->
