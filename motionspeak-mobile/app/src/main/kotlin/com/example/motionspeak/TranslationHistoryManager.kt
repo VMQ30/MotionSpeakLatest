@@ -11,7 +11,8 @@ data class TranslationEntry(
     val word: String,
     val confidence: Int,
     val gestureType: String,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val rawTokens: String? = null
 )
 
 class TranslationHistoryManager private constructor(context: Context) {
@@ -89,7 +90,7 @@ class TranslationHistoryManager private constructor(context: Context) {
     }
 
     @Synchronized
-    fun add(word: String, confidence: Int, gestureType: String) {
+    fun add(word: String, confidence: Int, gestureType: String, rawTokens: String? = null) {
         // Read before the new entry is saved: a first-ever call seeds from today's
         // history, which must not already include this entry.
         val todayBefore = getTranslatedToday()
@@ -98,7 +99,7 @@ class TranslationHistoryManager private constructor(context: Context) {
         // preserves the ordering without a re-sort.
         val current = getAll()
         val updated = ArrayList<TranslationEntry>(minOf(current.size + 1, MAX_ENTRIES))
-        updated.add(TranslationEntry(word, confidence, gestureType))
+        updated.add(TranslationEntry(word, confidence, gestureType, rawTokens = rawTokens))
         for (entry in current) {
             if (updated.size >= MAX_ENTRIES) break
             updated.add(entry)

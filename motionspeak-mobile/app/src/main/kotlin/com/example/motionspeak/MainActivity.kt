@@ -59,6 +59,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var appSettings: AppSettings
     private var speech: SpeechPlayer? = null
 
+    private var sentenceComposer: SentenceComposer? = null
+    private var activeSynthesizer: SentenceSynthesizer? = null
+
     private val executor      = Executors.newSingleThreadExecutor()
     private var isFrontCamera = false
     private var cameraProvider: ProcessCameraProvider? = null
@@ -90,9 +93,36 @@ class MainActivity : AppCompatActivity() {
 
         setupComplete = true
         initTts()
+        initSentenceComposer()
         startVision()
         setupButtons()
         binding.btnBack.setOnClickListener { finish() }
+    }
+
+    private fun initSentenceComposer() {
+        if (sentenceComposer != null) return
+        try {
+            val synthesizer = SynthesizerFactory.createSynthesizer(applicationContext, appSettings)
+            activeSynthesizer = synthesizer
+            if (synthesizer is LlmSynthesizer) {
+                lifecycleScope.launch(Dispatchers.IO) { synthesizer.initialize() }
+            }
+            val composer = SentenceComposer(
+                synthesizer = synthesizer,
+                scope = lifecycleScope,
+                pauseDurationMs = appSettings.sentencePauseDurationMs,
+                autoComposeEnabled = false
+            ).apply {
+                currentLanguage = SentenceLanguage.fromCode(appSettings.sentenceLanguage)
+                onSentenceComposed = { result -> runOnUiThread { onSentenceGenerated(result) } }
+                onTokenAdded = { token, buffer -> runOnUiThread { onTokenBuffered(token, buffer) } }
+                onComposingStateChanged = { isComposing -> runOnUiThread { onComposingState(isComposing) } }
+            }
+            sentenceComposer = composer
+            Log.d(TAG, "SentenceComposer initialized successfully in initSentenceComposer")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize SentenceComposer: ${e.message}", e)
+        }
     }
 
     private fun startVision() {
@@ -140,6 +170,8 @@ class MainActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) { setStatus("Loading words…", StatusKind.LOADING) }
                 service.init()
                 withContext(Dispatchers.Main) { onPredictorLoaded(service) }
+
+                withContext(Dispatchers.Main) { initSentenceComposer() }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     setStatus("Error: ${e.message}", StatusKind.ERROR)
@@ -225,6 +257,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun showResult(label: String) {
         lastLabel = label
+        val composer = sentenceComposer
+        if (composer != null && appSettings.isLlmSynthesisEnabled) {
+            composer.addToken(label)
+            return
+        }
+
+        // Direct legacy display if composer is not initialized
         val word = label.replace("_", " ").split(" ").joinToString(" ") {
             it.replaceFirstChar { char -> char.uppercase() }
         }
@@ -242,7 +281,6 @@ class MainActivity : AppCompatActivity() {
         val updated = if (current.isEmpty()) textToAppend else "$current $textToAppend"
 
         binding.tvMessage.text = updated
-
         binding.scrollMessageBox.post {
             binding.scrollMessageBox.fullScroll(View.FOCUS_DOWN)
         }
@@ -250,6 +288,47 @@ class MainActivity : AppCompatActivity() {
         Haptics.confirm(binding.root)
         speak(textToAppend)
         lifecycleScope.launch(Dispatchers.IO) { historyManager.add(label, 100, "motion") }
+    }
+
+    private fun onTokenBuffered(token: String, buffer: List<String>) {
+        val displayedGloss = buffer.joinToString(" ") { t ->
+            t.replace('_', ' ').split(" ").joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+        }
+        binding.tvMessage.text = displayedGloss
+        binding.btnMakeSentence.isEnabled = true
+        binding.btnMakeSentence.text = "Turn into sentence"
+        binding.btnMakeSentence.alpha = 1.0f
+        binding.scrollMessageBox.post {
+            binding.scrollMessageBox.fullScroll(View.FOCUS_DOWN)
+        }
+    }
+
+    private fun onComposingState(isComposing: Boolean) {
+        binding.btnMakeSentence.isEnabled = !isComposing
+        binding.btnMakeSentence.text = if (isComposing) "Composing…" else "Turn into sentence"
+        binding.btnMakeSentence.alpha = if (isComposing) 0.8f else 1.0f
+    }
+
+    private fun onSentenceGenerated(result: SentenceResult) {
+        if (result.text.isBlank()) return
+        binding.tvMessage.text = result.text
+        binding.btnMakeSentence.isEnabled = true
+        binding.btnMakeSentence.text = "Turn into sentence"
+        binding.btnMakeSentence.alpha = 1.0f
+        binding.scrollMessageBox.post {
+            binding.scrollMessageBox.fullScroll(View.FOCUS_DOWN)
+        }
+        Haptics.confirm(binding.root)
+        Toast.makeText(this, "Sentence: ${result.text}", Toast.LENGTH_SHORT).show()
+        speak(result.text)
+        lifecycleScope.launch(Dispatchers.IO) {
+            historyManager.add(
+                result.text,
+                100,
+                "motion",
+                rawTokens = result.originalTokens.joinToString(", ")
+            )
+        }
     }
 
     private fun enqueueOverlayUpdate(result: LandmarkResult) {
@@ -309,9 +388,46 @@ class MainActivity : AppCompatActivity() {
             bindCamera()
         }
 
+        binding.btnMakeSentence.setOnClickListener {
+            Log.d(TAG, "btnMakeSentence pressed! tvMessage='${binding.tvMessage.text}'")
+            if (sentenceComposer == null) {
+                initSentenceComposer()
+            }
+            val composer = sentenceComposer
+            if (composer == null) {
+                Toast.makeText(this, "Sentence engine initializing… please try again", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (!appSettings.isLlmSynthesisEnabled) {
+                Toast.makeText(this, "Sentence synthesis is disabled in Settings", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val text = binding.tvMessage.text.toString().trim()
+            if (text.isEmpty()) {
+                Toast.makeText(this, "Please sign words first before turning them into a sentence", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            Haptics.confirm(binding.root)
+            binding.btnMakeSentence.isEnabled = false
+            binding.btnMakeSentence.text = "Composing…"
+
+            // Extract tokens from the displayed text if buffers were cleared
+            val fallbackTokens = text.lowercase()
+                .replace("[^a-z0-9_\\s]".toRegex(), "")
+                .split("\\s+".toRegex())
+                .filter { it.isNotBlank() }
+
+            composer.triggerComposition(fallbackTokens)
+        }
+
         binding.btnClearMessage.setOnClickListener {
             binding.tvMessage.text = ""
             lastEmittedWord = null
+            sentenceComposer?.reset()
+            binding.btnMakeSentence.isEnabled = true
+            binding.btnMakeSentence.text = "Turn into sentence"
+            binding.btnMakeSentence.alpha = 0.7f
         }
 
         binding.btnCopyMessage.setOnClickListener {
@@ -382,11 +498,13 @@ class MainActivity : AppCompatActivity() {
                         if (result != null) {
                             val emotionLabel = result.first.replaceFirstChar { it.uppercase() }
                             val tone = ToneMapper.fromEmotion(emotionLabel)
+                            sentenceComposer?.currentTone = SentenceTone.fromToneString(tone)
                             Log.i("MotionSpeak", "Emotion: $emotionLabel -> Tone: $tone")
                             runOnUiThread {
                                 binding.overlayView.setDetectedEmotion(emotionLabel)
                             }
                         } else {
+                            sentenceComposer?.currentTone = SentenceTone.NEUTRAL
                             runOnUiThread {
                                 binding.overlayView.setDetectedEmotion(null)
                             }
@@ -430,11 +548,32 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        sentenceComposer?.apply {
+            currentLanguage = SentenceLanguage.fromCode(appSettings.sentenceLanguage)
+            pauseDurationMs = appSettings.sentencePauseDurationMs
+        }
+        binding.btnMakeSentence.visibility = if (appSettings.isLlmSynthesisEnabled) View.VISIBLE else View.GONE
+        val hasText = binding.tvMessage.text.isNotBlank()
+        binding.btnMakeSentence.alpha = if (hasText) 1.0f else 0.7f
+    }
+
     override fun onStart() { super.onStart(); startVision() }
     override fun onStop() { stopVision(); super.onStop() }
     override fun onDestroy() {
         executor.shutdown()
         stopVision()
+        val doomedComposer = sentenceComposer
+        sentenceComposer = null
+        doomedComposer?.close()
+
+        val doomedSynthesizer = activeSynthesizer
+        activeSynthesizer = null
+        if (doomedSynthesizer != null) teardownExecutor.execute {
+            kotlinx.coroutines.runBlocking { doomedSynthesizer.close() }
+        }
+
         speech?.release()
         speech = null
         super.onDestroy()

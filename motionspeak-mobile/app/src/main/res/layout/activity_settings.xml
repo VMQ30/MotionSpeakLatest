@@ -496,6 +496,146 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- ════════════════════ SENTENCE GENERATION (LLM) ════════════════════ -->
+            <TextView
+                style="@style/Sigla.Text.Section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/ms_space_24"
+                android:layout_marginBottom="@dimen/ms_space_8"
+                android:text="Sentence Generation" />
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Sigla.Card.Tint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/ms_space_16">
+
+                    <!-- Enable/Disable LLM Sentence Synthesis Switch -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                style="@style/Sigla.Text.BodyStrong"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Natural sentence synthesis" />
+
+                            <TextView
+                                style="@style/Sigla.Text.Caption"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="@dimen/ms_space_4"
+                                android:text="Compose natural sentences from recognized signs" />
+                        </LinearLayout>
+
+                        <com.google.android.material.switchmaterial.SwitchMaterial
+                            android:id="@+id/switchLlmSynthesis"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="@dimen/ms_space_12"
+                        android:layout_marginBottom="@dimen/ms_space_12"
+                        android:background="@color/ms_divider" />
+
+                    <!-- Output Sentence Language -->
+                    <TextView
+                        style="@style/Sigla.Text.BodyStrong"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Sentence language" />
+
+                    <TextView
+                        style="@style/Sigla.Text.Caption"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/ms_space_4"
+                        android:layout_marginBottom="@dimen/ms_space_12"
+                        android:text="Language for composed sentences" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/btnLangEnglish"
+                            style="@style/Sigla.Text.BodyStrong"
+                            android:layout_width="0dp"
+                            android:layout_height="@dimen/ms_touch_min"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="@dimen/ms_space_8"
+                            android:background="@drawable/bg_ms_pill"
+                            android:backgroundTint="@color/ms_cat_violet_bg"
+                            android:gravity="center"
+                            android:text="English"
+                            android:textColor="@color/ms_cat_violet_text" />
+
+                        <TextView
+                            android:id="@+id/btnLangFilipino"
+                            style="@style/Sigla.Text.BodyStrong"
+                            android:layout_width="0dp"
+                            android:layout_height="@dimen/ms_touch_min"
+                            android:layout_weight="1"
+                            android:background="@drawable/bg_ms_pill"
+                            android:backgroundTint="@color/ms_cat_violet_tint"
+                            android:gravity="center"
+                            android:text="Filipino"
+                            android:textColor="@color/ms_cat_violet_accent" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="@dimen/ms_space_12"
+                        android:layout_marginBottom="@dimen/ms_space_12"
+                        android:background="@color/ms_divider" />
+
+                    <!-- Offline LLM Model Status & Hardware Compatibility -->
+                    <TextView
+                        style="@style/Sigla.Text.BodyStrong"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="On-device LLM model" />
+
+                    <TextView
+                        android:id="@+id/tvLlmModelStatus"
+                        style="@style/Sigla.Text.Caption"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/ms_space_4"
+                        android:text="Checking model status…" />
+
+                    <TextView
+                        android:id="@+id/tvLlmHardwareFitness"
+                        style="@style/Sigla.Text.Caption"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/ms_space_4"
+                        android:textColor="@color/ms_cat_violet_accent"
+                        android:text="Checking hardware compatibility…" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- ════════════════════ APP ════════════════════ -->
             <TextView
                 style="@style/Sigla.Text.Section"
