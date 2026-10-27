@@ -24,6 +24,9 @@ class AppSettings(context: Context) {
         private const val KEY_USER_NAME = "user_name"
         private const val KEY_FONT_SIZE = "font_size"
         private const val KEY_HAPTIC_FEEDBACK = "haptic_feedback"
+        private const val KEY_LLM_SYNTHESIS_ENABLED = "llm_synthesis_enabled"
+        private const val KEY_SENTENCE_LANGUAGE = "sentence_language"
+        private const val KEY_SENTENCE_PAUSE_MS = "sentence_pause_ms"
         private const val DEFAULT_DARK_MODE = false
 
         const val VOICE_FEMALE = "female"
@@ -115,6 +118,18 @@ class AppSettings(context: Context) {
         get() = prefs.getString(KEY_HAPTIC_FEEDBACK, HAPTIC_LIGHT) ?: HAPTIC_LIGHT
         set(v) = prefs.edit().putString(KEY_HAPTIC_FEEDBACK, v).apply()
 
+    var isLlmSynthesisEnabled: Boolean
+        get() = prefs.getBoolean(KEY_LLM_SYNTHESIS_ENABLED, true)
+        set(v) = prefs.edit().putBoolean(KEY_LLM_SYNTHESIS_ENABLED, v).apply()
+
+    var sentenceLanguage: String
+        get() = prefs.getString(KEY_SENTENCE_LANGUAGE, "en") ?: "en"
+        set(v) = prefs.edit().putString(KEY_SENTENCE_LANGUAGE, v).apply()
+
+    var sentencePauseDurationMs: Long
+        get() = prefs.getLong(KEY_SENTENCE_PAUSE_MS, 2000L)
+        set(v) = prefs.edit().putLong(KEY_SENTENCE_PAUSE_MS, v).apply()
+
     fun resetToDefault() {
         prefs.edit()
             .putInt(KEY_VOLUME, 80)
@@ -123,6 +138,9 @@ class AppSettings(context: Context) {
             .putBoolean(KEY_SHOW_FILIPINO, true)
             .putInt(KEY_FONT_SIZE, FONT_SIZE_NORMAL)
             .putString(KEY_HAPTIC_FEEDBACK, HAPTIC_LIGHT)
+            .putBoolean(KEY_LLM_SYNTHESIS_ENABLED, true)
+            .putString(KEY_SENTENCE_LANGUAGE, "en")
+            .putLong(KEY_SENTENCE_PAUSE_MS, 2000L)
             .apply()
     }
 }

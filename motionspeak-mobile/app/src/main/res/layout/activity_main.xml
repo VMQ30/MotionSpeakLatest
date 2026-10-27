@@ -475,4 +475,31 @@
         app:layout_constraintBottom_toTopOf="@id/btnClearMessage"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- Centered floating action button to turn signed words into a sentence -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnMakeSentence"
+        style="@style/Widget.Sigla.Button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:paddingStart="@dimen/ms_space_16"
+        android:paddingEnd="@dimen/ms_space_16"
+        android:text="Turn into sentence"
+        android:textColor="@color/ms_on_brand"
+        android:clickable="true"
+        android:focusable="true"
+        android:elevation="24dp"
+        app:elevation="24dp"
+        app:backgroundTint="@color/ms_brand"
+        app:cornerRadius="24dp"
+        app:icon="@drawable/ic_chat_line"
+        app:iconGravity="textStart"
+        app:iconPadding="8dp"
+        app:iconSize="20dp"
+        app:iconTint="@color/ms_on_brand"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintBottom_toTopOf="@id/bottomSheet"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -55,6 +55,8 @@ class SettingsActivity : BaseActivity() {
     private var currentDarkMode = false
     private var currentFontSize = AppSettings.FONT_SIZE_NORMAL
     private var currentHaptic   = AppSettings.HAPTIC_LIGHT
+    private var currentLlmSynthesisEnabled = true
+    private var currentSentenceLanguage = "en"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,6 +74,7 @@ class SettingsActivity : BaseActivity() {
         bindFontSizeControls()
         bindDarkModeSwitch()
         bindHapticToggle()
+        bindSentenceSynthesisControls()
         bindResetButton()
         bindReplayTutorial()
     }
@@ -81,6 +84,7 @@ class SettingsActivity : BaseActivity() {
         // The name can also change from the onboarding replay flow, which
         // returns here without recreating this Activity.
         refreshProfileCard()
+        refreshLlmModelStatus()
     }
 
     // ── Load saved preferences ────────────────────────────────────────────────
@@ -91,6 +95,8 @@ class SettingsActivity : BaseActivity() {
         currentDarkMode = appSettings.isDarkMode
         currentFontSize = appSettings.fontSize
         currentHaptic = appSettings.hapticFeedback
+        currentLlmSynthesisEnabled = appSettings.isLlmSynthesisEnabled
+        currentSentenceLanguage = appSettings.sentenceLanguage
 
         // Volume
         findViewById<SeekBar>(R.id.seekVolume)?.progress = currentVolume
@@ -104,6 +110,11 @@ class SettingsActivity : BaseActivity() {
 
         // Haptic feedback
         applyHapticSelection(currentHaptic)
+
+        // Sentence generation
+        findViewById<SwitchMaterial>(R.id.switchLlmSynthesis)?.isChecked = currentLlmSynthesisEnabled
+        applySentenceLanguageSelection(currentSentenceLanguage)
+        refreshLlmModelStatus()
 
         // Dark mode
         val darkSwitch = findViewById<SwitchMaterial>(R.id.switchDarkMode)
@@ -308,6 +319,56 @@ class SettingsActivity : BaseActivity() {
         style(btnOff,   mode == AppSettings.HAPTIC_OFF)
         style(btnLight, mode == AppSettings.HAPTIC_LIGHT)
         style(btnMax,   mode == AppSettings.HAPTIC_MAX)
+    }
+
+    // ── Sentence Generation (LLM) ─────────────────────────────────────────────
+
+    private fun bindSentenceSynthesisControls() {
+        val switchLlm = findViewById<SwitchMaterial>(R.id.switchLlmSynthesis)
+        switchLlm?.setOnCheckedChangeListener { _, isChecked ->
+            currentLlmSynthesisEnabled = isChecked
+            appSettings.isLlmSynthesisEnabled = isChecked
+        }
+
+        findViewById<View>(R.id.btnLangEnglish)?.setOnClickListener {
+            applySentenceLanguageSelection("en")
+            appSettings.sentenceLanguage = "en"
+        }
+
+        findViewById<View>(R.id.btnLangFilipino)?.setOnClickListener {
+            applySentenceLanguageSelection("fil")
+            appSettings.sentenceLanguage = "fil"
+        }
+    }
+
+    private fun applySentenceLanguageSelection(lang: String) {
+        currentSentenceLanguage = lang
+        val isEnglish = lang.equals("en", ignoreCase = true)
+        val btnEn = findViewById<TextView>(R.id.btnLangEnglish)
+        val btnFil = findViewById<TextView>(R.id.btnLangFilipino)
+
+        val onColor  = getColor(R.color.ms_cat_violet_text)
+        val offColor = getColor(R.color.ms_cat_violet_accent)
+        val onTint   = getColorStateList(R.color.ms_cat_violet_bg)
+        val offTint  = getColorStateList(R.color.ms_cat_violet_tint)
+
+        btnEn?.setTextColor(if (isEnglish) onColor else offColor)
+        btnEn?.backgroundTintList = if (isEnglish) onTint else offTint
+
+        btnFil?.setTextColor(if (!isEnglish) onColor else offColor)
+        btnFil?.backgroundTintList = if (!isEnglish) onTint else offTint
+    }
+
+    private fun refreshLlmModelStatus() {
+        val isInstalled = LlmModelManager.hasModel(this)
+        val size = LlmModelManager.getFormattedModelSize(this)
+        findViewById<TextView>(R.id.tvLlmModelStatus)?.text =
+            if (isInstalled) "Installed ($size) • Fully Offline" else "Not downloaded • Using deterministic fallback"
+
+        val fitness = LlmFeatureGate.assessDeviceFitness(this)
+        findViewById<TextView>(R.id.tvLlmHardwareFitness)?.text =
+            if (fitness.isEligible) "Device compatible (${if (fitness.isArm64) "64-bit ARM" else ""})"
+            else "Device note: ${fitness.reasons.firstOrNull() ?: "May fall back to deterministic mode"}"
     }
 
     // ── Reset to default ──────────────────────────────────────────────────────
