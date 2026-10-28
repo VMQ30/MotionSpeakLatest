@@ -41,7 +41,7 @@ private const val TAG = "MainActivity"
 private const val CAMERA_PERMISSION = 100
 
 internal val teardownExecutor = Executors.newSingleThreadExecutor { r ->
-    Thread(r, "sigla-teardown").apply { isDaemon = true }
+    Thread(r, "motionspeak-teardown").apply { isDaemon = true }
 }
 
 class MainActivity : AppCompatActivity() {
@@ -471,8 +471,8 @@ class MainActivity : AppCompatActivity() {
                     faceLms,
                     displayed.sourceWidth.toFloat(),
                     displayed.sourceHeight.toFloat(),
-                    isFrontCamera,
-                    displayed.handSlots
+                    mirrored = false,
+                    slots = displayed.handSlots
                 )
                 flushCollectingState()
             }
@@ -682,7 +682,10 @@ class MainActivity : AppCompatActivity() {
             CaptureRateMonitor.onFrame()
             val bitmap          = imageProxy.toBitmap()
             val rotationDegrees = imageProxy.imageInfo.rotationDegrees
-            val prepared        = prepareBitmap(bitmap, rotationDegrees)
+            val prepared        = prepareBitmap(bitmap, rotationDegrees, isFrontCamera)
+            if (prepared != bitmap) {
+                bitmap.recycle()
+            }
 
             // --- EMOTION PIPELINE ---
             val now = System.currentTimeMillis()
@@ -728,11 +731,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun prepareBitmap(bitmap: Bitmap, rotationDegrees: Int): Bitmap {
-        if (rotationDegrees == 0) return bitmap
+    private fun prepareBitmap(bitmap: Bitmap, rotationDegrees: Int, isFront: Boolean = false): Bitmap {
+        if (rotationDegrees == 0 && !isFront) return bitmap
         val matrix = frameMatrix.apply {
             reset()
-            postRotate(rotationDegrees.toFloat())
+            if (rotationDegrees != 0) {
+                postRotate(rotationDegrees.toFloat())
+            }
+            if (isFront) {
+                postScale(-1f, 1f)
+            }
         }
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, false)
     }

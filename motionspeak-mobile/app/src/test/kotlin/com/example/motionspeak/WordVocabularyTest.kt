@@ -102,8 +102,8 @@ class WordVocabularyTest {
     fun defaultWordBankHasExactly60Signs() {
         val defaultWords = defaultWordBank()
         assertEquals(60, defaultWords.size)
-        assertEquals(46, defaultWords.count { it.category == CATEGORY_MEDICAL })
-        assertEquals(14, defaultWords.count { it.category == CATEGORY_GENERAL })
+        assertEquals(45, defaultWords.count { it.category == CATEGORY_MEDICAL })
+        assertEquals(15, defaultWords.count { it.category == CATEGORY_GENERAL })
     }
 
     @Test
@@ -111,9 +111,9 @@ class WordVocabularyTest {
         val cats = defaultCategories()
         assertEquals(2, cats.size)
         assertEquals(CATEGORY_MEDICAL, cats[0].name)
-        assertEquals(46, cats[0].word_count)
+        assertEquals(45, cats[0].word_count)
         assertEquals(CATEGORY_GENERAL, cats[1].name)
-        assertEquals(14, cats[1].word_count)
+        assertEquals(15, cats[1].word_count)
     }
 
     @Test

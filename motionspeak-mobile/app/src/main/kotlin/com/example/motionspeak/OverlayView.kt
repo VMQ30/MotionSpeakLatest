@@ -11,15 +11,6 @@ import android.util.AttributeSet
 import android.view.View
 import kotlin.math.max
 
-private val CONNECTIONS = listOf(
-    0 to 1, 1 to 2, 2 to 3, 3 to 4,
-    0 to 5, 5 to 6, 6 to 7, 7 to 8,
-    0 to 9, 9 to 10, 10 to 11, 11 to 12,
-    0 to 13, 13 to 14, 14 to 15, 15 to 16,
-    0 to 17, 17 to 18, 18 to 19, 19 to 20,
-    5 to 9, 9 to 13, 13 to 17
-)
-
 internal data class FillCenterTransform(
     val scale: Float,
     val offsetX: Float,
@@ -50,6 +41,22 @@ class OverlayView @JvmOverloads constructor(
 
     companion object {
         /**
+         * Standard 21-landmark MediaPipe Hand connections.
+         */
+        val HAND_CONNECTIONS = arrayOf(
+            // Thumb
+            0 to 1, 1 to 2, 2 to 3, 3 to 4,
+            // Index finger
+            0 to 5, 5 to 6, 6 to 7, 7 to 8,
+            // Middle finger
+            5 to 9, 9 to 10, 10 to 11, 11 to 12,
+            // Ring finger
+            9 to 13, 13 to 14, 14 to 15, 15 to 16,
+            // Pinky finger & palm base
+            13 to 17, 0 to 17, 17 to 18, 18 to 19, 19 to 20
+        )
+
+        /**
          * Maps detected emotional tones to distinct colors.
          */
         fun getEmotionColor(emotion: String?): Int {
@@ -73,22 +80,39 @@ class OverlayView @JvmOverloads constructor(
     }
 
     private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#00E676") // Bright neon green
+        color = Color.parseColor("#B300E676") // Translucent neon green for left hand (~70% alpha)
+        style = Paint.Style.FILL
+    }
+    private val dot2Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#B3FF9800") // Translucent vibrant orange for right hand (~70% alpha)
         style = Paint.Style.FILL
     }
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#69F0AE")
+        color = Color.parseColor("#9900E676") // Translucent neon green for left skeleton (~60% alpha)
         style = Paint.Style.STROKE
-        strokeWidth = 5f
-    }
-    private val dot2Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FF9800") // Vibrant orange for second hand
-        style = Paint.Style.FILL
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
     }
     private val line2Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FFB74D")
+        color = Color.parseColor("#99FF9800") // Translucent vibrant orange for right skeleton (~60% alpha)
         style = Paint.Style.STROKE
-        strokeWidth = 5f
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+    private val lineHaloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#40000000") // Soft subtle shadow under lines (~25% alpha)
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+    private val dotHaloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#80000000") // Subtle dark contrast outline (~50% alpha)
+        style = Paint.Style.STROKE
+        strokeWidth = 1.4f
+    }
+    private val dotCorePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#CCFFFFFF") // Soft white core pip (~80% alpha)
+        style = Paint.Style.FILL
     }
     private val faceBoxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -234,30 +258,75 @@ class OverlayView @JvmOverloads constructor(
             }
         }
 
-        // ── Draw hand landmarks ──────────────────────────────────────────
+        // ── Draw hand landmarks (lines + points with dynamic sizing based on user's hand size) ─
         for ((handIdx, hand) in landmarks.withIndex()) {
             val slot = handSlots.getOrElse(handIdx) { handIdx }
             val dp = if (slot == 0) dotPaint else dot2Paint
             val lp = if (slot == 0) linePaint else line2Paint
             val n = hand.size / 2  // number of landmarks (interleaved x,y)
 
-            for ((a, b) in CONNECTIONS) {
-                if (a < n && b < n) {
-                    canvas.drawLine(
-                        drawX(hand[a * 2]),
-                        drawY(hand[a * 2 + 1]),
-                        drawX(hand[b * 2]),
-                        drawY(hand[b * 2 + 1]),
-                        lp
-                    )
+            if (n < 4) continue
+
+            // 1. Calculate hand bounding box & screen span to scale points and lines dynamically
+            var minHx = Float.MAX_VALUE
+            var maxHx = Float.MIN_VALUE
+            var minHy = Float.MAX_VALUE
+            var maxHy = Float.MIN_VALUE
+
+            for (i in 0 until n) {
+                val px = drawX(hand[i * 2])
+                val py = drawY(hand[i * 2 + 1])
+                if (px < minHx) minHx = px
+                if (px > maxHx) maxHx = px
+                if (py < minHy) minHy = py
+                if (py > maxHy) maxHy = py
+            }
+
+            val handW = if (maxHx > minHx) maxHx - minHx else 0f
+            val handH = if (maxHy > minHy) maxHy - minHy else 0f
+            val handSpan = kotlin.math.hypot(handW, handH)
+
+            // Dynamic scale factor relative to a nominal ~260px hand span on screen.
+            // Clamped between 0.45f (far hand) and 2.4f (very close hand) to prevent extreme sizes.
+            val scale = (handSpan / 260f).coerceIn(0.45f, 2.4f)
+
+            // 2. Draw hand skeleton connection lines with refined stroke width & transparency
+            val lineStroke = 2.4f * scale
+            lp.strokeWidth = lineStroke
+            lineHaloPaint.strokeWidth = lineStroke + 1.6f * scale
+
+            for ((startIdx, endIdx) in HAND_CONNECTIONS) {
+                if (startIdx < n && endIdx < n) {
+                    val x1 = drawX(hand[startIdx * 2])
+                    val y1 = drawY(hand[startIdx * 2 + 1])
+                    val x2 = drawX(hand[endIdx * 2])
+                    val y2 = drawY(hand[endIdx * 2 + 1])
+
+                    // Draw outer subtle shadow line, then translucent colored skeleton line
+                    canvas.drawLine(x1, y1, x2, y2, lineHaloPaint)
+                    canvas.drawLine(x1, y1, x2, y2, lp)
                 }
             }
+
+            // 3. Draw refined landmark dots dynamically sized according to user's hand
+            dotHaloPaint.strokeWidth = 1.4f * scale
+
             for (i in 0 until n) {
-                canvas.drawCircle(
-                    drawX(hand[i * 2]),
-                    drawY(hand[i * 2 + 1]),
-                    8f, dp
-                )
+                val cx = drawX(hand[i * 2])
+                val cy = drawY(hand[i * 2 + 1])
+
+                // Highlight wrist (0) and key fingertips (4, 8, 12, 16, 20) with slightly larger radius and core pip
+                val isTipOrWrist = (i == 0 || i == 4 || i == 8 || i == 12 || i == 16 || i == 20)
+                val dotRadius = if (isTipOrWrist) 5.2f * scale else 3.8f * scale
+
+                // Translucent colored joint circle & subtle contrast outline
+                canvas.drawCircle(cx, cy, dotRadius, dp)
+                canvas.drawCircle(cx, cy, dotRadius, dotHaloPaint)
+
+                // High precision core pip on fingertips and wrist
+                if (isTipOrWrist) {
+                    canvas.drawCircle(cx, cy, 1.6f * scale, dotCorePaint)
+                }
             }
         }
 

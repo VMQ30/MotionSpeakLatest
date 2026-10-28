@@ -108,7 +108,7 @@ private val SEED_WORDS: List<SeedWord> = listOf(
     SeedWord(10, "circumcision", CATEGORY_MEDICAL, "Tuli", "Surgical removal of the foreskin."),
     SeedWord(11, "compression", CATEGORY_MEDICAL, "Kompression", "Application of pressure, as in chest compressions or wound dressing."),
     SeedWord(12, "constipation", CATEGORY_MEDICAL, "Pagtitibi", "Infrequent, difficult, or painful bowel movements."),
-    SeedWord(13, "consult", CATEGORY_MEDICAL, "Konsulta", "Seeking medical advice or evaluation from a healthcare professional."),
+    SeedWord(13, "consult", CATEGORY_GENERAL, "Konsulta", "Seeking medical advice or evaluation from a healthcare professional."),
     SeedWord(14, "cough", CATEGORY_MEDICAL, "Ubo", "Sudden reflex that clears the throat and breathing passages."),
     SeedWord(15, "covid_19", CATEGORY_MEDICAL, "Covid-19", "Contagious respiratory disease caused by the SARS-CoV-2 coronavirus."),
     SeedWord(16, "depression", CATEGORY_MEDICAL, "Depresyon", "Mental health condition marked by persistent sadness and loss of interest."),
@@ -175,8 +175,8 @@ val DEFAULT_WORD_BANK: List<WordBankWord> = SEED_WORDS.map { seed ->
 fun defaultWordBank(): List<WordBankWord> = DEFAULT_WORD_BANK
 
 fun defaultCategories(): List<CategoryItem> = listOf(
-    CategoryItem(id = 1, name = CATEGORY_MEDICAL, description = "Medical signs", word_count = 46),
-    CategoryItem(id = 2, name = CATEGORY_GENERAL, description = "General and conversational signs", word_count = 14)
+    CategoryItem(id = 1, name = CATEGORY_MEDICAL, description = "Medical signs", word_count = 45),
+    CategoryItem(id = 2, name = CATEGORY_GENERAL, description = "General and conversational signs", word_count = 15)
 )
 
 internal fun normalizeLabelKey(label: String): String =

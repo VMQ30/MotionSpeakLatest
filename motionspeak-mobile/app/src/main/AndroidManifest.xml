@@ -16,7 +16,7 @@
     
 
     <application
-        android:name=".SiglaApplication"
+        android:name=".MotionSpeakApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"

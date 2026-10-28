@@ -12,9 +12,10 @@ import java.io.File
  * On-device LLM sentence synthesizer utilizing MediaPipe GenAI (LlmInference).
  * Executes fully offline with zero network calls.
  *
- * If the model cannot be loaded, or inference encounters an error, it gracefully
- * falls back to [fallbackSynthesizer] (DeterministicSentenceSynthesizer) to ensure
- * no user gesture messages are ever lost.
+ * Enforces zero-word-loss verification via [WordTokenMatcher] so that no user gesture
+ * labels are ever dropped or omitted during sentence construction. If any tokens
+ * are missed by the LLM or if inference encounters an error, it gracefully recovers
+ * or delegates to [fallbackSynthesizer] (DeterministicSentenceSynthesizer).
  */
 class LlmSynthesizer(
     private val context: Context,
@@ -96,9 +97,40 @@ class LlmSynthesizer(
                 return@withContext fallbackSynthesizer.compose(tokens, tone, language)
             }
 
-            Log.i(TAG, "LLM generated sentence in ${duration}ms: \"$sanitized\"")
+            // Verify that NO signed tokens were dropped by the LLM
+            val missingTokens = WordTokenMatcher.getMissingTokens(tokens, sanitized)
+
+            if (missingTokens.isEmpty()) {
+                Log.i(TAG, "LLM generated sentence with complete 100% token coverage in ${duration}ms: \"$sanitized\"")
+                return@withContext SentenceResult(
+                    text = sanitized,
+                    originalTokens = tokens,
+                    language = language,
+                    tone = tone,
+                    isLlmGenerated = true,
+                    latencyMs = duration
+                )
+            }
+
+            Log.w(TAG, "LLM omitted tokens: $missingTokens. Performing zero-word-loss recovery.")
+
+            // If the LLM captured the bulk of the sentence, weave missing tokens into the output;
+            // otherwise use fallbackSynthesizer to guarantee 100% token coverage with natural syntax.
+            val finalSentence = if (sanitized.length >= 10 && missingTokens.size <= 2 && missingTokens.size < tokens.size) {
+                val recovered = fallbackSynthesizer.compose(missingTokens, tone, language).text
+                if (recovered.isNotBlank()) {
+                    val cleanBase = sanitized.trimEnd('.', '!', '?')
+                    "$cleanBase. $recovered"
+                } else {
+                    fallbackSynthesizer.compose(tokens, tone, language).text
+                }
+            } else {
+                fallbackSynthesizer.compose(tokens, tone, language).text
+            }
+
+            Log.i(TAG, "Synthesized sentence with 100% token preservation in ${duration}ms: \"$finalSentence\"")
             SentenceResult(
-                text = sanitized,
+                text = finalSentence,
                 originalTokens = tokens,
                 language = language,
                 tone = tone,

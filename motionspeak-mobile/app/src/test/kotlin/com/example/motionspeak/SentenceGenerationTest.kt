@@ -251,6 +251,53 @@ class SentenceGenerationTest {
         assertEquals("I have asthma and a cough. Please give me medicine.", result.text)
     }
 
+    @Test
+    fun testArbitraryCombinationPreservesAllWordsEnglish() = runTest {
+        val tokens = listOf("accident", "broken_bone", "ambulance", "hospitalized")
+        val result = synthesizer.compose(
+            tokens = tokens,
+            tone = SentenceTone.CONCERNED,
+            language = SentenceLanguage.ENGLISH
+        )
+        val missing = WordTokenMatcher.getMissingTokens(tokens, result.text)
+        assertTrue("Expected zero missing tokens, but missing: $missing in \"${result.text}\"", missing.isEmpty())
+    }
+
+    @Test
+    fun testSixWordCombinationPreservesAllWordsEnglish() = runTest {
+        val tokens = listOf("good_morning", "dizziness", "consult", "please", "medicines", "thank_you")
+        val result = synthesizer.compose(
+            tokens = tokens,
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH
+        )
+        val missing = WordTokenMatcher.getMissingTokens(tokens, result.text)
+        assertTrue("Expected zero missing tokens, but missing: $missing in \"${result.text}\"", missing.isEmpty())
+    }
+
+    @Test
+    fun testArbitraryCombinationPreservesAllWordsFilipino() = runTest {
+        val tokens = listOf("accident", "broken_bone", "ambulance", "hospitalized")
+        val result = synthesizer.compose(
+            tokens = tokens,
+            tone = SentenceTone.CONCERNED,
+            language = SentenceLanguage.FILIPINO
+        )
+        val missing = WordTokenMatcher.getMissingTokens(tokens, result.text)
+        assertTrue("Expected zero missing tokens, but missing: $missing in \"${result.text}\"", missing.isEmpty())
+    }
+
+    @Test
+    fun testMultiSymptomNegationEnglish() = runTest {
+        val tokens = listOf("no", "fever", "cough")
+        val result = synthesizer.compose(
+            tokens = tokens,
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH
+        )
+        assertEquals("I have no fever, but I have a cough.", result.text)
+    }
+
     // ── D. SentenceComposer Buffering & Pause Detection ──────────────────────
 
     @Test

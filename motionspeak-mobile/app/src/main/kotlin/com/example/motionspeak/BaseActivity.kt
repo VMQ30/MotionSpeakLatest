@@ -23,7 +23,7 @@ abstract class BaseActivity : AppCompatActivity() {
         val settings = AppSettings.getInstance(newBase)
         val scale = settings.fontSize / 100f
         appliedFontScale = scale
-        super.attachBaseContext(SiglaApplication.wrapFontScale(newBase, settings.fontSize))
+        super.attachBaseContext(MotionSpeakApplication.wrapFontScale(newBase, settings.fontSize))
     }
 
     override fun applyOverrideConfiguration(overrideConfiguration: Configuration?) {
