@@ -1,0 +1,25 @@
+Options: {'data': 'data', 'epochs': 80, 'batch': 32, 'aug': 5, 'val_signer': None, 'no_holdout': True, 'mirror': True, 'hand_shape': True, 'no_z': True, 'strong_aug': True, 'motion': True, 'seed': 42}
+Signers: dj, ej, icalla, tamani | held out: None
+
+Validation accuracy: 99.8%  (480 samples)
+Top-2 accuracy (right answer among the 2 best guesses): 100.0%
+
+If the app only answers when confident (otherwise shows 'not sure'):
+   confidence >= 0.5: answers  100% of signs, 100.0% of those correct
+   confidence >= 0.7: answers   98% of signs, 100.0% of those correct
+   confidence >= 0.9: answers   96% of signs, 100.0% of those correct
+
+Weakest signs:
+   dizziness                  87.5%  (n=8)
+   abortion                  100.0%  (n=8)
+   accident                  100.0%  (n=8)
+   allergies                 100.0%  (n=8)
+   ambulance                 100.0%  (n=8)
+   asthma                    100.0%  (n=8)
+   blurred_vision            100.0%  (n=8)
+   breathing                 100.0%  (n=8)
+   broken_bone               100.0%  (n=8)
+   cancer                    100.0%  (n=8)
+
+Most common mix-ups (true -> predicted):
+   dizziness -> headache   x1

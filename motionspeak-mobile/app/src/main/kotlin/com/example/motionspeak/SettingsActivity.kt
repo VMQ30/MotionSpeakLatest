@@ -15,7 +15,7 @@ import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.google.android.material.button.MaterialButton
-import com.example.motionspeak.SiglaApplication.Companion.wrapFontScale
+import com.example.motionspeak.MotionSpeakApplication.Companion.wrapFontScale
 
 /**
  * The profile card's name line: the stored name, or a friendly fallback when
@@ -259,7 +259,7 @@ class SettingsActivity : BaseActivity() {
     private fun saveFontSize(pct: Int) {
         if (appSettings.fontSize == pct) return
         appSettings.fontSize = pct
-        SiglaApplication.applyFontScale(applicationContext, pct)
+        MotionSpeakApplication.applyFontScale(applicationContext, pct)
         recreate()
     }
 
@@ -387,7 +387,7 @@ class SettingsActivity : BaseActivity() {
             view.findViewById<MaterialButton>(R.id.btnConfirmCancel).setOnClickListener { dialog.dismiss() }
             view.findViewById<MaterialButton>(R.id.btnConfirmAction).setOnClickListener {
                 appSettings.resetToDefault()
-                SiglaApplication.applyFontScale(applicationContext, AppSettings.FONT_SIZE_NORMAL)
+                MotionSpeakApplication.applyFontScale(applicationContext, AppSettings.FONT_SIZE_NORMAL)
                 TtsVoiceHelper.invalidate()   // resets voiceType as well
                 loadPreferences()
                 refreshProfileCard()

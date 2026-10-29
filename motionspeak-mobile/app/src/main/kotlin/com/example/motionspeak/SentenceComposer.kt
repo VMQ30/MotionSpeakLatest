@@ -118,7 +118,8 @@ class SentenceComposer(
 
     /**
      * Explicitly trigger composition (e.g. from UI button) or called on pause timeout.
-     * Optionally takes [fallbackTokens] if buffers are empty.
+     * When [fallbackTokens] is provided (e.g. from the UI message box), it takes precedence
+     * to guarantee all signed tokens are passed to synthesis.
      */
     fun triggerComposition(fallbackTokens: List<String>? = null) {
         scope.launch(dispatcher) {
@@ -130,19 +131,22 @@ class SentenceComposer(
                 pauseTimerJob?.cancel()
                 pauseTimerJob = null
 
-                if (currentBuffer.isEmpty()) {
-                    if (pendingBuffer.isNotEmpty()) {
-                        currentBuffer.addAll(pendingBuffer)
-                        pendingBuffer.clear()
-                    } else if (!fallbackTokens.isNullOrEmpty()) {
-                        currentBuffer.addAll(fallbackTokens)
-                    } else {
-                        return@launch
+                if (!fallbackTokens.isNullOrEmpty()) {
+                    tokensToCompose = fallbackTokens.toList()
+                    currentBuffer.clear()
+                    pendingBuffer.clear()
+                } else {
+                    if (currentBuffer.isEmpty()) {
+                        if (pendingBuffer.isNotEmpty()) {
+                            currentBuffer.addAll(pendingBuffer)
+                            pendingBuffer.clear()
+                        } else {
+                            return@launch
+                        }
                     }
+                    tokensToCompose = currentBuffer.toList()
+                    currentBuffer.clear()
                 }
-
-                tokensToCompose = currentBuffer.toList()
-                currentBuffer.clear()
                 isSynthesizing = true
             }
 
@@ -178,6 +182,37 @@ class SentenceComposer(
                     }
                 }
                 onComposingStateChanged?.invoke(false)
+            }
+        }
+    }
+
+    /**
+     * Removes the last added token from the composer buffer so that backspaced words
+     * are never resurrected when new signs are buffered.
+     */
+    fun removeLastToken() {
+        scope.launch(dispatcher) {
+            mutex.withLock {
+                if (currentBuffer.isNotEmpty()) {
+                    currentBuffer.removeAt(currentBuffer.size - 1)
+                } else if (pendingBuffer.isNotEmpty()) {
+                    pendingBuffer.removeAt(pendingBuffer.size - 1)
+                }
+                lastEmittedLabel = currentBuffer.lastOrNull()
+            }
+        }
+    }
+
+    /**
+     * Overwrites the current buffer with a list of active tokens.
+     */
+    fun setTokens(tokens: List<String>) {
+        scope.launch(dispatcher) {
+            mutex.withLock {
+                currentBuffer.clear()
+                currentBuffer.addAll(tokens)
+                pendingBuffer.clear()
+                lastEmittedLabel = currentBuffer.lastOrNull()
             }
         }
     }

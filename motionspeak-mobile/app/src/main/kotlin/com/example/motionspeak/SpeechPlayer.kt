@@ -13,7 +13,7 @@ import java.util.concurrent.Executors
 // overtake the voice change queued just before it. Daemon: it must not hold the
 // process open.
 private val speechLane = Executors.newSingleThreadExecutor { r ->
-    Thread(r, "sigla-tts").apply { isDaemon = true }
+    Thread(r, "motionspeak-tts").apply { isDaemon = true }
 }.asCoroutineDispatcher()
 
 /**

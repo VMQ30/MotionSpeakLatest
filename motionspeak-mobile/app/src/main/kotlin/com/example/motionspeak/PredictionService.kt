@@ -6,16 +6,22 @@ import org.tensorflow.lite.Interpreter
 import java.io.FileInputStream
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
-import kotlin.math.roundToInt
 
 private const val TAG = "PredictionService"
-private const val SEQUENCE_LENGTH = 30
-// FEATURE_SIZE is shared with HandLandmarkHelper; the authoritative declaration is
-// `internal const val FEATURE_SIZE = 350` in HandLandmarkHelper.kt.
-private const val NUM_CLASSES = 60
-private const val PAD = 3
-private const val LEFT_FLAG = 171
-private const val RIGHT_FLAG = 172
+private const val DEFAULT_SEQUENCE_LENGTH = MotionPreprocessor.SEQUENCE_LENGTH
+private const val LEFT_FLAG = MotionPreprocessor.LEFT_FLAG
+private const val RIGHT_FLAG = MotionPreprocessor.RIGHT_FLAG
+
+internal data class ModelMeta(
+    val frames: Int = 30,
+    val numFeatures: Int = 173,
+    val rawFeatures: Int = 173,
+    val handShape: Boolean = false,
+    val motion: Boolean = false,
+    val motionScale: Float = 5.0f,
+    val noZ: Boolean = false,
+    val labels: List<String> = emptyList()
+)
 
 class PredictionService(private val context: Context) {
 
@@ -31,6 +37,16 @@ class PredictionService(private val context: Context) {
     private var labels: List<String> = emptyList()
     private val frameBuffer = ArrayDeque<FloatArray>()
     private var inactiveStreak = 0
+    private var holdFrames = 0
+
+    private var sequenceLength = DEFAULT_SEQUENCE_LENGTH
+    private var numFeatures = MotionPreprocessor.RAW_FEATURES
+    private var numClasses = 60
+    private var modelMeta = ModelMeta()
+
+    // Pre-allocated inference buffers sized dynamically upon model load
+    private var inputBuffer = Array(1) { Array(DEFAULT_SEQUENCE_LENGTH) { FloatArray(MotionPreprocessor.RAW_FEATURES) } }
+    private var outputBuffer = Array(1) { FloatArray(60) }
 
     /**
      * True once [init] has loaded the model and labels successfully.
@@ -44,12 +60,29 @@ class PredictionService(private val context: Context) {
 
     fun init() {
         try {
-            interpreter = Interpreter(loadModel("motionspeak.tflite"))
-            labels = loadLabels("labels.txt")
+            val interp = Interpreter(loadModel("motionspeak.tflite"))
+            interpreter = interp
+
+            val meta = loadMeta("meta.json")
+            this.modelMeta = meta
+
+            labels = if (meta.labels.isNotEmpty()) meta.labels else loadLabels("labels.txt")
+
+            // Inspect the interpreter input/output shapes directly for ground truth
+            val inShape = interp.getInputTensor(0).shape()
+            sequenceLength = if (inShape.size > 1 && inShape[1] > 0) inShape[1] else meta.frames
+            numFeatures = if (inShape.size > 2 && inShape[2] > 0) inShape[2] else meta.numFeatures
+
+            val outShape = interp.getOutputTensor(0).shape()
+            numClasses = if (outShape.size > 1 && outShape[1] > 0) outShape[1] else labels.size
+
+            inputBuffer = Array(1) { Array(sequenceLength) { FloatArray(numFeatures) } }
+            outputBuffer = Array(1) { FloatArray(numClasses) }
+
             isReady = true
-            Log.i(TAG, "Model & Labels loaded. Classes: ${labels.size}")
+            Log.i(TAG, "Model & Labels loaded. Input: [1, $sequenceLength, $numFeatures], Classes: $numClasses")
         } catch (e: Exception) {
-            Log.e(TAG, "Init failed: ${e.message}")
+            Log.e(TAG, "Init failed: ${e.message}", e)
         }
     }
 
@@ -60,19 +93,56 @@ class PredictionService(private val context: Context) {
 
         if (hasHands) {
             inactiveStreak = 0
-            frameBuffer.addLast(features)
+            // Buffer the raw 173-dimensional features for sequence processing
+            frameBuffer.addLast(features.copyOf(MotionPreprocessor.RAW_FEATURES))
             if (frameBuffer.size > 60) frameBuffer.removeFirst()
 
             val progress = (frameBuffer.size / 30f).coerceIn(0f, 1f)
             onCollecting?.invoke(progress)
 
-            if (frameBuffer.size >= 15) {
-                runInference()
+            // Measure hand movement to detect terminal hold vs active motion
+            val motionMag = if (frameBuffer.size >= 2) {
+                val prev = frameBuffer[frameBuffer.size - 2]
+                val curr = frameBuffer[frameBuffer.size - 1]
+                kotlin.math.abs(curr[0] - prev[0]) + kotlin.math.abs(curr[1] - prev[1]) +
+                kotlin.math.abs(curr[63] - prev[63]) + kotlin.math.abs(curr[64] - prev[64])
+            } else 1.0f
+
+            // A hold is detected when motion decelerates to near zero at the end of a gesture
+            if (motionMag < 0.05f && frameBuffer.size >= 20) {
+                holdFrames++
+            } else {
+                holdFrames = 0
             }
+
+            // Fire on terminal hold (hand held still for ~260ms after executing the sign)
+            if (holdFrames >= 8 && frameBuffer.size >= 22) {
+                val success = runInference()
+                if (success) {
+                    frameBuffer.clear()
+                    holdFrames = 0
+                    inactiveStreak = 0
+                    onCollecting?.invoke(0f)
+                }
+            } else if (frameBuffer.size >= 58 && holdFrames >= 4) {
+                // Buffer capacity reached and motion has slowed
+                val success = runInference()
+                if (success) {
+                    frameBuffer.clear()
+                    holdFrames = 0
+                    inactiveStreak = 0
+                    onCollecting?.invoke(0f)
+                }
+            }
+            // CRITICAL: If hands are still actively moving (motionMag >= 0.05f),
+            // DO NOT INTERRUPT THE SIGN! Let the user finish the full motion.
         } else {
+            holdFrames = 0
             inactiveStreak++
-            if (inactiveStreak >= 8) {
-                if (frameBuffer.size >= 15) {
+            // Hands were lowered or left the frame: natural end of gesture
+            if (inactiveStreak >= 5) {
+                if (frameBuffer.size >= 12) {
+                    // Complete sign captured: run inference now!
                     runInference()
                 }
                 frameBuffer.clear()
@@ -84,49 +154,78 @@ class PredictionService(private val context: Context) {
         }
     }
 
-    private fun runInference() {
-        var firstActive = -1
-        var lastActive = -1
-        for (i in frameBuffer.indices) {
-            if (frameBuffer[i][LEFT_FLAG] > 0f || frameBuffer[i][RIGHT_FLAG] > 0f) {
-                if (firstActive == -1) firstActive = i
-                lastActive = i
-            }
+    internal fun runInference(): Boolean {
+        if (frameBuffer.size < 8) return false
+
+        // 1. Fill short tracking gaps (up to 6 frames)
+        val filled = MotionPreprocessor.fillGaps(frameBuffer.toList())
+
+        // 2. Trim active frames (between first and last hand detection +/- 3 pad)
+        val active = MotionPreprocessor.trimActive(filled) ?: return false
+
+        // 3. Resample to target sequence length
+        val resampled = MotionPreprocessor.resample(active, sequenceLength)
+
+        // 4. Construct input tensor dynamically based on model specification
+        MotionPreprocessor.prepareModelInput(
+            resampled = resampled,
+            target = inputBuffer[0],
+            numFeatures = numFeatures,
+            handShape = modelMeta.handShape || (numFeatures >= 299),
+            motion = modelMeta.motion || (numFeatures >= 350),
+            noZ = modelMeta.noZ,
+            motionScale = modelMeta.motionScale
+        )
+
+        // 5. Run TFLite inference safely inside try-catch
+        try {
+            interpreter?.run(inputBuffer, outputBuffer)
+        } catch (e: Exception) {
+            Log.e(TAG, "TFLite inference failed: ${e.message}", e)
+            return false
         }
-
-        if (firstActive == -1 || lastActive - firstActive < 6) return
-
-        val start = maxOf(0, firstActive - PAD)
-        val end = minOf(frameBuffer.size - 1, lastActive + PAD)
-        val trimmed = frameBuffer.subList(start, end + 1).toList()
-
-        val resampled = ArrayList<FloatArray>(30)
-        for (i in 0 until 30) {
-            val idx = ((i.toFloat() / 29f) * (trimmed.size - 1)).roundToInt()
-            resampled.add(trimmed[idx])
-        }
-
-        val input = Array(1) { Array(30) { FloatArray(FEATURE_SIZE) } }
-        for (i in 0 until 30) input[0][i] = resampled[i]
-
-        val output = Array(1) { FloatArray(NUM_CLASSES) }
-        interpreter?.run(input, output)
 
         var maxIdx = 0
         var maxConf = 0f
-        for (i in 0 until NUM_CLASSES) {
-            if (output[0][i] > maxConf) {
-                maxConf = output[0][i]
+        for (i in 0 until numClasses) {
+            val score = outputBuffer[0][i]
+            if (score > maxConf) {
+                maxConf = score
                 maxIdx = i
             }
         }
 
-        if (maxConf > 0.80f) {
+        // Firing threshold: emit when confident (model achieves >95% confidence on valid signs)
+        if (maxConf >= 0.70f) {
             val label = labels.getOrElse(maxIdx) { "Unknown" }
             onResult?.invoke(label)
-            frameBuffer.clear()
-            inactiveStreak = 0
-            onCollecting?.invoke(0f)
+            return true
+        }
+        return false
+    }
+
+    private fun loadMeta(filename: String): ModelMeta {
+        return try {
+            val jsonStr = context.assets.open(filename).bufferedReader().readText()
+            val json = org.json.JSONObject(jsonStr)
+            val lblArray = json.optJSONArray("labels")
+            val lblList = if (lblArray != null) {
+                List(lblArray.length()) { lblArray.getString(it) }
+            } else emptyList()
+
+            ModelMeta(
+                frames = json.optInt("frames", 30),
+                numFeatures = json.optInt("num_features", 173),
+                rawFeatures = json.optInt("raw_features", 173),
+                handShape = json.optBoolean("hand_shape", false),
+                motion = json.optBoolean("motion", false),
+                motionScale = json.optDouble("motion_scale", 5.0).toFloat(),
+                noZ = json.optBoolean("no_z", false),
+                labels = lblList
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not load meta.json: ${e.message}")
+            ModelMeta()
         }
     }
 
@@ -145,6 +244,7 @@ class PredictionService(private val context: Context) {
     fun reset() {
         frameBuffer.clear()
         inactiveStreak = 0
+        holdFrames = 0
         onCollecting?.invoke(0f)
     }
 
@@ -153,5 +253,6 @@ class PredictionService(private val context: Context) {
         isReady = false
         frameBuffer.clear()
         inactiveStreak = 0
+        holdFrames = 0
     }
 }

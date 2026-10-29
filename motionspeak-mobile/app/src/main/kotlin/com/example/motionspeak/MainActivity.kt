@@ -5,11 +5,17 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.Typeface
 import android.os.Bundle
 import android.os.SystemClock
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
@@ -35,7 +41,7 @@ private const val TAG = "MainActivity"
 private const val CAMERA_PERMISSION = 100
 
 internal val teardownExecutor = Executors.newSingleThreadExecutor { r ->
-    Thread(r, "sigla-teardown").apply { isDaemon = true }
+    Thread(r, "motionspeak-teardown").apply { isDaemon = true }
 }
 
 class MainActivity : AppCompatActivity() {
@@ -62,7 +68,9 @@ class MainActivity : AppCompatActivity() {
     private var sentenceComposer: SentenceComposer? = null
     private var activeSynthesizer: SentenceSynthesizer? = null
 
-    private val executor      = Executors.newSingleThreadExecutor()
+    private val executor        = Executors.newSingleThreadExecutor()
+    private val emotionExecutor = Executors.newSingleThreadExecutor { Thread(it, "motionspeak-emotion").apply { isDaemon = true } }
+    private val emotionInFlight = AtomicBoolean(false)
     private var isFrontCamera = false
     private var cameraProvider: ProcessCameraProvider? = null
 
@@ -81,6 +89,10 @@ class MainActivity : AppCompatActivity() {
     private var lastResultTime = 0L
     private var lastEmittedWord: String? = null
     private var lastLabel: String? = null
+    private var isSentenceState = false
+    private val rawTokens = mutableListOf<String>()
+    private val signedWords = mutableListOf<String>()
+    private var isRenderingWords = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -255,19 +267,101 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun getPastelWordColor(index: Int, isNightMode: Boolean): Int {
+        val darkPastels = intArrayOf(
+            0xFF7DD3FC.toInt(), // Pastel Sky
+            0xFF6EE7B7.toInt(), // Pastel Mint
+            0xFFC4B5FD.toInt(), // Pastel Lavender
+            0xFFFCA5A5.toInt(), // Pastel Peach
+            0xFFFDE047.toInt(), // Pastel Buttercup
+            0xFFF9A8D4.toInt(), // Pastel Rose
+            0xFF5EEAD4.toInt(), // Pastel Teal
+            0xFFFDBA74.toInt()  // Pastel Coral
+        )
+        val lightPastels = intArrayOf(
+            0xFF0284C7.toInt(), // Pastel Sky Blue
+            0xFF059669.toInt(), // Pastel Mint / Emerald
+            0xFF7C3AED.toInt(), // Pastel Violet
+            0xFFE11D48.toInt(), // Pastel Rose
+            0xFFD97706.toInt(), // Pastel Amber
+            0xFF0D9488.toInt(), // Pastel Teal
+            0xFFC026D3.toInt(), // Pastel Fuchsia
+            0xFF4F46E5.toInt()  // Pastel Indigo
+        )
+        val palette = if (isNightMode) darkPastels else lightPastels
+        return palette[index % palette.size]
+    }
+
+    private fun renderSignedWords() {
+        if (isSentenceState) return
+        isRenderingWords = true
+        try {
+            if (signedWords.isEmpty()) {
+                binding.tvMessage.setText("")
+                binding.btnMakeSentence.alpha = 0.7f
+                return
+            }
+
+            val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            val ssb = SpannableStringBuilder()
+
+            for (i in signedWords.indices) {
+                val w = signedWords[i]
+                val start = ssb.length
+                ssb.append(w)
+                val end = ssb.length
+
+                val color = getPastelWordColor(i, isDark)
+                ssb.setSpan(ForegroundColorSpan(color), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                ssb.setSpan(StyleSpan(Typeface.BOLD), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+
+                if (i < signedWords.size - 1) {
+                    ssb.append("  ") // distinct spacing between whole words
+                }
+            }
+
+            binding.tvMessage.setText(ssb)
+            val len = binding.tvMessage.text?.length ?: 0
+            binding.tvMessage.setSelection(len)
+            binding.btnMakeSentence.alpha = 1.0f
+            binding.btnMakeSentence.isEnabled = true
+            binding.scrollMessageBox.post {
+                binding.scrollMessageBox.fullScroll(View.FOCUS_DOWN)
+            }
+        } finally {
+            isRenderingWords = false
+        }
+    }
+
+    private fun deleteLastSignedWord() {
+        if (signedWords.isNotEmpty()) {
+            signedWords.removeAt(signedWords.size - 1)
+            if (rawTokens.isNotEmpty()) {
+                rawTokens.removeAt(rawTokens.size - 1)
+            }
+            lastEmittedWord = rawTokens.lastOrNull()
+            sentenceComposer?.removeLastToken()
+            Haptics.tick(binding.root)
+            renderSignedWords()
+        } else {
+            rawTokens.clear()
+            lastEmittedWord = null
+            sentenceComposer?.reset()
+            isRenderingWords = true
+            try {
+                binding.tvMessage.setText("")
+            } finally {
+                isRenderingWords = false
+            }
+        }
+    }
+
     private fun showResult(label: String) {
-        lastLabel = label
-        val composer = sentenceComposer
-        if (composer != null && appSettings.isLlmSynthesisEnabled) {
-            composer.addToken(label)
+        // While dialogue box is in sentence state, the text CANNOT be modified by new signs
+        if (isSentenceState) {
             return
         }
-
-        // Direct legacy display if composer is not initialized
-        val word = label.replace("_", " ").split(" ").joinToString(" ") {
-            it.replaceFirstChar { char -> char.uppercase() }
-        }
-        val textToAppend = word
+        lastLabel = label
 
         // Avoid rapid duplicates of the same word within 1 second
         val now = SystemClock.elapsedRealtime()
@@ -277,30 +371,32 @@ class MainActivity : AppCompatActivity() {
         lastResultTime = now
         lastEmittedWord = label
 
-        val current = binding.tvMessage.text.toString().trim()
-        val updated = if (current.isEmpty()) textToAppend else "$current $textToAppend"
-
-        binding.tvMessage.text = updated
-        binding.scrollMessageBox.post {
-            binding.scrollMessageBox.fullScroll(View.FOCUS_DOWN)
+        val word = label.replace("_", " ").split(" ").joinToString(" ") {
+            it.replaceFirstChar { char -> char.uppercase() }
         }
 
+        signedWords.add(word)
+        rawTokens.add(label)
+
+        val composer = sentenceComposer
+        if (composer != null && appSettings.isLlmSynthesisEnabled) {
+            composer.addToken(label)
+        }
+
+        renderSignedWords()
+
         Haptics.confirm(binding.root)
-        speak(textToAppend)
+        speak(word)
         lifecycleScope.launch(Dispatchers.IO) { historyManager.add(label, 100, "motion") }
     }
 
     private fun onTokenBuffered(token: String, buffer: List<String>) {
-        val displayedGloss = buffer.joinToString(" ") { t ->
-            t.replace('_', ' ').split(" ").joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+        if (isSentenceState) {
+            return
         }
-        binding.tvMessage.text = displayedGloss
         binding.btnMakeSentence.isEnabled = true
         binding.btnMakeSentence.text = "Turn into sentence"
         binding.btnMakeSentence.alpha = 1.0f
-        binding.scrollMessageBox.post {
-            binding.scrollMessageBox.fullScroll(View.FOCUS_DOWN)
-        }
     }
 
     private fun onComposingState(isComposing: Boolean) {
@@ -311,7 +407,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun onSentenceGenerated(result: SentenceResult) {
         if (result.text.isBlank()) return
-        binding.tvMessage.text = result.text
+        setSentenceState(true)
+        isRenderingWords = true
+        try {
+            signedWords.clear()
+            rawTokens.clear()
+            binding.tvMessage.setText(result.text)
+            val len = binding.tvMessage.text?.length ?: 0
+            binding.tvMessage.setSelection(len)
+        } finally {
+            isRenderingWords = false
+        }
         binding.btnMakeSentence.isEnabled = true
         binding.btnMakeSentence.text = "Turn into sentence"
         binding.btnMakeSentence.alpha = 1.0f
@@ -328,6 +434,21 @@ class MainActivity : AppCompatActivity() {
                 "motion",
                 rawTokens = result.originalTokens.joinToString(", ")
             )
+        }
+    }
+
+    private fun setSentenceState(isSentence: Boolean) {
+        if (isSentenceState == isSentence) return
+        isSentenceState = isSentence
+        if (isSentence) {
+            binding.siriBorderView.visibility = View.VISIBLE
+            binding.siriBorderView.startAnimation()
+            binding.cardMessageBox.strokeWidth = 0
+        } else {
+            binding.siriBorderView.stopAnimation()
+            binding.siriBorderView.visibility = View.GONE
+            val density = resources.displayMetrics.density
+            binding.cardMessageBox.strokeWidth = (1f * density).toInt()
         }
     }
 
@@ -350,7 +471,8 @@ class MainActivity : AppCompatActivity() {
                     faceLms,
                     displayed.sourceWidth.toFloat(),
                     displayed.sourceHeight.toFloat(),
-                    isFrontCamera
+                    mirrored = false,
+                    slots = displayed.handSlots
                 )
                 flushCollectingState()
             }
@@ -385,8 +507,76 @@ class MainActivity : AppCompatActivity() {
             isFrontCamera = !isFrontCamera
             appSettings.isFrontCamera = isFrontCamera
             predictor?.reset()
+            landmarker?.reset()
             bindCamera()
         }
+
+        binding.btnBackspace.setOnClickListener {
+            if (isSentenceState) {
+                // When LLM is used, treated per character
+                val editable = binding.tvMessage.text
+                if (!editable.isNullOrEmpty()) {
+                    val start = binding.tvMessage.selectionStart
+                    val end = binding.tvMessage.selectionEnd
+                    if (start != end && start >= 0 && end >= 0) {
+                        val min = minOf(start, end)
+                        val max = maxOf(start, end)
+                        editable.delete(min, max)
+                        binding.tvMessage.setSelection(min.coerceIn(0, editable.length))
+                    } else if (start > 0) {
+                        editable.delete(start - 1, start)
+                        binding.tvMessage.setSelection((start - 1).coerceIn(0, editable.length))
+                    } else {
+                        val len = editable.length
+                        editable.delete(len - 1, len)
+                        binding.tvMessage.setSelection((len - 1).coerceIn(0, editable.length))
+                    }
+                    Haptics.tick(binding.root)
+                }
+                if (binding.tvMessage.text.isNullOrBlank()) {
+                    lastEmittedWord = null
+                    signedWords.clear()
+                    rawTokens.clear()
+                    sentenceComposer?.reset()
+                    setSentenceState(false)
+                }
+            } else {
+                // When not yet using LLM, treated as a whole word
+                deleteLastSignedWord()
+            }
+        }
+
+        binding.tvMessage.addTextChangedListener(object : android.text.TextWatcher {
+            private var prevLength = 0
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
+                prevLength = s?.length ?: 0
+            }
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+
+            override fun afterTextChanged(s: android.text.Editable?) {
+                if (isRenderingWords) return
+                val currentLen = s?.length ?: 0
+                val hasText = !s.isNullOrBlank()
+                binding.btnMakeSentence.alpha = if (hasText) 1.0f else 0.7f
+
+                if (!hasText) {
+                    lastEmittedWord = null
+                    signedWords.clear()
+                    rawTokens.clear()
+                    sentenceComposer?.reset()
+                    setSentenceState(false)
+                    return
+                }
+
+                if (!isSentenceState && !isRenderingWords && currentLen < prevLength) {
+                    // Backspace was pressed on keyboard while in raw words mode:
+                    // Must delete as a whole word, not per character!
+                    deleteLastSignedWord()
+                }
+            }
+        })
 
         binding.btnMakeSentence.setOnClickListener {
             Log.d(TAG, "btnMakeSentence pressed! tvMessage='${binding.tvMessage.text}'")
@@ -412,19 +602,26 @@ class MainActivity : AppCompatActivity() {
             binding.btnMakeSentence.isEnabled = false
             binding.btnMakeSentence.text = "Composing…"
 
-            // Extract tokens from the displayed text if buffers were cleared
-            val fallbackTokens = text.lowercase()
-                .replace("[^a-z0-9_\\s]".toRegex(), "")
-                .split("\\s+".toRegex())
-                .filter { it.isNotBlank() }
+            // Extract tokens from rawTokens if available, otherwise fallback from text
+            val tokensToCompose = if (rawTokens.isNotEmpty()) {
+                rawTokens.toList()
+            } else {
+                text.lowercase()
+                    .replace("[^a-z0-9_\\s]".toRegex(), "")
+                    .split("\\s+".toRegex())
+                    .filter { it.isNotBlank() }
+            }
 
-            composer.triggerComposition(fallbackTokens)
+            composer.triggerComposition(tokensToCompose)
         }
 
         binding.btnClearMessage.setOnClickListener {
-            binding.tvMessage.text = ""
+            signedWords.clear()
+            rawTokens.clear()
+            binding.tvMessage.setText("")
             lastEmittedWord = null
             sentenceComposer?.reset()
+            setSentenceState(false)
             binding.btnMakeSentence.isEnabled = true
             binding.btnMakeSentence.text = "Turn into sentence"
             binding.btnMakeSentence.alpha = 0.7f
@@ -485,31 +682,38 @@ class MainActivity : AppCompatActivity() {
             CaptureRateMonitor.onFrame()
             val bitmap          = imageProxy.toBitmap()
             val rotationDegrees = imageProxy.imageInfo.rotationDegrees
-            val prepared        = prepareBitmap(bitmap, rotationDegrees)
+            val prepared        = prepareBitmap(bitmap, rotationDegrees, isFrontCamera)
+            if (prepared != bitmap) {
+                bitmap.recycle()
+            }
 
             // --- EMOTION PIPELINE ---
             val now = System.currentTimeMillis()
             if (now - lastEmotionCheckTime > 500L) {
                 lastEmotionCheckTime = now
                 val classifier = emotionClassifier
-                if (classifier != null) {
-                    Thread {
-                        val result = classifier.predictTone(prepared)
-                        if (result != null) {
-                            val emotionLabel = result.first.replaceFirstChar { it.uppercase() }
-                            val tone = ToneMapper.fromEmotion(emotionLabel)
-                            sentenceComposer?.currentTone = SentenceTone.fromToneString(tone)
-                            Log.i("MotionSpeak", "Emotion: $emotionLabel -> Tone: $tone")
-                            runOnUiThread {
-                                binding.overlayView.setDetectedEmotion(emotionLabel)
+                if (classifier != null && emotionInFlight.compareAndSet(false, true)) {
+                    emotionExecutor.execute {
+                        try {
+                            val result = classifier.predictTone(prepared)
+                            if (result != null) {
+                                val emotionLabel = result.first.replaceFirstChar { it.uppercase() }
+                                val tone = ToneMapper.fromEmotion(emotionLabel)
+                                sentenceComposer?.currentTone = SentenceTone.fromToneString(tone)
+                                Log.i("MotionSpeak", "Emotion: $emotionLabel -> Tone: $tone")
+                                runOnUiThread {
+                                    binding.overlayView.setDetectedEmotion(emotionLabel)
+                                }
+                            } else {
+                                sentenceComposer?.currentTone = SentenceTone.NEUTRAL
+                                runOnUiThread {
+                                    binding.overlayView.setDetectedEmotion(null)
+                                }
                             }
-                        } else {
-                            sentenceComposer?.currentTone = SentenceTone.NEUTRAL
-                            runOnUiThread {
-                                binding.overlayView.setDetectedEmotion(null)
-                            }
+                        } finally {
+                            emotionInFlight.set(false)
                         }
-                    }.start()
+                    }
                 }
             }
             // ------------------------------
@@ -527,11 +731,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun prepareBitmap(bitmap: Bitmap, rotationDegrees: Int): Bitmap {
-        if (rotationDegrees == 0) return bitmap
+    private fun prepareBitmap(bitmap: Bitmap, rotationDegrees: Int, isFront: Boolean = false): Bitmap {
+        if (rotationDegrees == 0 && !isFront) return bitmap
         val matrix = frameMatrix.apply {
             reset()
-            postRotate(rotationDegrees.toFloat())
+            if (rotationDegrees != 0) {
+                postRotate(rotationDegrees.toFloat())
+            }
+            if (isFront) {
+                postScale(-1f, 1f)
+            }
         }
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, false)
     }
@@ -563,6 +772,7 @@ class MainActivity : AppCompatActivity() {
     override fun onStop() { stopVision(); super.onStop() }
     override fun onDestroy() {
         executor.shutdown()
+        emotionExecutor.shutdown()
         stopVision()
         val doomedComposer = sentenceComposer
         sentenceComposer = null

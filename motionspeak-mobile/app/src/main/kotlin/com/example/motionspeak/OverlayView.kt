@@ -1,23 +1,15 @@
 package com.example.motionspeak
 
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.DashPathEffect
 import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.View
 import kotlin.math.max
-
-private val CONNECTIONS = listOf(
-    0 to 1, 1 to 2, 2 to 3, 3 to 4,
-    0 to 5, 5 to 6, 6 to 7, 7 to 8,
-    0 to 9, 9 to 10, 10 to 11, 11 to 12,
-    0 to 13, 13 to 14, 14 to 15, 15 to 16,
-    0 to 17, 17 to 18, 18 to 19, 19 to 20,
-    5 to 9, 9 to 13, 13 to 17
-)
 
 internal data class FillCenterTransform(
     val scale: Float,
@@ -47,53 +39,110 @@ class OverlayView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null
 ) : View(context, attrs) {
 
+    companion object {
+        /**
+         * Standard 21-landmark MediaPipe Hand connections.
+         */
+        val HAND_CONNECTIONS = arrayOf(
+            // Thumb
+            0 to 1, 1 to 2, 2 to 3, 3 to 4,
+            // Index finger
+            0 to 5, 5 to 6, 6 to 7, 7 to 8,
+            // Middle finger
+            5 to 9, 9 to 10, 10 to 11, 11 to 12,
+            // Ring finger
+            9 to 13, 13 to 14, 14 to 15, 15 to 16,
+            // Pinky finger & palm base
+            13 to 17, 0 to 17, 17 to 18, 18 to 19, 19 to 20
+        )
+
+        /**
+         * Maps detected emotional tones to distinct colors.
+         */
+        fun getEmotionColor(emotion: String?): Int {
+            return when (emotion?.lowercase()) {
+                "happy" -> Color.parseColor("#10B981")     // Vibrant Emerald / Green
+                "sad" -> Color.parseColor("#3B82F6")       // Electric / Royal Blue
+                "angry" -> Color.parseColor("#EF4444")     // Vibrant Crimson / Red
+                "fear" -> Color.parseColor("#A855F7")      // Deep Purple / Violet
+                "surprise" -> Color.parseColor("#F59E0B")  // Bright Amber / Orange
+                "disgust" -> Color.parseColor("#84CC16")   // Lime Green
+                "contempt" -> Color.parseColor("#EC4899")  // Hot Pink / Magenta
+                "neutral" -> Color.parseColor("#06B6D4")   // Cyan
+                else -> Color.parseColor("#06B6D4")        // Default Cyan accent
+            }
+        }
+    }
+
     init {
         setWillNotDraw(false)
         elevation = 20f
     }
 
     private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#00E676") // Bright neon green
+        color = Color.parseColor("#B300E676") // Translucent neon green for left hand (~70% alpha)
+        style = Paint.Style.FILL
+    }
+    private val dot2Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#B3FF9800") // Translucent vibrant orange for right hand (~70% alpha)
         style = Paint.Style.FILL
     }
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#69F0AE")
+        color = Color.parseColor("#9900E676") // Translucent neon green for left skeleton (~60% alpha)
         style = Paint.Style.STROKE
-        strokeWidth = 5f
-    }
-    private val dot2Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FF9800") // Vibrant orange for second hand
-        style = Paint.Style.FILL
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
     }
     private val line2Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FFB74D")
+        color = Color.parseColor("#99FF9800") // Translucent vibrant orange for right skeleton (~60% alpha)
         style = Paint.Style.STROKE
-        strokeWidth = 5f
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+    private val lineHaloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#40000000") // Soft subtle shadow under lines (~25% alpha)
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+    private val dotHaloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#80000000") // Subtle dark contrast outline (~50% alpha)
+        style = Paint.Style.STROKE
+        strokeWidth = 1.4f
+    }
+    private val dotCorePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#CCFFFFFF") // Soft white core pip (~80% alpha)
+        style = Paint.Style.FILL
     }
     private val faceBoxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(180, 180, 180) // Light Gray: (180, 180, 180)
         style = Paint.Style.STROKE
-        strokeWidth = 3f
-        pathEffect = DashPathEffect(floatArrayOf(14f, 8f), 0f) // Thin dashed style
+        strokeWidth = 3.5f
     }
     private val emotionBadgeBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#CC111827") // Translucent dark slate
         style = Paint.Style.FILL
     }
     private val emotionBadgeBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(0, 255, 0) // Prominent Green accent border
         style = Paint.Style.STROKE
         strokeWidth = 3f
     }
     private val emotionTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
         textSize = 40f
         textAlign = Paint.Align.CENTER
         typeface = android.graphics.Typeface.DEFAULT_BOLD
     }
 
+    // Scratch objects to avoid heap allocations during frame rendering
+    private val scratchFaceRect = RectF()
+    private val scratchBadgeRect = RectF()
+    private val scratchTextBounds = Rect()
+
+    private val isNightMode: Boolean
+        get() = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+
     // Each hand is a flat FloatArray of interleaved x,y (42 floats). landmark i = (arr[2i], arr[2i+1]).
     private var landmarks: List<FloatArray> = emptyList()
+    // Hand slots matching landmarks (0 = Left/green, 1 = Right/orange)
+    private var handSlots: List<Int> = emptyList()
     // Each face is a flat FloatArray of interleaved x,y (478*2 floats for full mesh).
     private var faceLandmarks: List<FloatArray> = emptyList()
     private var detectedEmotion: String? = null
@@ -116,8 +165,10 @@ class OverlayView @JvmOverloads constructor(
         w: Float,
         h: Float,
         mirrored: Boolean = false,
+        slots: List<Int> = emptyList(),
     ) {
         landmarks = handLms
+        handSlots = slots
         faceLandmarks = faceLms
         srcWidth = w
         srcHeight = h
@@ -128,6 +179,7 @@ class OverlayView @JvmOverloads constructor(
     /** Called to wipe landmarks when no tracking is active. */
     fun clear() {
         landmarks = emptyList()
+        handSlots = emptyList()
         faceLandmarks = emptyList()
         detectedEmotion = null
         invalidate()
@@ -147,7 +199,18 @@ class OverlayView @JvmOverloads constructor(
         fun drawY(normalizedY: Float): Float =
             transform.offsetY + normalizedY * srcHeight * transform.scale
 
-        // ── Draw face bounding box (Gray, tight to face contour) ─────────
+        val emotionColor = getEmotionColor(detectedEmotion)
+
+        // ── Draw face bounding box (dynamic size based on face size, slightly transparent, emotion color) ─
+        val faceBorderAlpha = 180 // ~70% opacity: slightly transparent
+        val faceBorderColor = Color.argb(
+            faceBorderAlpha,
+            Color.red(emotionColor),
+            Color.green(emotionColor),
+            Color.blue(emotionColor)
+        )
+        faceBoxPaint.color = faceBorderColor
+
         for (face in faceLandmarks) {
             val n = face.size / 2
             if (n >= 4) {
@@ -167,65 +230,147 @@ class OverlayView @JvmOverloads constructor(
                     val y1 = drawY(minY)
                     val y2 = drawY(maxY)
 
-                    val left = minOf(x1, x2)
-                    val right = maxOf(x1, x2)
-                    val top = minOf(y1, y2)
-                    val bottom = maxOf(y1, y2)
+                    val rawLeft = minOf(x1, x2)
+                    val rawRight = maxOf(x1, x2)
+                    val rawTop = minOf(y1, y2)
+                    val rawBottom = maxOf(y1, y2)
 
-                    val faceRect = RectF(left, top, right, bottom)
-                    canvas.drawRoundRect(faceRect, 8f, 8f, faceBoxPaint)
+                    val faceW = rawRight - rawLeft
+                    val faceH = rawBottom - rawTop
+
+                    // Dynamic padding proportional to user's face size
+                    val padX = faceW * 0.10f
+                    val padY = faceH * 0.12f
+
+                    val left = (rawLeft - padX).coerceAtLeast(0f)
+                    val right = (rawRight + padX).coerceAtMost(width.toFloat())
+                    val top = (rawTop - padY).coerceAtLeast(0f)
+                    val bottom = (rawBottom + padY).coerceAtMost(height.toFloat())
+
+                    // Dynamic corner radius and stroke width based on face dimensions
+                    val dynamicCornerRadius = (minOf(faceW, faceH) * 0.12f).coerceIn(12f, 36f)
+                    val dynamicStrokeWidth = (minOf(faceW, faceH) * 0.016f).coerceIn(3f, 6f)
+                    faceBoxPaint.strokeWidth = dynamicStrokeWidth
+
+                    scratchFaceRect.set(left, top, right, bottom)
+                    canvas.drawRoundRect(scratchFaceRect, dynamicCornerRadius, dynamicCornerRadius, faceBoxPaint)
                 }
             }
         }
 
-        // ── Draw hand landmarks ──────────────────────────────────────────
+        // ── Draw hand landmarks (lines + points with dynamic sizing based on user's hand size) ─
         for ((handIdx, hand) in landmarks.withIndex()) {
-            val dp = if (handIdx == 0) dotPaint else dot2Paint
-            val lp = if (handIdx == 0) linePaint else line2Paint
+            val slot = handSlots.getOrElse(handIdx) { handIdx }
+            val dp = if (slot == 0) dotPaint else dot2Paint
+            val lp = if (slot == 0) linePaint else line2Paint
             val n = hand.size / 2  // number of landmarks (interleaved x,y)
 
-            for ((a, b) in CONNECTIONS) {
-                if (a < n && b < n) {
-                    canvas.drawLine(
-                        drawX(hand[a * 2]),
-                        drawY(hand[a * 2 + 1]),
-                        drawX(hand[b * 2]),
-                        drawY(hand[b * 2 + 1]),
-                        lp
-                    )
+            if (n < 4) continue
+
+            // 1. Calculate hand bounding box & screen span to scale points and lines dynamically
+            var minHx = Float.MAX_VALUE
+            var maxHx = Float.MIN_VALUE
+            var minHy = Float.MAX_VALUE
+            var maxHy = Float.MIN_VALUE
+
+            for (i in 0 until n) {
+                val px = drawX(hand[i * 2])
+                val py = drawY(hand[i * 2 + 1])
+                if (px < minHx) minHx = px
+                if (px > maxHx) maxHx = px
+                if (py < minHy) minHy = py
+                if (py > maxHy) maxHy = py
+            }
+
+            val handW = if (maxHx > minHx) maxHx - minHx else 0f
+            val handH = if (maxHy > minHy) maxHy - minHy else 0f
+            val handSpan = kotlin.math.hypot(handW, handH)
+
+            // Dynamic scale factor relative to a nominal ~260px hand span on screen.
+            // Clamped between 0.45f (far hand) and 2.4f (very close hand) to prevent extreme sizes.
+            val scale = (handSpan / 260f).coerceIn(0.45f, 2.4f)
+
+            // 2. Draw hand skeleton connection lines with refined stroke width & transparency
+            val lineStroke = 2.4f * scale
+            lp.strokeWidth = lineStroke
+            lineHaloPaint.strokeWidth = lineStroke + 1.6f * scale
+
+            for ((startIdx, endIdx) in HAND_CONNECTIONS) {
+                if (startIdx < n && endIdx < n) {
+                    val x1 = drawX(hand[startIdx * 2])
+                    val y1 = drawY(hand[startIdx * 2 + 1])
+                    val x2 = drawX(hand[endIdx * 2])
+                    val y2 = drawY(hand[endIdx * 2 + 1])
+
+                    // Draw outer subtle shadow line, then translucent colored skeleton line
+                    canvas.drawLine(x1, y1, x2, y2, lineHaloPaint)
+                    canvas.drawLine(x1, y1, x2, y2, lp)
                 }
             }
+
+            // 3. Draw refined landmark dots dynamically sized according to user's hand
+            dotHaloPaint.strokeWidth = 1.4f * scale
+
             for (i in 0 until n) {
-                canvas.drawCircle(
-                    drawX(hand[i * 2]),
-                    drawY(hand[i * 2 + 1]),
-                    8f, dp
-                )
+                val cx = drawX(hand[i * 2])
+                val cy = drawY(hand[i * 2 + 1])
+
+                // Highlight wrist (0) and key fingertips (4, 8, 12, 16, 20) with slightly larger radius and core pip
+                val isTipOrWrist = (i == 0 || i == 4 || i == 8 || i == 12 || i == 16 || i == 20)
+                val dotRadius = if (isTipOrWrist) 5.2f * scale else 3.8f * scale
+
+                // Translucent colored joint circle & subtle contrast outline
+                canvas.drawCircle(cx, cy, dotRadius, dp)
+                canvas.drawCircle(cx, cy, dotRadius, dotHaloPaint)
+
+                // High precision core pip on fingertips and wrist
+                if (isTipOrWrist) {
+                    canvas.drawCircle(cx, cy, 1.6f * scale, dotCorePaint)
+                }
             }
         }
 
-        // ── Draw detected expression label in lower-middle portion ──────
+        // ── Draw detected expression label at the top ───────────────────
         detectedEmotion?.takeIf { it.isNotEmpty() }?.let { emotionText ->
-            val textBounds = android.graphics.Rect()
-            emotionTextPaint.getTextBounds(emotionText, 0, emotionText.length, textBounds)
-            val textW = textBounds.width().toFloat()
-            val textH = textBounds.height().toFloat()
+            val isDark = isNightMode
+            val density = resources.displayMetrics.density
+
+            // Background & text follow light/dark mode
+            emotionBadgeBgPaint.color = if (isDark) {
+                Color.parseColor("#D9111827") // Translucent dark slate
+            } else {
+                Color.parseColor("#E6FFFFFF") // Translucent clean white
+            }
+
+            emotionTextPaint.color = if (isDark) {
+                Color.WHITE
+            } else {
+                Color.parseColor("#111827") // Dark slate text for high contrast in light mode
+            }
+
+            // Border color follows detected emotion
+            emotionBadgeBorderPaint.color = emotionColor
+            emotionBadgeBorderPaint.strokeWidth = 2.5f * density
+
+            emotionTextPaint.getTextBounds(emotionText, 0, emotionText.length, scratchTextBounds)
+            val textW = scratchTextBounds.width().toFloat()
+            val textH = scratchTextBounds.height().toFloat()
 
             val cx = width / 2f
-            // Lower-middle portion of camera feed, directly above bottom sheet/controls
-            val cy = height * 0.72f
-            val padX = 32f
-            val padY = 18f
+            // Positioned at the top of the screen feed
+            val cy = maxOf(height * 0.08f, 64f * density)
+            val padX = 22f * density
+            val padY = 8f * density
 
-            val badgeRect = android.graphics.RectF(
+            scratchBadgeRect.set(
                 cx - textW / 2f - padX,
                 cy - textH / 2f - padY,
                 cx + textW / 2f + padX,
                 cy + textH / 2f + padY
             )
-            val cornerRadius = badgeRect.height() / 2f
-            canvas.drawRoundRect(badgeRect, cornerRadius, cornerRadius, emotionBadgeBgPaint)
-            canvas.drawRoundRect(badgeRect, cornerRadius, cornerRadius, emotionBadgeBorderPaint)
+            val cornerRadius = scratchBadgeRect.height() / 2f
+            canvas.drawRoundRect(scratchBadgeRect, cornerRadius, cornerRadius, emotionBadgeBgPaint)
+            canvas.drawRoundRect(scratchBadgeRect, cornerRadius, cornerRadius, emotionBadgeBorderPaint)
             canvas.drawText(emotionText, cx, cy + textH / 2f - 4f, emotionTextPaint)
         }
     }

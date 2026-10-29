@@ -15,7 +15,7 @@ import androidx.appcompat.app.AppCompatDelegate
  * Configuration so every Activity inherits the right density before it
  * inflates its layout.
  */
-class SiglaApplication : Application() {
+class MotionSpeakApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         val settings = AppSettings.getInstance(this)
@@ -44,7 +44,7 @@ class SiglaApplication : Application() {
 
         /** Applies [fontSizePercent] to the application-level configuration. */
         fun Application.applyFontScale(fontSizePercent: Int) {
-            SiglaApplication.applyFontScale(this, fontSizePercent)
+            MotionSpeakApplication.applyFontScale(this, fontSizePercent)
         }
 
         /** Applies [fontSizePercent] to the configuration of [context] (such as Application context). */

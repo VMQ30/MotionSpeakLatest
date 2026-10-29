@@ -7,6 +7,9 @@ import java.util.Locale
  * Serves as the primary offline fallback when the LLM is absent, disabled, or fails.
  * Produces structured, punctuated, and grammatically consistent sentences in English and Filipino
  * based strictly on the recognized labels and known word bank definitions.
+ *
+ * Guarantees ZERO WORD LOSS: Every single input gesture label is preserved and woven
+ * into a coherent, natural thought.
  */
 class DeterministicSentenceSynthesizer(
     private val wordBank: List<WordBankWord> = defaultWordBank()
@@ -62,49 +65,243 @@ class DeterministicSentenceSynthesizer(
             return formatSingleConceptEnglish(single, tone)
         }
 
-        // Handle negation patterns like ["no", "allergies"] -> "I have no allergies."
+        // Handle 2-token negation patterns like ["no", "allergies"] -> "I have no allergies."
         if (normalized.first().equals("no", ignoreCase = true) && normalized.size == 2) {
-            return "I have no ${normalized[1].lowercase(Locale.ENGLISH)}."
-        }
-
-        // Build composite sentence
-        val sentences = mutableListOf<String>()
-        val currentClause = mutableListOf<String>()
-
-        for (token in normalized) {
-            if (isQuestionPhrase(token)) {
-                if (currentClause.isNotEmpty()) {
-                    sentences.add(formatEnglishClause(currentClause, "."))
-                    currentClause.clear()
-                }
-                sentences.add(ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "?"))
-            } else if (isGreetingPhrase(token)) {
-                if (currentClause.isNotEmpty()) {
-                    sentences.add(formatEnglishClause(currentClause, "."))
-                    currentClause.clear()
-                }
-                sentences.add(ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "."))
-            } else if (token.equals("I don't understand", ignoreCase = true)) {
-                if (currentClause.isNotEmpty()) {
-                    sentences.add(formatEnglishClause(currentClause, "."))
-                    currentClause.clear()
-                }
-                sentences.add("I do not understand.")
-            } else if (token.equals("thank you", ignoreCase = true)) {
-                if (currentClause.isNotEmpty()) {
-                    sentences.add(formatEnglishClause(currentClause, "."))
-                    currentClause.clear()
-                }
-                sentences.add("Thank you.")
+            val second = normalized[1].lowercase(Locale.ENGLISH)
+            return if (isSymptomWordEnglish(second)) {
+                "I have no $second."
             } else {
-                currentClause.add(token)
+                "I do not have $second."
             }
         }
 
-        if (currentClause.isNotEmpty()) {
-            val isUrgent = tone == SentenceTone.CONCERNED && currentClause.any { isEmergencyWord(it) }
-            val endingPunctuation = if (isUrgent) "!" else "."
-            sentences.add(formatEnglishClause(currentClause, endingPunctuation))
+        val rawTokens = normalized.map { it.lowercase(Locale.ENGLISH).trim().replace('_', ' ') }
+        val consumed = BooleanArray(rawTokens.size)
+        val sentences = mutableListOf<String>()
+
+        fun isFree(idx: Int) = !consumed[idx]
+        fun use(idx: Int) { consumed[idx] = true }
+
+        // A. Greetings & Questions
+        val greetings = rawTokens.indices.filter { isFree(it) && isGreetingPhrase(rawTokens[it]) }
+        val questions = rawTokens.indices.filter { isFree(it) && isQuestionPhrase(rawTokens[it]) }
+
+        for (g in greetings) {
+            use(g)
+            sentences.add(ensurePunctuation(rawTokens[g].replaceFirstChar { it.uppercase() }, "."))
+        }
+        for (q in questions) {
+            use(q)
+            sentences.add(ensurePunctuation(rawTokens[q].replaceFirstChar { it.uppercase() }, "?"))
+        }
+
+        // B. Negations with following symptoms: e.g. ["no", "fever", "cough"]
+        val noIndices = rawTokens.indices.filter { isFree(it) && rawTokens[it] == "no" }
+        for (n in noIndices) {
+            val nextSymptom = rawTokens.indices.firstOrNull { it > n && isFree(it) && isSymptomWordEnglish(rawTokens[it]) }
+            if (nextSymptom != null) {
+                use(n)
+                use(nextSymptom)
+                val negWord = rawTokens[nextSymptom]
+                val otherSymptoms = rawTokens.indices.filter { isFree(it) && isSymptomWordEnglish(rawTokens[it]) }
+                if (otherSymptoms.isNotEmpty()) {
+                    val otherWords = otherSymptoms.map { rawTokens[it] }
+                    otherSymptoms.forEach { use(it) }
+                    sentences.add("I have no $negWord, but I have ${formatSymptomListEnglish(otherWords)}.")
+                } else {
+                    sentences.add("I have no $negWord.")
+                }
+            }
+        }
+
+        // C. Emergencies
+        val heartAttackIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it] == "heart attack" }
+        val accidentIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it] == "accident" }
+        val emergencyIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it] == "emergency" }
+        val ambulanceIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it] == "ambulance" }
+
+        if (heartAttackIdx != null) {
+            use(heartAttackIdx)
+            if (emergencyIdx != null) use(emergencyIdx)
+            if (ambulanceIdx != null) use(ambulanceIdx)
+            sentences.add("Someone is having a heart attack. This is an emergency, please call an ambulance!")
+        } else if (accidentIdx != null) {
+            use(accidentIdx)
+            if (emergencyIdx != null && ambulanceIdx != null) {
+                use(emergencyIdx)
+                use(ambulanceIdx)
+                sentences.add("There has been an accident. This is an emergency, please call an ambulance!")
+            } else if (ambulanceIdx != null) {
+                use(ambulanceIdx)
+                sentences.add("There has been an accident, please call an ambulance!")
+            } else if (emergencyIdx != null) {
+                use(emergencyIdx)
+                sentences.add("There has been an accident. This is an emergency!")
+            } else {
+                sentences.add("There has been an accident!")
+            }
+        } else if (emergencyIdx != null && ambulanceIdx != null) {
+            use(emergencyIdx)
+            use(ambulanceIdx)
+            sentences.add("This is an emergency, please call an ambulance!")
+        } else if (emergencyIdx != null) {
+            use(emergencyIdx)
+            sentences.add("This is an emergency!")
+        }
+
+        // D. States & Symptoms
+        val stateIndices = rawTokens.indices.filter { isFree(it) && isStateWordEnglish(rawTokens[it]) }
+        val symptomIndices = rawTokens.indices.filter { isFree(it) && isSymptomWordEnglish(rawTokens[it]) }
+        val consultIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it] == "consult" }
+        val hospitalIdx = rawTokens.indices.firstOrNull { isFree(it) && (rawTokens[it] == "hospital" || rawTokens[it] == "hospitalized") }
+        val pleaseIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it] == "please" }
+
+        val states = stateIndices.map { rawTokens[it] }
+        val symptoms = symptomIndices.map { rawTokens[it] }
+
+        stateIndices.forEach { use(it) }
+        symptomIndices.forEach { use(it) }
+
+        if (states.isNotEmpty() && symptoms.isNotEmpty()) {
+            val statePart = formatStateEnglish(states)
+            val symptomPart = formatSymptomListEnglish(symptoms)
+            if (consultIdx != null && hospitalIdx != null) {
+                use(consultIdx); use(hospitalIdx)
+                sentences.add("$statePart and have $symptomPart, and want to consult a doctor at the hospital.")
+            } else if (consultIdx != null) {
+                use(consultIdx)
+                sentences.add("$statePart and have $symptomPart, and want to consult a doctor.")
+            } else if (hospitalIdx != null) {
+                use(hospitalIdx)
+                sentences.add("$statePart and have $symptomPart, and need to be hospitalized.")
+            } else {
+                sentences.add("$statePart and have $symptomPart.")
+            }
+        } else if (states.isNotEmpty()) {
+            val statePart = formatStateEnglish(states)
+            if (consultIdx != null && hospitalIdx != null) {
+                use(consultIdx); use(hospitalIdx)
+                sentences.add("$statePart and want to consult a doctor at the hospital.")
+            } else if (consultIdx != null) {
+                use(consultIdx)
+                sentences.add("$statePart and want to consult a doctor.")
+            } else if (hospitalIdx != null) {
+                use(hospitalIdx)
+                sentences.add("$statePart and need to be hospitalized.")
+            } else {
+                sentences.add("$statePart.")
+            }
+        } else if (symptoms.isNotEmpty()) {
+            val symptomPart = formatSymptomListEnglish(symptoms)
+            if (consultIdx != null && hospitalIdx != null) {
+                use(consultIdx); use(hospitalIdx)
+                sentences.add("I have $symptomPart and want to consult a doctor at the hospital.")
+            } else if (consultIdx != null) {
+                use(consultIdx)
+                sentences.add("I have $symptomPart and want to consult a doctor.")
+            } else if (hospitalIdx != null) {
+                use(hospitalIdx)
+                sentences.add("I have $symptomPart and need to be admitted to the hospital.")
+            } else {
+                sentences.add("I have $symptomPart.")
+            }
+        }
+
+        // E. Breathing difficulty
+        val breathingIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it] == "breathing" }
+        if (breathingIdx != null) {
+            use(breathingIdx)
+            sentences.add("I am having difficulty breathing.")
+        }
+
+        // F. Standalone Consult & Hospital
+        if (consultIdx != null && isFree(consultIdx)) {
+            use(consultIdx)
+            val hasPls = pleaseIdx != null && isFree(pleaseIdx)
+            if (pleaseIdx != null && isFree(pleaseIdx)) {
+                use(pleaseIdx)
+            }
+            if (hospitalIdx != null && isFree(hospitalIdx)) {
+                use(hospitalIdx)
+                if (hasPls) sentences.add("Please, I want to consult a doctor at the hospital.")
+                else sentences.add("I want to consult a doctor at the hospital.")
+            } else {
+                if (hasPls) sentences.add("Please, I want to consult.")
+                else sentences.add("I want to consult a doctor.")
+            }
+        } else if (hospitalIdx != null && isFree(hospitalIdx)) {
+            use(hospitalIdx)
+            sentences.add("I need to be admitted to the hospital.")
+        }
+
+        // G. Medical Needs & Requests
+        val needIndices = rawTokens.indices.filter { isFree(it) && isNeedWordEnglish(rawTokens[it]) }
+        if (needIndices.isNotEmpty()) {
+            needIndices.forEach { use(it) }
+            val needs = needIndices.map { rawTokens[it] }
+            val needPart = formatNeedListEnglish(needs)
+            if (pleaseIdx != null && isFree(pleaseIdx)) {
+                use(pleaseIdx)
+                sentences.add("Please give me $needPart.")
+            } else if (symptoms.isNotEmpty()) {
+                sentences.add("Please give me $needPart.")
+            } else {
+                sentences.add("I need $needPart.")
+            }
+        }
+
+        // H. Ambulance (if still free)
+        if (ambulanceIdx != null && isFree(ambulanceIdx)) {
+            use(ambulanceIdx)
+            sentences.add("Please call an ambulance!")
+        }
+
+        // I. Conversational feedback & polite tokens
+        for (i in rawTokens.indices) {
+            if (!isFree(i)) continue
+            when (rawTokens[i]) {
+                "thank you" -> {
+                    use(i)
+                    sentences.add("Thank you.")
+                }
+                "i don't understand" -> {
+                    use(i)
+                    sentences.add("I do not understand.")
+                }
+                "understand" -> {
+                    use(i)
+                    sentences.add("I understand.")
+                }
+                "please" -> {
+                    use(i)
+                    sentences.add("Please.")
+                }
+                "yes" -> {
+                    use(i)
+                    sentences.add("Yes.")
+                }
+                "no" -> {
+                    use(i)
+                    sentences.add("No.")
+                }
+                "maybe" -> {
+                    use(i)
+                    sentences.add("Maybe.")
+                }
+            }
+        }
+
+        // J. ZERO WORD LOSS GUARANTEE: Collect any remaining unconsumed tokens
+        val remaining = rawTokens.indices.filter { isFree(it) }
+        if (remaining.isNotEmpty()) {
+            val remainingWords = remaining.map { normalized[it] }
+            remaining.forEach { use(it) }
+            val clause = when (remainingWords.size) {
+                1 -> ensurePunctuation(remainingWords[0].replaceFirstChar { it.uppercase() }, ".")
+                2 -> "${remainingWords[0].replaceFirstChar { it.uppercase() }} and ${remainingWords[1]}."
+                else -> "${remainingWords.dropLast(1).joinToString(", ").replaceFirstChar { it.uppercase() }}, and ${remainingWords.last()}."
+            }
+            sentences.add(clause)
         }
 
         return sentences.joinToString(" ")
@@ -123,43 +320,233 @@ class DeterministicSentenceSynthesizer(
             return "Wala akong ${normalized[1].lowercase(Locale.ROOT)}."
         }
 
+        val rawTokens = normalized.map { it.lowercase(Locale.ROOT).trim().replace('_', ' ') }
+        val consumed = BooleanArray(rawTokens.size)
         val sentences = mutableListOf<String>()
-        val currentClause = mutableListOf<String>()
 
-        for (token in normalized) {
-            if (isQuestionPhraseFilipino(token)) {
-                if (currentClause.isNotEmpty()) {
-                    sentences.add(formatFilipinoClause(currentClause, "."))
-                    currentClause.clear()
+        fun isFree(idx: Int) = !consumed[idx]
+        fun use(idx: Int) { consumed[idx] = true }
+
+        // A. Greetings & Questions
+        val greetings = rawTokens.indices.filter { isFree(it) && isGreetingPhraseFilipino(rawTokens[it]) }
+        val questions = rawTokens.indices.filter { isFree(it) && isQuestionPhraseFilipino(rawTokens[it]) }
+
+        for (g in greetings) {
+            use(g)
+            sentences.add(ensurePunctuation(normalized[g].replaceFirstChar { it.uppercase() }, "."))
+        }
+        for (q in questions) {
+            use(q)
+            sentences.add(ensurePunctuation(normalized[q].replaceFirstChar { it.uppercase() }, "?"))
+        }
+
+        // B. Negations with following symptoms: e.g. ["hindi", "lagnat", "ubo"]
+        val noIndices = rawTokens.indices.filter { isFree(it) && (rawTokens[it] == "hindi" || rawTokens[it] == "wala") }
+        for (n in noIndices) {
+            val nextSymptom = rawTokens.indices.firstOrNull { it > n && isFree(it) && isSymptomWordFilipino(rawTokens[it]) }
+            if (nextSymptom != null) {
+                use(n)
+                use(nextSymptom)
+                val negWord = rawTokens[nextSymptom]
+                val otherSymptoms = rawTokens.indices.filter { isFree(it) && isSymptomWordFilipino(rawTokens[it]) }
+                if (otherSymptoms.isNotEmpty()) {
+                    val otherWords = otherSymptoms.map { rawTokens[it] }
+                    otherSymptoms.forEach { use(it) }
+                    sentences.add("Wala akong $negWord, ngunit mayroon akong ${formatSymptomListFilipino(otherWords)}.")
+                } else {
+                    sentences.add("Wala akong $negWord.")
                 }
-                sentences.add(ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "?"))
-            } else if (isGreetingPhraseFilipino(token)) {
-                if (currentClause.isNotEmpty()) {
-                    sentences.add(formatFilipinoClause(currentClause, "."))
-                    currentClause.clear()
-                }
-                sentences.add(ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "."))
-            } else if (token.equals("Hindi ko maintindihan", ignoreCase = true)) {
-                if (currentClause.isNotEmpty()) {
-                    sentences.add(formatFilipinoClause(currentClause, "."))
-                    currentClause.clear()
-                }
-                sentences.add("Hindi ko maintindihan.")
-            } else if (token.equals("Salamat", ignoreCase = true)) {
-                if (currentClause.isNotEmpty()) {
-                    sentences.add(formatFilipinoClause(currentClause, "."))
-                    currentClause.clear()
-                }
-                sentences.add("Salamat.")
-            } else {
-                currentClause.add(token)
             }
         }
 
-        if (currentClause.isNotEmpty()) {
-            val isUrgent = tone == SentenceTone.CONCERNED && currentClause.any { isEmergencyWordFilipino(it) }
-            val endingPunctuation = if (isUrgent) "!" else "."
-            sentences.add(formatFilipinoClause(currentClause, endingPunctuation))
+        // C. Emergencies
+        val heartAttackIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it].contains("atake") }
+        val accidentIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it].contains("aksidente") }
+        val emergencyIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it].contains("emerhensya") }
+        val ambulanceIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it].contains("ambulansya") }
+
+        if (heartAttackIdx != null) {
+            use(heartAttackIdx)
+            if (emergencyIdx != null) use(emergencyIdx)
+            if (ambulanceIdx != null) use(ambulanceIdx)
+            sentences.add("May inaatake sa puso, tumawag agad ng ambulansya!")
+        } else if (accidentIdx != null) {
+            use(accidentIdx)
+            if (emergencyIdx != null && ambulanceIdx != null) {
+                use(emergencyIdx)
+                use(ambulanceIdx)
+                sentences.add("May aksidente. Emerhensya ito, tumawag ng ambulansya!")
+            } else if (ambulanceIdx != null) {
+                use(ambulanceIdx)
+                sentences.add("May aksidente, pakiusap tumawag ng ambulansya!")
+            } else if (emergencyIdx != null) {
+                use(emergencyIdx)
+                sentences.add("May aksidente. Emerhensya ito!")
+            } else {
+                sentences.add("May aksidente!")
+            }
+        } else if (emergencyIdx != null && ambulanceIdx != null) {
+            use(emergencyIdx)
+            use(ambulanceIdx)
+            sentences.add("Emerhensya ito, tumawag ng ambulansya!")
+        } else if (emergencyIdx != null) {
+            use(emergencyIdx)
+            sentences.add("Emerhensya ito!")
+        }
+
+        // D. States & Symptoms
+        val stateIndices = rawTokens.indices.filter { isFree(it) && isStateWordFilipino(rawTokens[it]) }
+        val symptomIndices = rawTokens.indices.filter { isFree(it) && isSymptomWordFilipino(rawTokens[it]) }
+        val consultIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it].contains("konsulta") }
+        val hospitalIdx = rawTokens.indices.firstOrNull { isFree(it) && (rawTokens[it].contains("ospital") || rawTokens[it].contains("naospital")) }
+        val pleaseIdx = rawTokens.indices.firstOrNull { isFree(it) && (rawTokens[it].contains("pakiusap") || rawTokens[it].contains("paki")) }
+
+        val states = stateIndices.map { rawTokens[it] }
+        val symptoms = symptomIndices.map { rawTokens[it] }
+
+        stateIndices.forEach { use(it) }
+        symptomIndices.forEach { use(it) }
+
+        if (states.isNotEmpty() && symptoms.isNotEmpty()) {
+            val statePart = formatStateFilipino(states).replaceFirstChar { it.uppercase() }
+            val symptomPart = formatSymptomListFilipino(symptoms)
+            if (consultIdx != null && hospitalIdx != null) {
+                use(consultIdx); use(hospitalIdx)
+                sentences.add("$statePart at may $symptomPart, at nais kong kumonsulta sa doktor sa ospital.")
+            } else if (consultIdx != null) {
+                use(consultIdx)
+                sentences.add("$statePart at may $symptomPart, at nais kong kumonsulta sa doktor.")
+            } else if (hospitalIdx != null) {
+                use(hospitalIdx)
+                sentences.add("$statePart at may $symptomPart, at kailangang maospital.")
+            } else {
+                sentences.add("$statePart at may $symptomPart.")
+            }
+        } else if (states.isNotEmpty()) {
+            val statePart = formatStateFilipino(states).replaceFirstChar { it.uppercase() }
+            if (consultIdx != null && hospitalIdx != null) {
+                use(consultIdx); use(hospitalIdx)
+                sentences.add("$statePart at nais kong kumonsulta sa doktor sa ospital.")
+            } else if (consultIdx != null) {
+                use(consultIdx)
+                sentences.add("$statePart at nais kong kumonsulta sa doktor.")
+            } else if (hospitalIdx != null) {
+                use(hospitalIdx)
+                sentences.add("$statePart at kailangang maospital.")
+            } else {
+                sentences.add("$statePart.")
+            }
+        } else if (symptoms.isNotEmpty()) {
+            val symptomPart = formatSymptomListFilipino(symptoms)
+            if (consultIdx != null && hospitalIdx != null) {
+                use(consultIdx); use(hospitalIdx)
+                sentences.add("May $symptomPart ako at nais kong kumonsulta sa doktor sa ospital.")
+            } else if (consultIdx != null) {
+                use(consultIdx)
+                sentences.add("May $symptomPart ako at nais kong kumonsulta sa doktor.")
+            } else if (hospitalIdx != null) {
+                use(hospitalIdx)
+                sentences.add("May $symptomPart ako at kailangang maospital.")
+            } else {
+                sentences.add("Mayroon akong $symptomPart.")
+            }
+        }
+
+        // E. Breathing difficulty
+        val breathingIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it].contains("paghinga") }
+        if (breathingIdx != null) {
+            use(breathingIdx)
+            sentences.add("Nahihirapan akong huminga.")
+        }
+
+        // F. Standalone Consult & Hospital
+        if (consultIdx != null && isFree(consultIdx)) {
+            use(consultIdx)
+            val hasPls = pleaseIdx != null && isFree(pleaseIdx)
+            if (pleaseIdx != null && isFree(pleaseIdx)) {
+                use(pleaseIdx)
+            }
+            if (hospitalIdx != null && isFree(hospitalIdx)) {
+                use(hospitalIdx)
+                if (hasPls) sentences.add("Pakiusap, nais kong kumonsulta sa doktor sa ospital.")
+                else sentences.add("Nais kong kumonsulta sa doktor sa ospital.")
+            } else {
+                if (hasPls) sentences.add("Pakiusap, nais kong kumonsulta.")
+                else sentences.add("Nais kong kumonsulta sa doktor.")
+            }
+        } else if (hospitalIdx != null && isFree(hospitalIdx)) {
+            use(hospitalIdx)
+            sentences.add("Kailangan kong maospital.")
+        }
+
+        // G. Medical Needs & Requests
+        val needIndices = rawTokens.indices.filter { isFree(it) && isNeedWordFilipino(rawTokens[it]) }
+        if (needIndices.isNotEmpty()) {
+            needIndices.forEach { use(it) }
+            val needs = needIndices.map { rawTokens[it] }
+            val needPart = formatNeedListFilipino(needs)
+            if (pleaseIdx != null && isFree(pleaseIdx)) {
+                use(pleaseIdx)
+                sentences.add("Pakiusap bigyan ako ng $needPart.")
+            } else if (symptoms.isNotEmpty()) {
+                sentences.add("Pakiusap bigyan ako ng $needPart.")
+            } else {
+                sentences.add("Kailangan ko ng $needPart.")
+            }
+        }
+
+        // H. Ambulance (if still free)
+        if (ambulanceIdx != null && isFree(ambulanceIdx)) {
+            use(ambulanceIdx)
+            sentences.add("Pakiusap tumawag ng ambulansya!")
+        }
+
+        // I. Conversational feedback & polite tokens
+        for (i in rawTokens.indices) {
+            if (!isFree(i)) continue
+            when {
+                rawTokens[i].contains("salamat") -> {
+                    use(i)
+                    sentences.add("Salamat.")
+                }
+                rawTokens[i].contains("hindi ko maintindihan") -> {
+                    use(i)
+                    sentences.add("Hindi ko maintindihan.")
+                }
+                rawTokens[i].contains("naiintindihan") -> {
+                    use(i)
+                    sentences.add("Naiintindihan ko.")
+                }
+                rawTokens[i].contains("pakiusap") -> {
+                    use(i)
+                    sentences.add("Pakiusap.")
+                }
+                rawTokens[i] == "oo" -> {
+                    use(i)
+                    sentences.add("Oo.")
+                }
+                rawTokens[i] == "hindi" -> {
+                    use(i)
+                    sentences.add("Hindi.")
+                }
+                rawTokens[i].contains("baka") || rawTokens[i].contains("marahil") -> {
+                    use(i)
+                    sentences.add("Baka.")
+                }
+            }
+        }
+
+        // J. ZERO WORD LOSS GUARANTEE: Collect any remaining unconsumed tokens
+        val remaining = rawTokens.indices.filter { isFree(it) }
+        if (remaining.isNotEmpty()) {
+            val remainingWords = remaining.map { normalized[it] }
+            remaining.forEach { use(it) }
+            val clause = when (remainingWords.size) {
+                1 -> ensurePunctuation(remainingWords[0].replaceFirstChar { it.uppercase() }, ".")
+                2 -> "${remainingWords[0].replaceFirstChar { it.uppercase() }} at ${remainingWords[1]}."
+                else -> "${remainingWords.dropLast(1).joinToString(", ").replaceFirstChar { it.uppercase() }}, at ${remainingWords.last()}."
+            }
+            sentences.add(clause)
         }
 
         return sentences.joinToString(" ")
@@ -188,7 +575,19 @@ class DeterministicSentenceSynthesizer(
 
     private fun translateTokenToFilipino(raw: String): String {
         val key = normalizeLabelKey(raw)
-        return filipinoMap[key] ?: raw.replace('_', ' ').replaceFirstChar { it.uppercase() }
+        return filipinoMap[key] ?: when (key) {
+            "no" -> "Hindi"
+            "yes" -> "Oo"
+            "maybe" -> "Baka"
+            "please" -> "Pakiusap"
+            "thank you" -> "Salamat"
+            "i dont understand", "i don't understand" -> "Hindi ko maintindihan"
+            "understand" -> "Naiintindihan"
+            "hello", "hi" -> "Kamusta"
+            "how are you" -> "Kamusta ka"
+            "how can i help you" -> "Paano kita matutulungan"
+            else -> raw.replace('_', ' ').replaceFirstChar { it.uppercase() }
+        }
     }
 
     private fun formatSingleConceptEnglish(token: String, tone: SentenceTone): String {
@@ -220,6 +619,7 @@ class DeterministicSentenceSynthesizer(
             lower == "hospitalized" -> "I need to be admitted to the hospital."
             lower == "compression" -> "I need compression."
             lower == "circumcision" -> "I need a circumcision consultation."
+            lower == "abortion" -> "I need an abortion consultation."
             lower == "accident" -> "There has been an accident!"
             lower == "emergency" -> "This is an emergency!"
             lower == "ambulance" -> "Please call an ambulance!"
@@ -267,269 +667,9 @@ class DeterministicSentenceSynthesizer(
         }
     }
 
-    private fun formatEnglishClause(words: List<String>, endingPunctuation: String): String {
-        if (words.isEmpty()) return ""
-        val lowers = words.map { it.lowercase(Locale.ENGLISH).trim().replace('_', ' ') }
-
-        val hasPlease = lowers.contains("please")
-        val hasConsult = lowers.contains("consult")
-        val hasHospital = lowers.contains("hospital") || lowers.contains("hospitalized")
-        val hasBreathing = lowers.contains("breathing")
-
-        val states = lowers.filter { isStateWordEnglish(it) }
-        val symptoms = lowers.filter { isSymptomWordEnglish(it) }
-        val needs = lowers.filter { isNeedWordEnglish(it) }
-        val emergencies = lowers.filter { isEmergencyEventEnglish(it) }
-
-        // 1. Emergency events with details (accident, heart attack, ambulance, emergency)
-        val hasAccident = emergencies.contains("accident")
-        val hasEmergency = emergencies.contains("emergency")
-        val hasAmbulance = emergencies.contains("ambulance")
-        val hasHeartAttack = emergencies.contains("heart attack")
-
-        if (hasHeartAttack || hasAccident || hasEmergency || (hasAmbulance && states.isEmpty() && symptoms.isEmpty())) {
-            return when {
-                hasHeartAttack -> "Someone is having a heart attack. This is an emergency, please call an ambulance!"
-                hasAccident && hasBreathing && hasEmergency -> "There has been an accident, and someone is having difficulty breathing. This is an emergency!"
-                hasAccident && hasAmbulance && hasEmergency -> "There has been an accident. This is an emergency, please call an ambulance!"
-                hasAccident && hasAmbulance -> "There has been an accident, please call an ambulance!"
-                hasAccident && states.isNotEmpty() -> "There has been an accident and ${formatStateEnglish(states).lowercase(Locale.ENGLISH)}!"
-                hasAccident && symptoms.isNotEmpty() -> "There has been an accident and someone has ${formatSymptomListEnglish(symptoms)}!"
-                hasAccident && hasEmergency -> "There has been an accident. This is an emergency!"
-                hasAccident -> "There has been an accident!"
-                hasEmergency && hasAmbulance -> "This is an emergency, please call an ambulance!"
-                hasEmergency -> "This is an emergency!"
-                hasAmbulance -> "Please call an ambulance!"
-                else -> "Emergency!"
-            }
-        }
-
-        // 2. State + Symptoms/Conditions (e.g. "hurt, broken bone" -> "I am hurt and have a broken bone.")
-        if (states.isNotEmpty()) {
-            val statePart = formatStateEnglish(states)
-            if (symptoms.isNotEmpty()) {
-                val symptomPart = formatSymptomListEnglish(symptoms)
-                return if (states.contains("sick") && states.size == 1) {
-                    "I am sick with $symptomPart."
-                } else if (hasHospital) {
-                    "$statePart and have $symptomPart, and need to be hospitalized."
-                } else if (needs.isNotEmpty()) {
-                    "$statePart, have $symptomPart, and need ${formatNeedListEnglish(needs)}."
-                } else {
-                    "$statePart and have $symptomPart."
-                }
-            } else if (hasConsult && hasHospital) {
-                return "$statePart and want to consult a doctor at the hospital."
-            } else if (hasConsult) {
-                return "$statePart and want to consult a doctor."
-            } else if (hasHospital) {
-                return "$statePart and need to be hospitalized."
-            } else if (hasBreathing) {
-                return "$statePart and having difficulty breathing."
-            } else if (needs.isNotEmpty()) {
-                return "$statePart and need ${formatNeedListEnglish(needs)}."
-            } else if (states.size == 1) {
-                return "$statePart."
-            } else {
-                return "I am ${states.joinToString(" and ")}."
-            }
-        }
-
-        // 3. Symptoms + Needs / Consult / Breathing / Hospital
-        if (symptoms.isNotEmpty()) {
-            val symptomPart = formatSymptomListEnglish(symptoms)
-            if (needs.isNotEmpty()) {
-                val needPart = formatNeedListEnglish(needs)
-                return "I have $symptomPart. Please give me $needPart."
-            }
-            if (hasConsult) {
-                return if (hasHospital) {
-                    "I have $symptomPart and want to consult a doctor at the hospital."
-                } else {
-                    "I have $symptomPart and want to consult a doctor."
-                }
-            }
-            if (hasBreathing) {
-                return "I have $symptomPart and difficulty breathing."
-            }
-            if (hasHospital) {
-                return "I have $symptomPart and need to be admitted to the hospital."
-            }
-            return "I have $symptomPart."
-        }
-
-        // 4. Consultations & Medical requests (no symptoms, no states)
-        if (hasConsult) {
-            return when {
-                hasPlease && hasHospital -> "Please, I want to consult a doctor at the hospital."
-                hasPlease -> "Please, I want to consult."
-                hasHospital -> "I want to consult a doctor at the hospital."
-                else -> "I want to consult a doctor."
-            }
-        }
-
-        if (needs.isNotEmpty()) {
-            val needPart = formatNeedListEnglish(needs)
-            return if (hasPlease) {
-                "Please give me $needPart."
-            } else {
-                "I need $needPart."
-            }
-        }
-
-        if (hasBreathing) {
-            return "I am having difficulty breathing."
-        }
-
-        if (hasHospital) {
-            return "I need to be admitted to the hospital."
-        }
-
-        if (hasPlease && words.size == 1) {
-            return "Please."
-        }
-
-        // 5. Safe fallback: never drop any words
-        val cap = words.mapIndexed { idx, w ->
-            if (idx == 0) w.replaceFirstChar { it.uppercase() } else w.lowercase(Locale.ENGLISH)
-        }
-        return when (cap.size) {
-            1 -> ensurePunctuation(cap[0], endingPunctuation)
-            2 -> "${cap[0]} and ${cap[1]}$endingPunctuation"
-            else -> "${cap.dropLast(1).joinToString(", ")}, and ${cap.last()}$endingPunctuation"
-        }
-    }
-
-    private fun formatFilipinoClause(words: List<String>, endingPunctuation: String): String {
-        if (words.isEmpty()) return ""
-        val lowers = words.map { it.lowercase(Locale.ROOT).trim().replace('_', ' ') }
-
-        val hasPlease = lowers.any { it.contains("pakiusap") || it.contains("paki") }
-        val hasConsult = lowers.any { it.contains("konsulta") }
-        val hasHospital = lowers.any { it.contains("ospital") || it.contains("naospital") }
-        val hasBreathing = lowers.any { it.contains("paghinga") }
-
-        val states = lowers.filter { isStateWordFilipino(it) }
-        val symptoms = lowers.filter { isSymptomWordFilipino(it) }
-        val needs = lowers.filter { isNeedWordFilipino(it) }
-        val emergencies = lowers.filter { isEmergencyEventFilipino(it) }
-
-        // 1. Emergencies
-        val hasAccident = emergencies.any { it.contains("aksidente") }
-        val hasEmergency = emergencies.any { it.contains("emerhensya") }
-        val hasAmbulance = emergencies.any { it.contains("ambulansya") }
-        val hasHeartAttack = emergencies.any { it.contains("atake") }
-
-        if (hasHeartAttack || hasAccident || hasEmergency || (hasAmbulance && states.isEmpty() && symptoms.isEmpty())) {
-            return when {
-                hasHeartAttack -> "May inaatake sa puso, tumawag agad ng ambulansya!"
-                hasAccident && hasAmbulance && hasEmergency -> "May aksidente. Emerhensya ito, tumawag ng ambulansya!"
-                hasAccident && hasAmbulance -> "May aksidente, pakiusap tumawag ng ambulansya!"
-                hasAccident && states.isNotEmpty() -> "May aksidente at ${formatStateFilipino(states)}!"
-                hasAccident && symptoms.isNotEmpty() -> "May aksidente at may ${formatSymptomListFilipino(symptoms)}!"
-                hasAccident && hasEmergency -> "May aksidente. Emerhensya ito!"
-                hasAccident -> "May aksidente!"
-                hasEmergency && hasAmbulance -> "Emerhensya ito, tumawag ng ambulansya!"
-                hasEmergency -> "Emerhensya ito!"
-                hasAmbulance -> "Pakiusap tumawag ng ambulansya!"
-                else -> "Emerhensya!"
-            }
-        }
-
-        // 2. State + Symptoms (e.g. "nasasaktan, bali sa buto" -> "Nasasaktan ako at may bali sa buto.")
-        if (states.isNotEmpty()) {
-            val statePart = formatStateFilipino(states)
-            if (symptoms.isNotEmpty()) {
-                val symptomPart = formatSymptomListFilipino(symptoms)
-                val capitalizedState = statePart.replaceFirstChar { it.uppercase() }
-                return "$capitalizedState at may $symptomPart."
-            } else if (hasConsult && hasHospital) {
-                val capitalizedState = statePart.replaceFirstChar { it.uppercase() }
-                return "$capitalizedState at nais kong kumonsulta sa doktor sa ospital."
-            } else if (hasConsult) {
-                val capitalizedState = statePart.replaceFirstChar { it.uppercase() }
-                return "$capitalizedState at nais kong kumonsulta sa doktor."
-            } else if (hasHospital) {
-                val capitalizedState = statePart.replaceFirstChar { it.uppercase() }
-                return "$capitalizedState at kailangang maospital."
-            } else if (hasBreathing) {
-                val capitalizedState = statePart.replaceFirstChar { it.uppercase() }
-                return "$capitalizedState at nahihirapang huminga."
-            } else if (needs.isNotEmpty()) {
-                val capitalizedState = statePart.replaceFirstChar { it.uppercase() }
-                return "$capitalizedState at kailangan ng ${formatNeedListFilipino(needs)}."
-            } else {
-                return "${statePart.replaceFirstChar { it.uppercase() }}."
-            }
-        }
-
-        // 3. Symptoms + Needs / Consult / Breathing / Hospital
-        if (symptoms.isNotEmpty()) {
-            val symptomPart = formatSymptomListFilipino(symptoms)
-            if (needs.isNotEmpty()) {
-                return "Mayroon akong $symptomPart. Pakiusap bigyan ako ng gamot."
-            }
-            if (hasConsult) {
-                return if (hasHospital) {
-                    "May $symptomPart ako at nais kong kumonsulta sa doktor sa ospital."
-                } else {
-                    "May $symptomPart ako at nais kong kumonsulta sa doktor."
-                }
-            }
-            if (hasBreathing) {
-                return "May $symptomPart ako at nahihirapang huminga."
-            }
-            if (hasHospital) {
-                return "May $symptomPart ako at kailangang maospital."
-            }
-            return "Mayroon akong $symptomPart."
-        }
-
-        // 4. Consultations & Requests
-        if (hasConsult) {
-            return when {
-                hasPlease && hasHospital -> "Pakiusap, nais kong kumonsulta sa doktor sa ospital."
-                hasPlease -> "Pakiusap, nais kong kumonsulta."
-                hasHospital -> "Nais kong kumonsulta sa doktor sa ospital."
-                else -> "Nais kong kumonsulta sa doktor."
-            }
-        }
-
-        if (needs.isNotEmpty()) {
-            val needPart = formatNeedListFilipino(needs)
-            return if (hasPlease) {
-                "Pakiusap bigyan ako ng $needPart."
-            } else {
-                "Kailangan ko ng $needPart."
-            }
-        }
-
-        if (hasBreathing) {
-            return "Nahihirapan akong huminga."
-        }
-
-        if (hasHospital) {
-            return "Kailangan kong maospital."
-        }
-
-        if (hasPlease && words.size == 1) {
-            return "Pakiusap."
-        }
-
-        // 5. Safe fallback
-        val cap = words.mapIndexed { idx, w ->
-            if (idx == 0) w.replaceFirstChar { it.uppercase() } else w.lowercase(Locale.ROOT)
-        }
-        return when (cap.size) {
-            1 -> ensurePunctuation(cap[0], endingPunctuation)
-            2 -> "${cap[0]} at ${cap[1]}$endingPunctuation"
-            else -> "${cap.dropLast(1).joinToString(", ")}, at ${cap.last()}$endingPunctuation"
-        }
-    }
-
     private fun isStateWordEnglish(token: String): Boolean {
         val lower = token.lowercase(Locale.ENGLISH).trim().replace('_', ' ')
-        return lower in listOf("sick", "hurt", "pregnant", "giving birth")
+        return lower in listOf("sick", "hurt", "pregnant", "giving birth", "dizziness")
     }
 
     private fun formatStateEnglish(states: List<String>): String {
@@ -539,6 +679,7 @@ class DeterministicSentenceSynthesizer(
                 "hurt" -> "hurt"
                 "pregnant" -> "pregnant"
                 "giving birth" -> "giving birth"
+                "dizziness" -> "feeling dizzy"
                 else -> s
             }
         }
@@ -551,7 +692,7 @@ class DeterministicSentenceSynthesizer(
             "headache", "fever", "cough", "sore throat", "dry mouth", "neck pain",
             "blurred vision", "broken bone", "asthma", "allergies", "cancer",
             "depression", "diabetes", "diarrhea", "constipation", "flu", "hypertension",
-            "mumps", "pigsa", "sipon", "covid-19", "injury", "menstruation", "dizziness"
+            "mumps", "pigsa", "sipon", "covid-19", "covid 19", "injury", "menstruation"
         )
     }
 
@@ -586,7 +727,7 @@ class DeterministicSentenceSynthesizer(
         val lower = token.lowercase(Locale.ENGLISH).trim().replace('_', ' ')
         return lower in listOf(
             "medicines", "medicine", "prescription", "xray", "x-ray", "laboratory",
-            "injection", "iv", "surgery", "thermometer", "compression", "circumcision"
+            "injection", "iv", "surgery", "thermometer", "compression", "circumcision", "abortion"
         )
     }
 
@@ -603,6 +744,7 @@ class DeterministicSentenceSynthesizer(
             "thermometer" -> "a thermometer"
             "compression" -> "compression"
             "circumcision" -> "a circumcision consultation"
+            "abortion" -> "an abortion consultation"
             else -> l
         }
     }
@@ -675,21 +817,24 @@ class DeterministicSentenceSynthesizer(
         return lower in listOf(
             "gamot", "reseta", "x-ray", "xray", "iniksyon", "swero", "iv",
             "operasyon", "surgery", "termometro", "kompression", "tuli",
-            "pagsusuri sa laboratoryo", "laboratoryo"
+            "pagsusuri sa laboratoryo", "laboratoryo", "pagpapalaglag"
         )
     }
 
     private fun formatNeedItemFilipino(need: String): String {
         val l = need.lowercase(Locale.ROOT).trim().replace('_', ' ')
-        return when (l) {
-            "gamot" -> "gamot"
-            "reseta" -> "reseta"
-            "x-ray", "xray" -> "X-ray"
-            "iniksyon" -> "iniksyon"
-            "swero", "iv" -> "swero"
-            "operasyon", "surgery" -> "operasyon"
-            "termometro" -> "termometro"
-            "laboratoryo" -> "pagsusuri sa laboratoryo"
+        return when {
+            l.contains("gamot") -> "gamot"
+            l.contains("reseta") -> "reseta"
+            l.contains("x-ray") || l.contains("xray") -> "X-ray"
+            l.contains("iniksyon") -> "iniksyon"
+            l.contains("swero") || l.contains("iv") -> "swero"
+            l.contains("operasyon") || l.contains("surgery") -> "operasyon"
+            l.contains("termometro") -> "termometro"
+            l.contains("laboratoryo") || l.contains("pagsusuri") -> "pagsusuri sa laboratoryo"
+            l.contains("kompression") -> "kompression"
+            l.contains("tuli") -> "tuli"
+            l.contains("pagpapalaglag") -> "pagpapalaglag"
             else -> l
         }
     }
@@ -739,13 +884,7 @@ class DeterministicSentenceSynthesizer(
                 lower.startsWith("magandang gabi") || lower == "kamusta"
     }
 
-    private fun isEmergencyWord(token: String): Boolean {
-        val lower = token.lowercase(Locale.ENGLISH)
-        return lower in listOf("emergency", "accident", "ambulance", "heart attack", "injury", "hurt", "breathing")
-    }
-
-    private fun isEmergencyWordFilipino(token: String): Boolean {
-        val lower = token.lowercase(Locale.ROOT)
-        return lower in listOf("emerhensya", "aksidente", "ambulansya", "atake sa puso", "pinsala", "sugat", "masakit", "paghinga")
+    private fun normalizeLabelKey(label: String): String {
+        return label.trim().lowercase(Locale.ROOT).replace('_', ' ')
     }
 }
