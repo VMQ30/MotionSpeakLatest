@@ -3,7 +3,7 @@
     <!-- App theme: navy brand, light by default (spec §4). windowBackground matches
          the Home screen so the starting window and the first frame are the same
          colour (a mismatch reads as a stutter on launch). -->
-    <style name="Theme.Sigla" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.MotionSpeak" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">@color/ms_brand</item>
         <item name="colorPrimaryVariant">@color/ms_brand</item>
         <item name="colorOnPrimary">@color/ms_on_brand</item>
@@ -14,12 +14,12 @@
         <item name="android:navigationBarColor">@color/ms_nav_bar</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="27">@bool/ms_light_system_bars</item>
-        <item name="android:windowAnimationStyle">@style/Animation.Sigla.Screen</item>
+        <item name="android:windowAnimationStyle">@style/Animation.MotionSpeak.Screen</item>
     </style>
 
     <!-- Translator and fullscreen video: always dark, like a camera or video app.
-         These are the values Theme.Sigla had before the revamp. -->
-    <style name="Theme.Sigla.Immersive">
+         These are the values Theme.MotionSpeak had before the revamp. -->
+    <style name="Theme.MotionSpeak.Immersive">
         <item name="android:windowBackground">#08162a</item>
         <item name="android:statusBarColor">#0A0E21</item>
         <item name="android:navigationBarColor">#0D1127</item>
@@ -32,15 +32,15 @@
          splash's 192dp visible circle), so both appear on the very first frame.
          SplashActivity repeats it at the same size and position, so the handoff
          is invisible. -->
-    <style name="Theme.Sigla.Starting" parent="Theme.SplashScreen">
+    <style name="Theme.MotionSpeak.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/ms_logo_blue</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
-        <item name="postSplashScreenTheme">@style/Theme.Sigla.Intro</item>
+        <item name="postSplashScreenTheme">@style/Theme.MotionSpeak.Intro</item>
     </style>
 
     <!-- The intro hold: full-bleed logo blue, drawn behind transparent bars so
          the logo centres on the whole window exactly as the system splash does. -->
-    <style name="Theme.Sigla.Intro">
+    <style name="Theme.MotionSpeak.Intro">
         <item name="android:windowBackground">@color/ms_logo_blue</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
@@ -49,7 +49,7 @@
     </style>
 
     <!-- SOS emergency window theme: scarlet status bar and nav bar, full immersion -->
-    <style name="Theme.Sigla.Sos" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.MotionSpeak.Sos" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="android:windowBackground">@color/ms_scarlet</item>
         <item name="android:statusBarColor">@color/ms_scarlet</item>
         <item name="android:navigationBarColor">@color/ms_scarlet</item>

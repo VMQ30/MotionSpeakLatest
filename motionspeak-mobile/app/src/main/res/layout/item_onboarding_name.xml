@@ -32,7 +32,7 @@
 
     <TextView
         android:id="@+id/tvNameEyebrow"
-        style="@style/Sigla.Text.Caption"
+        style="@style/MotionSpeak.Text.Caption"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/ms_space_24"
@@ -47,7 +47,7 @@
 
     <TextView
         android:id="@+id/tvNameTitle"
-        style="@style/Sigla.Text.Display"
+        style="@style/MotionSpeak.Text.Display"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="28dp"
@@ -61,7 +61,7 @@
 
     <TextView
         android:id="@+id/tvNameSubtitle"
-        style="@style/Sigla.Text.Body"
+        style="@style/MotionSpeak.Text.Body"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="28dp"
@@ -90,7 +90,7 @@
         app:layout_constraintEnd_toEndOf="parent">
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/etUserName"
-            style="@style/Sigla.Text.Body"
+            style="@style/MotionSpeak.Text.Body"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:background="@null"

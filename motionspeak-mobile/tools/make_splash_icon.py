@@ -1,4 +1,4 @@
-"""Splash icon: logo artwork with the "SigLa" name under it, as ONE image.
+"""Splash icon: logo artwork with the "MotionSpeak" name under it, as ONE image.
 
 The system splash (Android 12+ / core-splashscreen) draws its icon on a 288dp
 canvas and masks it to the central 192dp circle, so logo and name must both fit
@@ -25,7 +25,7 @@ PX_PER_DP = 4                  # xxxhdpi; lower densities are scaled down by And
 CANVAS = 288 * PX_PER_DP       # splash icon canvas
 RADIUS = 96 * PX_PER_DP        # visible circle (192dp diameter)
 MARGIN = 6 * PX_PER_DP         # keep everything this far inside the circle
-TEXT = "SigLa"
+TEXT = "MotionSpeak"
 TEXT_TO_ART = 0.15             # name cap height relative to the logo tile width
 GAP_TO_ART = 0.07              # gap between artwork bottom and name, of tile width
 

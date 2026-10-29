@@ -9,7 +9,7 @@ import android.view.HapticFeedbackConstants
 import android.view.View
 
 /**
- * Haptic feedback and vibration utility for MotionSpeak / SigLa.
+ * Haptic feedback and vibration utility for MotionSpeak / MotionSpeak.
  * Supports configurable vibration levels: Off, Light vibration, and Max vibration.
  */
 object Haptics {

@@ -18,13 +18,13 @@ data class TranslationEntry(
 class TranslationHistoryManager private constructor(context: Context) {
 
     private val prefs: SharedPreferences =
-        context.getSharedPreferences("sigla_history", Context.MODE_PRIVATE)
+        context.getSharedPreferences("motionspeak_history", Context.MODE_PRIVATE)
     private val gson = Gson()
     private val listType = object : TypeToken<MutableList<TranslationEntry>>() {}.type
 
     /** Opened once. setTranslation() is called in a loop over the whole word bank. */
     private val translationPrefs: SharedPreferences =
-        context.getSharedPreferences("sigla_translations", Context.MODE_PRIVATE)
+        context.getSharedPreferences("motionspeak_translations", Context.MODE_PRIVATE)
 
     /**
      * In-memory mirror of the stored list, newest-first.
@@ -108,7 +108,7 @@ class TranslationHistoryManager private constructor(context: Context) {
 
         // Counters kept separate from the capped/editable list above: neither is
         // reduced by the 200-entry cap, deleteAt() or clearAll(), so they reflect
-        // what SigLa actually translated, not just what is still kept in history.
+        // what MotionSpeak actually translated, not just what is still kept in history.
         prefs.edit()
             .putInt(KEY_TOTAL_TRANSLATED, getTotalTranslated() + 1)
             .putString(KEY_TODAY_DAY, localDayKey(System.currentTimeMillis(), TimeZone.getDefault()))

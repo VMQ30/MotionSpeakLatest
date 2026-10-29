@@ -21,12 +21,12 @@
         android:paddingEnd="@dimen/ms_screen_padding">
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnBack"
-            style="@style/Widget.Sigla.IconButton"
+            style="@style/Widget.MotionSpeak.IconButton"
             android:contentDescription="Back"
             app:icon="@drawable/ic_back" />
         <TextView
             android:id="@+id/tvDetailCategoryTitle"
-            style="@style/Sigla.Text.BodyStrong"
+            style="@style/MotionSpeak.Text.BodyStrong"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -100,7 +100,7 @@
                             tools:text="🤟" />
                         <TextView
                             android:id="@+id/tvPlaceholderText"
-                            style="@style/Sigla.Text.Body"
+                            style="@style/MotionSpeak.Text.Body"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="@dimen/ms_space_8"
@@ -108,7 +108,7 @@
                             tools:text="No demo available yet" />
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnRetry"
-                            style="@style/Widget.Sigla.Chip"
+                            style="@style/Widget.MotionSpeak.Chip"
                             android:layout_marginTop="@dimen/ms_space_8"
                             android:text="Retry"
                             android:visibility="gone" />
@@ -149,7 +149,7 @@
 
             <TextView
                 android:id="@+id/tvMediaCaption"
-                style="@style/Sigla.Text.Caption"
+                style="@style/MotionSpeak.Text.Caption"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/ms_space_12"
@@ -172,7 +172,7 @@
                     android:orientation="horizontal">
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnPlayPause"
-                        style="@style/Widget.Sigla.IconButton"
+                        style="@style/Widget.MotionSpeak.IconButton"
                         android:contentDescription="Play"
                         app:backgroundTint="@color/ms_brand"
                         app:icon="@drawable/ic_play"
@@ -188,7 +188,7 @@
                         android:thumbTint="@color/ms_brand" />
                     <TextView
                         android:id="@+id/tvTime"
-                        style="@style/Sigla.Text.Caption"
+                        style="@style/MotionSpeak.Text.Caption"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="0:00 / 0:00" />
@@ -202,7 +202,7 @@
                     android:orientation="horizontal">
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnReplay"
-                        style="@style/Widget.Sigla.IconButton"
+                        style="@style/Widget.MotionSpeak.IconButton"
                         android:contentDescription="Replay"
                         app:icon="@drawable/ic_replay" />
                     <com.google.android.material.button.MaterialButtonToggleGroup
@@ -253,7 +253,7 @@
                     </com.google.android.material.button.MaterialButtonToggleGroup>
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnFullscreen"
-                        style="@style/Widget.Sigla.IconButton"
+                        style="@style/Widget.MotionSpeak.IconButton"
                         android:layout_marginStart="@dimen/ms_space_12"
                         android:contentDescription="Full screen"
                         app:icon="@drawable/ic_fullscreen" />
@@ -274,13 +274,13 @@
                     android:orientation="vertical">
                     <TextView
                         android:id="@+id/tvDetailWord"
-                        style="@style/Sigla.Text.Display"
+                        style="@style/MotionSpeak.Text.Display"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         tools:text="Good morning" />
                     <TextView
                         android:id="@+id/tvDetailFilipino"
-                        style="@style/Sigla.Text.Secondary"
+                        style="@style/MotionSpeak.Text.Secondary"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="@dimen/ms_space_4"
@@ -290,7 +290,7 @@
                 </LinearLayout>
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnSpeak"
-                    style="@style/Widget.Sigla.IconButton"
+                    style="@style/Widget.MotionSpeak.IconButton"
                     android:layout_marginStart="@dimen/ms_space_12"
                     android:contentDescription="Say the word again"
                     app:backgroundTint="@color/ms_brand"
@@ -306,7 +306,7 @@
                 android:orientation="horizontal">
                 <TextView
                     android:id="@+id/tvCategoryChip"
-                    style="@style/Sigla.Text.Caption"
+                    style="@style/MotionSpeak.Text.Caption"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_ms_search"
@@ -318,7 +318,7 @@
                     tools:text="Greetings" />
                 <TextView
                     android:id="@+id/tvOfflineBadge"
-                    style="@style/Sigla.Text.Caption"
+                    style="@style/MotionSpeak.Text.Caption"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="@dimen/ms_space_8"
@@ -336,7 +336,7 @@
             <!-- Try it yourself -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardTryIt"
-                style="@style/Widget.Sigla.Card.Outlined"
+                style="@style/Widget.MotionSpeak.Card.Outlined"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/ms_space_16"
@@ -370,12 +370,12 @@
                         android:importantForAccessibility="noHideDescendants"
                         android:orientation="vertical">
                         <TextView
-                            style="@style/Sigla.Text.BodyStrong"
+                            style="@style/MotionSpeak.Text.BodyStrong"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Try it yourself" />
                         <TextView
-                            style="@style/Sigla.Text.Caption"
+                            style="@style/MotionSpeak.Text.Caption"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Open the translator and sign this word." />
@@ -399,7 +399,7 @@
         android:paddingBottom="@dimen/ms_space_16">
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnDownload"
-            style="@style/Widget.Sigla.IconButton"
+            style="@style/Widget.MotionSpeak.IconButton"
             android:layout_marginEnd="@dimen/ms_space_12"
             android:contentDescription="Download for offline"
             android:visibility="gone"
@@ -408,7 +408,7 @@
             tools:visibility="visible" />
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnAddToFavorites"
-            style="@style/Widget.Sigla.Button"
+            style="@style/Widget.MotionSpeak.Button"
             android:layout_width="0dp"
             android:layout_height="@dimen/ms_touch_min"
             android:layout_weight="1"

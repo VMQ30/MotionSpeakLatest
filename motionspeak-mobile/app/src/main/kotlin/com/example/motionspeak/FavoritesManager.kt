@@ -8,7 +8,7 @@ import com.google.gson.reflect.TypeToken
 class FavoritesManager private constructor(context: Context) {
 
     private val prefs: SharedPreferences =
-        context.getSharedPreferences("sigla_favorites", Context.MODE_PRIVATE)
+        context.getSharedPreferences("motionspeak_favorites", Context.MODE_PRIVATE)
     private val gson = Gson()
 
     companion object {

@@ -35,7 +35,7 @@ _IU = np.triu_indices(POINTS, 1)
 _THIRDS = [t.tolist() for t in np.array_split(np.arange(SEQUENCE_LENGTH), 3)]
 
 
-@tf.keras.utils.register_keras_serializable(package="sigla")
+@tf.keras.utils.register_keras_serializable(package="motionspeak")
 class WordsSummary(tf.keras.layers.Layer):
     """[B, 30, 147] -> [B, 4 x 567]. Per frame: the 147 coordinates plus every
     pairwise 3D distance between the 21 points of each hand (420; stored hands
@@ -56,7 +56,7 @@ class WordsSummary(tf.keras.layers.Layer):
         return tf.concat(parts, axis=-1)
 
 
-@tf.keras.utils.register_keras_serializable(package="sigla")
+@tf.keras.utils.register_keras_serializable(package="motionspeak")
 class Sharpen(tf.keras.layers.Layer):
     """Probabilities -> softmax(log(p) / T). T < 1 raises the top score; the
     order of the classes, and so the predicted word, never changes."""
@@ -105,7 +105,7 @@ def load_none_samples(path: str, max_n: int, seed: int = 42) -> list:
              "sample_id": f"none-{i}"} for i in picked]
 
 
-@tf.keras.utils.register_keras_serializable(package="sigla")
+@tf.keras.utils.register_keras_serializable(package="motionspeak")
 class DropLastClass(tf.keras.layers.Layer):
     """[B, n+1] -> [B, n]: removes the trailing none-class probability WITHOUT
     renormalising, so a confident "not a sign" leaves every word low."""
@@ -116,7 +116,7 @@ class DropLastClass(tf.keras.layers.Layer):
 
 def drop_none(model: tf.keras.Model) -> tf.keras.Model:
     inp = tf.keras.Input(shape=(SEQUENCE_LENGTH, FEATURE_SIZE), name="frames")
-    return tf.keras.Model(inp, DropLastClass()(model(inp)), name="sigla_motion_model")
+    return tf.keras.Model(inp, DropLastClass()(model(inp)), name="motionspeak_motion_model")
 
 
 def build_conv(n_classes: int) -> tf.keras.Model:
@@ -203,7 +203,7 @@ def compose(linear: tf.keras.Model, conv: tf.keras.Model,
         tf.keras.layers.Rescaling(1.0 - weight)(conv(inp)),
     ])
     out = Sharpen(temperature)(blend)
-    return tf.keras.Model(inp, out, name="sigla_motion_model")
+    return tf.keras.Model(inp, out, name="motionspeak_motion_model")
 
 
 def real_arrays(motion_dataset: dict, label_map: dict):

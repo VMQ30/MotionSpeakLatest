@@ -1,4 +1,4 @@
-"""Generate the SigLa launcher icons from docs/assets/favicon.svg.
+"""Generate the MotionSpeak launcher icons from docs/assets/favicon.svg.
 
 The SVG's first <path> is the blue rounded tile; everything after it is the
 artwork. Dropping the tile and rendering with alpha gives the adaptive-icon

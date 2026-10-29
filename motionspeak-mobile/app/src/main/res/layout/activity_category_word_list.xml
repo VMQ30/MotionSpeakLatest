@@ -21,7 +21,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnBack"
-            style="@style/Widget.Sigla.IconButton"
+            style="@style/Widget.MotionSpeak.IconButton"
             android:contentDescription="Back"
             app:icon="@drawable/ic_back" />
 
@@ -33,7 +33,7 @@
             android:orientation="vertical">
             <TextView
                 android:id="@+id/tvCategoryTitle"
-                style="@style/Sigla.Text.Title"
+                style="@style/MotionSpeak.Text.Title"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
@@ -41,7 +41,7 @@
                 tools:text="Greetings" />
             <TextView
                 android:id="@+id/tvCategorySubtitle"
-                style="@style/Sigla.Text.Caption"
+                style="@style/MotionSpeak.Text.Caption"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 tools:text="14 words" />
@@ -65,7 +65,7 @@
             android:tint="@color/ms_text_secondary" />
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/etCategorySearch"
-            style="@style/Sigla.Text.Body"
+            style="@style/MotionSpeak.Text.Body"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_marginStart="@dimen/ms_space_12"
@@ -107,12 +107,12 @@
             android:orientation="vertical"
             android:visibility="gone">
             <TextView
-                style="@style/Sigla.Text.CardTitle"
+                style="@style/MotionSpeak.Text.CardTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="No words found" />
             <TextView
-                style="@style/Sigla.Text.Secondary"
+                style="@style/MotionSpeak.Text.Secondary"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/ms_space_4"

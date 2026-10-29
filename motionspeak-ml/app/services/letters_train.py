@@ -38,7 +38,7 @@ def _normalize_hand(p):
     return rel / (size[:, None, None] + EPS)
 
 
-@tf.keras.utils.register_keras_serializable(package="sigla")
+@tf.keras.utils.register_keras_serializable(package="motionspeak")
 class WristNormalize(tf.keras.layers.Layer):
     """[B, 21, 3] -> minus the wrist, divided by the largest 2D wrist distance."""
 
@@ -46,7 +46,7 @@ class WristNormalize(tf.keras.layers.Layer):
         return _normalize_hand(x)
 
 
-@tf.keras.utils.register_keras_serializable(package="sigla")
+@tf.keras.utils.register_keras_serializable(package="motionspeak")
 class LetterFeatures(tf.keras.layers.Layer):
     """[B, 63] raw hand -> [B, 63 + 210]: the wrist-normalised coordinates and
     every pairwise distance between the 21 points. Distances do not change when
@@ -63,7 +63,7 @@ class LetterFeatures(tf.keras.layers.Layer):
         return tf.concat([tf.reshape(p, (-1, L.FLOATS)), d], axis=1)
 
 
-@tf.keras.utils.register_keras_serializable(package="sigla")
+@tf.keras.utils.register_keras_serializable(package="motionspeak")
 class SequenceNormalize(tf.keras.layers.Layer):
     """[B, T, 21, 3] -> minus FRAME 0's wrist, divided by FRAME 0's hand size,
     so the path of the movement survives."""
@@ -100,7 +100,7 @@ def build_motion_model(n_classes: int) -> tf.keras.Model:
     x = tf.keras.layers.Dense(64, activation="relu")(x)
     x = tf.keras.layers.Dropout(0.3)(x)
     out = tf.keras.layers.Dense(n_classes, activation="softmax")(x)
-    return tf.keras.Model(inp, out, name="sigla_letters_motion")
+    return tf.keras.Model(inp, out, name="motionspeak_letters_motion")
 
 
 # ── augmentation ────────────────────────────────────────────────────────────
@@ -293,7 +293,7 @@ def fit_static(data: LetterData, train, val=None, epochs=None):
         tf.keras.layers.Rescaling(LINEAR_WEIGHT)(linear(inp)),
         tf.keras.layers.Rescaling(1.0 - LINEAR_WEIGHT)(mlp(inp)),
     ])
-    return tf.keras.Model(inp, blend, name="sigla_letters_static"), mlp_epochs
+    return tf.keras.Model(inp, blend, name="motionspeak_letters_static"), mlp_epochs
 
 
 def fit_pair(data: LetterData, train_s, train_m, val_s=None, val_m=None,

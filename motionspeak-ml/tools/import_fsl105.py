@@ -1,62 +1,3 @@
-"""
-Trim-and-import the FSL-105 dataset into SIGLA's gesture_samples.
-
-WHY THIS EXISTS
----------------
-FSL-105 clips are uniformly ~4.07s at 60fps, but the SIGN occupies only the middle
-of each take: measured across 10 random classes, 40% of a clip is leading dead time
-(signer standing still before raising their hands) and 22% is trailing. That padding
-is why raw FSL-105 clips are rejected by extract.py at a rate of ~11 in 12 — not
-because the signing is poor. Hand density INSIDE the signing span is 96%.
-
-So this tool trims each clip to its signing span before extraction. The trim is not
-cosmetic: extract.py deliberately refuses clips with a long hands-less run, because
-the phone ends a gesture after NO_HAND_TIMEOUT and could never classify a window
-containing one. Trimming removes dead air that the recording simply does not need,
-rather than relaxing a gate that exists for a reason.
-
-WHAT IT DOES, PER CLIP
-    1. Sample the clip and find the first/last frame with a detected hand.
-    2. Re-encode just that span (plus a small pad) to a temp .mp4.
-    3. Run the real extract_motion_landmarks on it — the SAME function the
-       /extract-landmarks endpoint calls, so a clip that passes here passes there.
-    4. POST the trimmed VIDEO to /words/:id/upload-videos with a session_id
-       derived from the signer folder, so the sample is stored by exactly the
-       same server-side path as a manual admin upload.
-
-SIGNER IDS
-    organized_clips/<class>/signer-NN/<n>.MOV
-
-    signer-01 IS THE SAME PERSON across every class — confirmed by the dataset
-    owner (2026-09-01). The default is therefore --signer-scope=global, which
-    writes the folder name ("signer-01") straight through, so prepare_motion_dataset
-    can hold out one real person across all 105 classes and report a genuine
-    new-signer accuracy.
-
-    Note this contradicts what raw image statistics suggested: the four folders
-    cluster WITHIN a class (between/within distance ratio 1.35-1.68) but showed no
-    separation ACROSS classes (747-821 within vs 820 between). That is explained by
-    背景/lighting varying per recording session rather than per person — appearance
-    statistics are simply not a reliable identity signal here. The owner's
-    attribution wins; do not "correct" this back based on pixel distances.
-
-    --signer-scope=class is kept as the conservative fallback. It writes
-    "c31-signer-01", making each class's signers their own groups, which is the
-    right choice for any FUTURE dataset whose provenance is unknown. It weakens the
-    grouped estimate (a held-out "signer" covers only one word), so do not use it
-    for FSL-105.
-
-USAGE
-    # See what would happen — no DB writes, no backend calls:
-    venv/Scripts/python.exe tools/import_fsl105.py --dry-run
-
-    # Only the classes that map to existing SIGLA words:
-    venv/Scripts/python.exe tools/import_fsl105.py --dry-run --only-existing-words
-
-    # Actually import (requires the backend running and an admin token):
-    venv/Scripts/python.exe tools/import_fsl105.py --token "$ADMIN_JWT"
-"""
-
 import argparse
 import csv
 import json
@@ -178,9 +119,7 @@ def write_trimmed(path: str, start: int, end: int, out_path: str) -> bool:
         h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         if w <= 0 or h <= 0:
             return False
-        writer = cv2.VideoWriter(
-            out_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h)
-        )
+        writer = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
         if not writer.isOpened():
             return False
         cap.set(cv2.CAP_PROP_POS_FRAMES, int(start))
@@ -223,8 +162,7 @@ def detect_layout(root: str) -> str:
     Returns "class_first" or "signer_first"; raises if the tree matches neither, so
     an unexpected layout fails loudly rather than being guessed at.
     """
-    top = [d for d in sorted(os.listdir(root))
-           if os.path.isdir(os.path.join(root, d))]
+    top = [d for d in sorted(os.listdir(root)) if os.path.isdir(os.path.join(root, d))]
     if not top:
         raise ValueError(f"no subdirectories under {root}")
 
@@ -238,8 +176,11 @@ def detect_layout(root: str) -> str:
         # Confirm the SECOND level is signers before declaring class-first, so a
         # tree that is neither shape is rejected rather than defaulted.
         for d in top:
-            second = [x for x in os.listdir(os.path.join(root, d))
-                      if os.path.isdir(os.path.join(root, d, x))]
+            second = [
+                x
+                for x in os.listdir(os.path.join(root, d))
+                if os.path.isdir(os.path.join(root, d, x))
+            ]
             if second and all(looks_like_signer(x) for x in second):
                 return "class_first"
         raise ValueError(
@@ -275,9 +216,7 @@ def iter_clips(root: str, layout: str = "class_first"):
             inner_dir = os.path.join(outer_dir, inner)
             if not os.path.isdir(inner_dir):
                 continue
-            cls, signer = (
-                (outer, inner) if layout == "class_first" else (inner, outer)
-            )
+            cls, signer = (outer, inner) if layout == "class_first" else (inner, outer)
             for name in sorted(os.listdir(inner_dir)):
                 if name.lower().endswith(VIDEO_EXTS):
                     yield cls, signer, os.path.join(inner_dir, name)
@@ -300,7 +239,11 @@ def fetch_word_index(backend: str, token: str) -> dict:
         )
         r.raise_for_status()
         body = r.json()
-    rows = body if isinstance(body, list) else (body.get("words") or body.get("data") or [])
+    rows = (
+        body
+        if isinstance(body, list)
+        else (body.get("words") or body.get("data") or [])
+    )
     index = {}
     for row in rows:
         label = row.get("label")
@@ -310,7 +253,9 @@ def fetch_word_index(backend: str, token: str) -> dict:
     return index
 
 
-def create_word(backend: str, token: str, label: str, category: str | None) -> tuple[int | None, str]:
+def create_word(
+    backend: str, token: str, label: str, category: str | None
+) -> tuple[int | None, str]:
     """
     Create one word via POST /words/admin-add. Returns (word_id, detail).
 
@@ -329,15 +274,18 @@ def create_word(backend: str, token: str, label: str, category: str | None) -> t
         # The model hard-validates sign_type against exactly ["FSL"].
         "sign_type": "FSL",
         "category": category or None,
-        "description": f"Imported from FSL-105 ({category})" if category else
-                       "Imported from FSL-105",
+        "description": f"Imported from FSL-105 ({category})"
+        if category
+        else "Imported from FSL-105",
     }
     try:
         with httpx.Client(timeout=60.0) as client:
             r = client.post(
                 f"{backend}/words/admin-add",
-                headers={"Authorization": f"Bearer {token}",
-                         "Content-Type": "application/json"},
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
                 content=json.dumps(payload),
             )
         if r.status_code == 409:
@@ -351,8 +299,9 @@ def create_word(backend: str, token: str, label: str, category: str | None) -> t
         return None, str(e)
 
 
-def post_clips_batch(backend: str, token: str, word_id: int,
-                     video_paths: list, session_id: str) -> tuple[int, str]:
+def post_clips_batch(
+    backend: str, token: str, word_id: int, video_paths: list, session_id: str
+) -> tuple[int, str]:
     """
     Upload MANY trimmed clips for one word in a SINGLE request.
 
@@ -362,7 +311,7 @@ def post_clips_batch(backend: str, token: str, word_id: int,
     clips one at a time therefore stores only the first and rejects the rest:
     measured on the HELLO smoke test, 4 of 20 stored and 16 came back
     "an upload job is already processing for this word".
-    
+
     The route's multer config accepts up to 50 files per request
     (videoUpload.array("videos", 50)), which covers a full FSL-105 class (~20).
     Returns (count_submitted, detail).
@@ -405,8 +354,9 @@ def post_clips_batch(backend: str, token: str, word_id: int,
                 pass
 
 
-def wait_for_upload_job(backend: str, token: str, word_id: int,
-                        timeout_s: float = 900.0) -> str:
+def wait_for_upload_job(
+    backend: str, token: str, word_id: int, timeout_s: float = 900.0
+) -> str:
     """
     Block until no upload job is processing for this word.
 
@@ -438,8 +388,9 @@ def wait_for_upload_job(backend: str, token: str, word_id: int,
     return "timeout"
 
 
-def post_clip(backend: str, token: str, word_id: int, video_path: str,
-              session_id: str) -> tuple[bool, str]:
+def post_clip(
+    backend: str, token: str, word_id: int, video_path: str, session_id: str
+) -> tuple[bool, str]:
     """
     Upload one TRIMMED clip to POST /words/:id/upload-videos.
 
@@ -488,8 +439,7 @@ def _process_one(job: tuple) -> dict:
     aggregation and all network I/O, so workers stay pure CPU.
     """
     cls, signer, path, tmpdir, keep_trimmed, save_dir = job
-    out = {"cls": cls, "signer": signer, "path": path, "trimmed": None,
-           "saved": None}
+    out = {"cls": cls, "signer": signer, "path": path, "trimmed": None, "saved": None}
     try:
         with _make_landmarker() as landmarker:
             span = find_signing_span(path, landmarker)
@@ -507,7 +457,9 @@ def _process_one(job: tuple) -> dict:
             stem = os.path.splitext(os.path.basename(path))[0]
             trimmed = os.path.join(dest_dir, f"{stem}.mp4")
         else:
-            trimmed = os.path.join(tmpdir, f"{cls}_{signer}_{os.path.basename(path)}.mp4")
+            trimmed = os.path.join(
+                tmpdir, f"{cls}_{signer}_{os.path.basename(path)}.mp4"
+            )
         if not write_trimmed(path, start, end, trimmed):
             out["status"] = "trim_failed"
             out["reason"] = "re-encode failed"
@@ -555,7 +507,7 @@ def _process_one(job: tuple) -> dict:
             if keep_trimmed:
                 out["trimmed"] = trimmed
         elif keep_trimmed:
-            out["trimmed"] = trimmed          # parent uploads, then unlinks
+            out["trimmed"] = trimmed  # parent uploads, then unlinks
         else:
             _unlink(trimmed)
         return out
@@ -566,56 +518,99 @@ def _process_one(job: tuple) -> dict:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--root", default=DEFAULT_ROOT,
-                    help="organized_clips directory (class/signer-NN/*.MOV)")
-    ap.add_argument("--labels", default=DEFAULT_LABELS,
-                    help="FSL-105 labels.csv, for class-id -> label")
-    ap.add_argument("--layout", choices=("auto", "class_first", "signer_first"),
-                    default="auto",
-                    help="on-disk nesting: 'class_first' is <class>/<signer-NN>/ "
-                         "(organized_clips), 'signer_first' is <signer-NN>/<class>/ "
-                         "(the re-recorded capture layout). 'auto' (default) detects "
-                         "it from the directory names and fails loudly if the tree "
-                         "matches neither — reading one layout as the other silently "
-                         "swaps label and session_id.")
-    ap.add_argument("--signer-scope", choices=("class", "global"), default="global",
-                    help="'global' (default, correct for FSL-105) writes signer-NN: "
-                         "the ids track the same person across every class, so the "
-                         "grouped split holds out one real signer. 'class' writes "
-                         "c<cls>-signer-NN — the conservative choice for a dataset "
-                         "whose provenance is unknown; it weakens the estimate.")
-    ap.add_argument("--dry-run", action="store_true",
-                    help="extract and report, but never call the backend")
-    ap.add_argument("--create-words", action="store_true",
-                    help="create any FSL-105 label that has no word row yet "
-                         "(POST /words/admin-add, sign_type=FSL, category from "
-                         "labels.csv). Words are created approved-but-INACTIVE; "
-                         "activation still requires a deployed model trained on "
-                         "their samples. Opt-in so an import cannot add rows to the "
-                         "word bank as a side effect.")
-    ap.add_argument("--only-existing-words", action="store_true",
-                    help="skip FSL-105 classes with no matching SIGLA word")
-    ap.add_argument("--limit-per-class", type=int, default=0,
-                    help="cap clips processed per class (0 = all); for a fast probe")
-    ap.add_argument("--classes", default=None,
-                    help="comma-separated class ids to process (default: all)")
-    ap.add_argument("--backend", default=os.getenv("BACKEND_URL", "http://localhost:3000/api"))
-    ap.add_argument("--token", default=os.getenv("ADMIN_JWT"),
-                    help="admin JWT; required unless --dry-run")
-    ap.add_argument("--save-trimmed", default=None, metavar="DIR",
-                    help="write the trimmed clips to DIR, mirroring the source "
-                         "layout (DIR/<class>/<signer>/<name>.mp4), and KEEP them. "
-                         "Without this the trimmed video is a throwaway intermediate: "
-                         "it is deleted the moment its sequence has been extracted or "
-                         "uploaded. Use it to eyeball the trims before trusting them, "
-                         "or to avoid re-paying ~28s of CPU per clip on a re-run.")
-    ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 2),
-                    help="parallel worker processes for trim+extract (default: "
-                         "cores-2). Trim+extract is ~28s of CPU per clip, so this "
-                         "is the difference between ~17h and ~3h on 2130 clips. "
-                         "Uploads still happen serially in the parent.")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "--root",
+        default=DEFAULT_ROOT,
+        help="organized_clips directory (class/signer-NN/*.MOV)",
+    )
+    ap.add_argument(
+        "--labels",
+        default=DEFAULT_LABELS,
+        help="FSL-105 labels.csv, for class-id -> label",
+    )
+    ap.add_argument(
+        "--layout",
+        choices=("auto", "class_first", "signer_first"),
+        default="auto",
+        help="on-disk nesting: 'class_first' is <class>/<signer-NN>/ "
+        "(organized_clips), 'signer_first' is <signer-NN>/<class>/ "
+        "(the re-recorded capture layout). 'auto' (default) detects "
+        "it from the directory names and fails loudly if the tree "
+        "matches neither — reading one layout as the other silently "
+        "swaps label and session_id.",
+    )
+    ap.add_argument(
+        "--signer-scope",
+        choices=("class", "global"),
+        default="global",
+        help="'global' (default, correct for FSL-105) writes signer-NN: "
+        "the ids track the same person across every class, so the "
+        "grouped split holds out one real signer. 'class' writes "
+        "c<cls>-signer-NN — the conservative choice for a dataset "
+        "whose provenance is unknown; it weakens the estimate.",
+    )
+    ap.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="extract and report, but never call the backend",
+    )
+    ap.add_argument(
+        "--create-words",
+        action="store_true",
+        help="create any FSL-105 label that has no word row yet "
+        "(POST /words/admin-add, sign_type=FSL, category from "
+        "labels.csv). Words are created approved-but-INACTIVE; "
+        "activation still requires a deployed model trained on "
+        "their samples. Opt-in so an import cannot add rows to the "
+        "word bank as a side effect.",
+    )
+    ap.add_argument(
+        "--only-existing-words",
+        action="store_true",
+        help="skip FSL-105 classes with no matching MotionSpeak word",
+    )
+    ap.add_argument(
+        "--limit-per-class",
+        type=int,
+        default=0,
+        help="cap clips processed per class (0 = all); for a fast probe",
+    )
+    ap.add_argument(
+        "--classes",
+        default=None,
+        help="comma-separated class ids to process (default: all)",
+    )
+    ap.add_argument(
+        "--backend", default=os.getenv("BACKEND_URL", "http://localhost:3000/api")
+    )
+    ap.add_argument(
+        "--token",
+        default=os.getenv("ADMIN_JWT"),
+        help="admin JWT; required unless --dry-run",
+    )
+    ap.add_argument(
+        "--save-trimmed",
+        default=None,
+        metavar="DIR",
+        help="write the trimmed clips to DIR, mirroring the source "
+        "layout (DIR/<class>/<signer>/<name>.mp4), and KEEP them. "
+        "Without this the trimmed video is a throwaway intermediate: "
+        "it is deleted the moment its sequence has been extracted or "
+        "uploaded. Use it to eyeball the trims before trusting them, "
+        "or to avoid re-paying ~28s of CPU per clip on a re-run.",
+    )
+    ap.add_argument(
+        "--workers",
+        type=int,
+        default=max(1, (os.cpu_count() or 2) - 2),
+        help="parallel worker processes for trim+extract (default: "
+        "cores-2). Trim+extract is ~28s of CPU per clip, so this "
+        "is the difference between ~17h and ~3h on 2130 clips. "
+        "Uploads still happen serially in the parent.",
+    )
     ap.add_argument("--out", default=None, help="write the per-class report as JSON")
     args = ap.parse_args()
 
@@ -672,8 +667,10 @@ def main() -> int:
                         print(f"[import]   FAILED {label!r}: {detail}")
                 print(f"[import] words created: {created}, failed: {failed}")
                 if failed:
-                    print("[import] refusing to continue with missing words — "
-                          "their clips would be silently skipped.")
+                    print(
+                        "[import] refusing to continue with missing words — "
+                        "their clips would be silently skipped."
+                    )
                     return 1
 
     wanted = None
@@ -681,12 +678,21 @@ def main() -> int:
         wanted = {c.strip() for c in args.classes.split(",") if c.strip()}
 
     # class id -> counters
-    stats = defaultdict(lambda: {
-        "label": None, "word_id": None, "total": 0, "accepted": 0,
-        "no_hand": 0, "trim_failed": 0, "rejected": 0, "stored": 0,
-        "store_failed": 0, "reasons": defaultdict(int),
-        "signers": defaultdict(int),
-    })
+    stats = defaultdict(
+        lambda: {
+            "label": None,
+            "word_id": None,
+            "total": 0,
+            "accepted": 0,
+            "no_hand": 0,
+            "trim_failed": 0,
+            "rejected": 0,
+            "stored": 0,
+            "store_failed": 0,
+            "reasons": defaultdict(int),
+            "signers": defaultdict(int),
+        }
+    )
 
     tmpdir = tempfile.mkdtemp(prefix="fsl105_")
 
@@ -695,8 +701,10 @@ def main() -> int:
     jobs = []
     per_class_seen = defaultdict(int)
     layout = detect_layout(args.root) if args.layout == "auto" else args.layout
-    print(f"[import] source layout: {layout} "
-          f"({'<class>/<signer>' if layout == 'class_first' else '<signer>/<class>'})")
+    print(
+        f"[import] source layout: {layout} "
+        f"({'<class>/<signer>' if layout == 'class_first' else '<signer>/<class>'})"
+    )
 
     for cls, signer, path in iter_clips(args.root, layout):
         if wanted is not None and cls not in wanted:
@@ -713,14 +721,16 @@ def main() -> int:
             wid = word_index.get(backend_label_key(st["label"]))
             st["word_id"] = wid
             if args.only_existing_words and wid is None:
-                st["reasons"]["no matching SIGLA word"] += 1
+                st["reasons"]["no matching MotionSpeak word"] += 1
                 continue
 
         jobs.append((cls, signer, path, tmpdir, not args.dry_run, args.save_trimmed))
 
     total_jobs = len(jobs)
-    print(f"[import] {total_jobs} clip(s) queued across {len(stats)} class(es); "
-          f"workers={args.workers}")
+    print(
+        f"[import] {total_jobs} clip(s) queued across {len(stats)} class(es); "
+        f"workers={args.workers}"
+    )
 
     # Trim + extract is ~28s of pure CPU per clip (8.8s scan + 18.6s extract), so a
     # serial pass over 2130 clips is ~17 hours. MediaPipe releases the GIL poorly
@@ -736,15 +746,18 @@ def main() -> int:
                 results.append(res)
                 processed += 1
                 if processed % 25 == 0 or processed == total_jobs:
-                    print(f"[import] {processed}/{total_jobs} clips processed ...",
-                          flush=True)
+                    print(
+                        f"[import] {processed}/{total_jobs} clips processed ...",
+                        flush=True,
+                    )
     else:
         for job in jobs:
             results.append(_process_one(job))
             processed += 1
             if processed % 25 == 0 or processed == total_jobs:
-                print(f"[import] {processed}/{total_jobs} clips processed ...",
-                      flush=True)
+                print(
+                    f"[import] {processed}/{total_jobs} clips processed ...", flush=True
+                )
 
     # Aggregate + upload in the PARENT. Workers stay pure CPU: network I/O here
     # keeps the 409 "job already processing" serialization per word intact, which
@@ -787,7 +800,7 @@ def main() -> int:
         word_id = st.get("word_id")
         if word_id is None:
             st["store_failed"] += 1
-            st["reasons"]["no matching SIGLA word"] += 1
+            st["reasons"]["no matching MotionSpeak word"] += 1
             if trimmed and not saved:
                 _unlink(trimmed)
             continue
@@ -803,7 +816,9 @@ def main() -> int:
     # to finish before the next request for that word. session_id is a per-request
     # field, so a word with 4 signers needs 4 sequential requests.
     if not args.dry_run and pending_uploads:
-        groups = sorted(pending_uploads.items(), key=lambda kv: (int(kv[0][0]), kv[0][1]))
+        groups = sorted(
+            pending_uploads.items(), key=lambda kv: (int(kv[0][0]), kv[0][1])
+        )
         print(f"[import] uploading {len(groups)} batch(es) ...")
         for (cls, sid), items in groups:
             st = stats[cls]
@@ -811,7 +826,7 @@ def main() -> int:
             paths = [p for p, _ in items]
             if word_id is None:
                 st["store_failed"] += len(paths)
-                st["reasons"]["no matching SIGLA word"] += len(paths)
+                st["reasons"]["no matching MotionSpeak word"] += len(paths)
                 for p, was_saved in items:
                     if not was_saved:
                         _unlink(p)
@@ -822,12 +837,15 @@ def main() -> int:
             n, detail = post_clips_batch(args.backend, args.token, word_id, paths, sid)
             if n > 0:
                 st["stored"] += n
-                print(f"[import]   {st['label'][:24]:<24} {sid:<12} "
-                      f"{n} clip(s) submitted")
+                print(
+                    f"[import]   {st['label'][:24]:<24} {sid:<12} {n} clip(s) submitted"
+                )
             else:
                 st["store_failed"] += len(paths)
                 st["reasons"][f"store: {detail[:60]}"] += len(paths)
-                print(f"[import]   {st['label'][:24]:<24} {sid:<12} FAILED: {detail[:60]}")
+                print(
+                    f"[import]   {st['label'][:24]:<24} {sid:<12} FAILED: {detail[:60]}"
+                )
             # Let this word's job drain so approved_sample_count is settled and the
             # next batch for the same word is not refused with 409.
             wait_for_upload_job(args.backend, args.token, word_id)
@@ -866,14 +884,20 @@ def report(stats: dict, args) -> None:
     stored = sum(s["stored"] for s in stats.values())
 
     print("\n" + "=" * 78)
-    print(f"FSL-105 import report  ({'DRY RUN' if args.dry_run else 'LIVE'}, "
-          f"signer-scope={args.signer_scope})")
+    print(
+        f"FSL-105 import report  ({'DRY RUN' if args.dry_run else 'LIVE'}, "
+        f"signer-scope={args.signer_scope})"
+    )
     print("=" * 78)
-    print(f"clips seen: {total}   extracted OK: {accepted} "
-          f"({100 * accepted / max(total, 1):.0f}%)   stored: {stored}")
+    print(
+        f"clips seen: {total}   extracted OK: {accepted} "
+        f"({100 * accepted / max(total, 1):.0f}%)   stored: {stored}"
+    )
     print()
-    print(f"Training gate: >={MIN_REAL_SAMPLES_PER_CLASS} clips, "
-          f">={MIN_SIGNERS_PER_CLASS} signers with >={MIN_SAMPLES_PER_SIGNER} clips each")
+    print(
+        f"Training gate: >={MIN_REAL_SAMPLES_PER_CLASS} clips, "
+        f">={MIN_SIGNERS_PER_CLASS} signers with >={MIN_SAMPLES_PER_SIGNER} clips each"
+    )
     print()
 
     # Under --limit-per-class the sampled count is NOT the gate answer: a class
@@ -883,12 +907,18 @@ def report(stats: dict, args) -> None:
     # source-clip count, which is what a full import would actually produce.
     sampled = bool(args.limit_per_class)
     if sampled:
-        print(f"NOTE: --limit-per-class {args.limit_per_class} — each class was "
-              "sampled, not fully processed.")
-        print("      Verdicts below are PROJECTED: (sample accept rate) x "
-              "(source clips in that class).")
-        print("      A projection near the threshold is a hint, not a decision — "
-              "re-run that class in full.")
+        print(
+            f"NOTE: --limit-per-class {args.limit_per_class} — each class was "
+            "sampled, not fully processed."
+        )
+        print(
+            "      Verdicts below are PROJECTED: (sample accept rate) x "
+            "(source clips in that class)."
+        )
+        print(
+            "      A projection near the threshold is a hint, not a decision — "
+            "re-run that class in full."
+        )
         print()
 
     source_counts = {}
@@ -900,13 +930,20 @@ def report(stats: dict, args) -> None:
                 for signer in os.listdir(cls_dir):
                     sd = os.path.join(cls_dir, signer)
                     if os.path.isdir(sd):
-                        n += len([f for f in os.listdir(sd)
-                                  if f.lower().endswith(VIDEO_EXTS)])
+                        n += len(
+                            [
+                                f
+                                for f in os.listdir(sd)
+                                if f.lower().endswith(VIDEO_EXTS)
+                            ]
+                        )
             source_counts[cls] = n
 
     passing, failing = [], []
     for cls, st in stats.items():
-        qualified = sum(1 for n in st["signers"].values() if n >= MIN_SAMPLES_PER_SIGNER)
+        qualified = sum(
+            1 for n in st["signers"].values() if n >= MIN_SAMPLES_PER_SIGNER
+        )
         if sampled:
             rate = st["accepted"] / max(st["total"], 1)
             projected = int(rate * source_counts.get(cls, 0))
@@ -918,8 +955,10 @@ def report(stats: dict, args) -> None:
             st["_rate"] = rate
         else:
             projected = st["accepted"]
-            ok = (st["accepted"] >= MIN_REAL_SAMPLES_PER_CLASS
-                  and qualified >= MIN_SIGNERS_PER_CLASS)
+            ok = (
+                st["accepted"] >= MIN_REAL_SAMPLES_PER_CLASS
+                and qualified >= MIN_SIGNERS_PER_CLASS
+            )
         (passing if ok else failing).append((cls, st, qualified))
 
     head_p = "WOULD PASS (projected)" if sampled else "WOULD PASS the gate"
@@ -935,26 +974,37 @@ def report(stats: dict, args) -> None:
             top = sorted(st["reasons"].items(), key=lambda kv: -kv[1])[:1]
             why = f"  top reason: {top[0][0]} x{top[0][1]}" if top else ""
             if sampled:
-                print(f"  {cls:>3} {st['label'][:24]:<24} "
-                      f"sample {st['accepted']}/{st['total']} "
-                      f"({100 * st.get('_rate', 0):.0f}%) -> ~{st.get('_projected', 0)}"
-                      f"/{source_counts.get(cls, 0)} projected{why}")
+                print(
+                    f"  {cls:>3} {st['label'][:24]:<24} "
+                    f"sample {st['accepted']}/{st['total']} "
+                    f"({100 * st.get('_rate', 0):.0f}%) -> ~{st.get('_projected', 0)}"
+                    f"/{source_counts.get(cls, 0)} projected{why}"
+                )
             else:
-                print(f"  {cls:>3} {st['label'][:26]:<26} "
-                      f"{st['accepted']:>3}/{st['total']:<3} clips, "
-                      f"{qualified} signer(s){why}")
+                print(
+                    f"  {cls:>3} {st['label'][:26]:<26} "
+                    f"{st['accepted']:>3}/{st['total']:<3} clips, "
+                    f"{qualified} signer(s){why}"
+                )
 
     # Classes that clear the gate but not by much are the ones worth re-running in
     # full before trusting: a projection is a point estimate off a handful of clips.
     if sampled:
-        margin = [(cls, st) for cls, st, _ in passing
-                  if st.get("_projected", 0) < MIN_REAL_SAMPLES_PER_CLASS + 3]
+        margin = [
+            (cls, st)
+            for cls, st, _ in passing
+            if st.get("_projected", 0) < MIN_REAL_SAMPLES_PER_CLASS + 3
+        ]
         if margin:
-            print(f"\nProjected to pass but within 3 of the threshold "
-                  f"({len(margin)}) — verify these in a full run:")
+            print(
+                f"\nProjected to pass but within 3 of the threshold "
+                f"({len(margin)}) — verify these in a full run:"
+            )
             for cls, st in sorted(margin, key=lambda x: x[1].get("_projected", 0)):
-                print(f"  {cls:>3} {st['label'][:24]:<24} "
-                      f"~{st.get('_projected', 0)}/{source_counts.get(cls, 0)}")
+                print(
+                    f"  {cls:>3} {st['label'][:24]:<24} "
+                    f"~{st.get('_projected', 0)}/{source_counts.get(cls, 0)}"
+                )
 
     reasons = defaultdict(int)
     for st in stats.values():

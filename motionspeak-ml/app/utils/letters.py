@@ -8,6 +8,7 @@ y share one unit. Normalisation happens inside the models.
 
 Design: docs-internal/specs/2026-10-11-letters-accuracy-design.md
 """
+
 from __future__ import annotations
 
 import math
@@ -34,14 +35,21 @@ RAISE_SPEED = 0.5
 
 # Motion segmenter. MUST equal LetterSegmenter.kt.
 SEGMENT_CONFIG = {
-    "start_speed": 1.0, "stop_speed": 0.5, "stop_hold_ms": 200, "pad_ms": 150,
-    "min_ms": 300, "max_ms": 2500, "max_missing": 0.25,
+    "start_speed": 1.0,
+    "stop_speed": 0.5,
+    "stop_hold_ms": 200,
+    "pad_ms": 150,
+    "min_ms": 300,
+    "max_ms": 2500,
+    "max_missing": 0.25,
 }
 
 
 def hand_extent(p) -> float:
     """Largest 2D distance from the wrist (point 0) to any other point."""
-    return max(math.hypot(p[i * 3] - p[0], p[i * 3 + 1] - p[1]) for i in range(1, POINTS))
+    return max(
+        math.hypot(p[i * 3] - p[0], p[i * 3 + 1] - p[1]) for i in range(1, POINTS)
+    )
 
 
 def select_hand(hands, width: int, height: int):
@@ -66,12 +74,15 @@ def select_hand(hands, width: int, height: int):
 
 # ── speeds ──────────────────────────────────────────────────────────────────
 
+
 def _smooth3(raw: list) -> list:
     """Centred mean of each value and its neighbours; None if any is None."""
     out = []
     for i in range(len(raw)):
-        window = raw[max(0, i - 1):i + 2]
-        out.append(None if any(v is None for v in window) else sum(window) / len(window))
+        window = raw[max(0, i - 1) : i + 2]
+        out.append(
+            None if any(v is None for v in window) else sum(window) / len(window)
+        )
     return out
 
 
@@ -84,8 +95,12 @@ def _speeds(frames: list) -> list:
         else:
             dt = (f["t_ms"] - prev["t_ms"]) / 1000
             size = hand_extent(cur)
-            moved = sum(math.hypot(cur[i * 3] - before[i * 3], cur[i * 3 + 1] - before[i * 3 + 1])
-                        for i in range(POINTS))
+            moved = sum(
+                math.hypot(
+                    cur[i * 3] - before[i * 3], cur[i * 3 + 1] - before[i * 3 + 1]
+                )
+                for i in range(POINTS)
+            )
             raw.append(moved / POINTS / size / dt if dt > 0 and size > 0 else None)
         prev = f
     return _smooth3(raw)
@@ -101,12 +116,15 @@ def _wrist_drop_speeds(frames: list) -> list:
         else:
             dt = (f["t_ms"] - prev["t_ms"]) / 1000
             size = hand_extent(cur)
-            raw.append((cur[1] - before[1]) / size / dt if dt > 0 and size > 0 else None)
+            raw.append(
+                (cur[1] - before[1]) / size / dt if dt > 0 and size > 0 else None
+            )
         prev = f
     return _smooth3(raw)
 
 
 # ── static letters ──────────────────────────────────────────────────────────
+
 
 def find_hold(frames: list):
     """The frames where the letter is held: the still run (speed <= HOLD_SPEED,
@@ -121,7 +139,9 @@ def find_hold(frames: list):
         elif not still and start is not None:
             runs.append((start, i - 1))
             start = None
-    runs = [(a, b) for a, b in runs if frames[b]["t_ms"] - frames[a]["t_ms"] >= MIN_HOLD_MS]
+    runs = [
+        (a, b) for a, b in runs if frames[b]["t_ms"] - frames[a]["t_ms"] >= MIN_HOLD_MS
+    ]
     if not runs:
         return None
 
@@ -131,7 +151,7 @@ def find_hold(frames: list):
 
     a, b = min(runs, key=lambda r: (round(height(r), 2), -(r[1] - r[0])))
     lo, hi = frames[a]["t_ms"] + HOLD_TRIM_MS, frames[b]["t_ms"] - HOLD_TRIM_MS
-    return [f for f in frames[a:b + 1] if lo <= f["t_ms"] <= hi] or frames[a:b + 1]
+    return [f for f in frames[a : b + 1] if lo <= f["t_ms"] <= hi] or frames[a : b + 1]
 
 
 def static_samples(frames: list) -> list:
@@ -154,6 +174,7 @@ def static_samples(frames: list) -> list:
 
 # ── motion ──────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class Segment:
     start_ms: float
@@ -167,7 +188,9 @@ class Step:
     segment: Optional[Segment] = None
 
 
-def resample(points: list, from_ms: float, to_ms: float, t: int = MOTION_FRAMES) -> np.ndarray:
+def resample(
+    points: list, from_ms: float, to_ms: float, t: int = MOTION_FRAMES
+) -> np.ndarray:
     """[(t_ms, 63 floats)] sorted by time -> [t, 63] by linear interpolation at
     t evenly spaced times; clamps to the first/last frame outside their range.
     MUST match LetterSegmenter.resample."""
@@ -210,7 +233,10 @@ class MotionSegmenter:
         c = self.c
         frame = {"t_ms": t_ms, "hand": hand}
         self.buffer.append(frame)
-        while t_ms - self.buffer[0]["t_ms"] > c["max_ms"] + c["pad_ms"] + c["stop_hold_ms"]:
+        while (
+            t_ms - self.buffer[0]["t_ms"]
+            > c["max_ms"] + c["pad_ms"] + c["stop_hold_ms"]
+        ):
             self.buffer.pop(0)
         smoothed = self._smoothed_speed(frame)
         self.prev = frame
@@ -226,7 +252,10 @@ class MotionSegmenter:
 
         end_ms = None
         if hand is None:
-            if self.last_hand_ms is not None and t_ms - self.last_hand_ms > c["stop_hold_ms"]:
+            if (
+                self.last_hand_ms is not None
+                and t_ms - self.last_hand_ms > c["stop_hold_ms"]
+            ):
                 end_ms = self.last_hand_ms
         elif smoothed is None:
             end_ms = None
@@ -255,8 +284,10 @@ class MotionSegmenter:
         size = hand_extent(cur)
         if dt_sec <= 0 or size <= 0:
             return None
-        moved = sum(math.hypot(cur[i * 3] - before[i * 3], cur[i * 3 + 1] - before[i * 3 + 1])
-                    for i in range(POINTS))
+        moved = sum(
+            math.hypot(cur[i * 3] - before[i * 3], cur[i * 3 + 1] - before[i * 3 + 1])
+            for i in range(POINTS)
+        )
         self.speeds.append(moved / POINTS / size / dt_sec)
         self.speeds = self.speeds[-3:]
         return sum(self.speeds) / len(self.speeds)
@@ -306,8 +337,7 @@ def _span(frames: list, from_ms: float, to_ms: float) -> Optional[Segment]:
 
 def find_single_take(frames: list) -> Optional[SingleTake]:
     """The one movement in a rest -> raise -> (hold) -> MOVE -> settle -> lower
-    clip, plus the raise and lower as `rest` (they become _none samples).
-    Ported from Senya's extract.find_single_take (measured on 40 real J clips)."""
+    clip, plus the raise and lower as `rest` (they become _none samples)."""
     c = SEGMENT_CONFIG
     speeds, drop = _speeds(frames), _wrist_drop_speeds(frames)
     hand = [i for i, f in enumerate(frames) if f["hand"] is not None]
@@ -328,16 +358,29 @@ def find_single_take(frames: list) -> Optional[SingleTake]:
     while rise_start < last and (speeds[rise_start] is None or still(rise_start)):
         rise_start += 1
     raise_end = rise_start
-    while raise_end < last and (drop[raise_end] is None or -drop[raise_end] > RAISE_SPEED):
+    while raise_end < last and (
+        drop[raise_end] is None or -drop[raise_end] > RAISE_SPEED
+    ):
         raise_end += 1
     lower_start = last
-    while lower_start > raise_end and (drop[lower_start] is None or drop[lower_start] > RAISE_SPEED):
+    while lower_start > raise_end and (
+        drop[lower_start] is None or drop[lower_start] > RAISE_SPEED
+    ):
         lower_start -= 1
 
-    start = next((i for i in range(raise_end, lower_start + 1)
-                  if fast(i) and not any(still(k) for k in range(i, lower_start + 1)
-                                         if t(k) - t(i) <= c["min_ms"])),
-                 None)
+    start = next(
+        (
+            i
+            for i in range(raise_end, lower_start + 1)
+            if fast(i)
+            and not any(
+                still(k)
+                for k in range(i, lower_start + 1)
+                if t(k) - t(i) <= c["min_ms"]
+            )
+        ),
+        None,
+    )
     if start is None:
         return None
     end, i = lower_start, start + 1
@@ -355,6 +398,12 @@ def find_single_take(frames: list) -> Optional[SingleTake]:
     sign = _span(frames, t(start) - c["pad_ms"], t(end))
     if sign is None:
         return None
-    rest = [s for s in (_span(frames, t(rise_start) - c["pad_ms"], t(raise_end)),
-                        _span(frames, t(lower_start) - c["pad_ms"], t(last))) if s]
+    rest = [
+        s
+        for s in (
+            _span(frames, t(rise_start) - c["pad_ms"], t(raise_end)),
+            _span(frames, t(lower_start) - c["pad_ms"], t(last)),
+        )
+        if s
+    ]
     return SingleTake(sign, rest)

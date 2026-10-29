@@ -32,7 +32,7 @@
 
             <TextView
                 android:id="@+id/tvConfirmTitle"
-                style="@style/Sigla.Text.CardTitle"
+                style="@style/MotionSpeak.Text.CardTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Delete all history?"
@@ -52,7 +52,7 @@
 
             <TextView
                 android:id="@+id/tvConfirmMessage"
-                style="@style/Sigla.Text.BodyStrong"
+                style="@style/MotionSpeak.Text.BodyStrong"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="@dimen/ms_space_24"
@@ -66,13 +66,13 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnConfirmCancel"
-                    style="@style/Widget.Sigla.Chip"
+                    style="@style/Widget.MotionSpeak.Chip"
                     android:layout_marginEnd="@dimen/ms_space_8"
                     android:text="Cancel" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnConfirmAction"
-                    style="@style/Widget.Sigla.Button"
+                    style="@style/Widget.MotionSpeak.Button"
                     android:layout_width="wrap_content"
                     android:layout_height="@dimen/ms_touch_min"
                     android:text="Delete" />

@@ -143,7 +143,7 @@ def build_motion_model(num_classes: int, arch: str | None = None):
         keras.layers.Dense(64, activation="relu", kernel_regularizer=reg),
         keras.layers.Dropout(0.2),
         keras.layers.Dense(num_classes, activation="softmax"),
-    ], name="sigla_motion_model")
+    ], name="motionspeak_motion_model")
 
     model.compile(
         optimizer=keras.optimizers.Adam(learning_rate=0.0005),

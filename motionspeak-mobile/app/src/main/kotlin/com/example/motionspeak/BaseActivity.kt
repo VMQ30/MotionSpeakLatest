@@ -6,7 +6,7 @@ import android.view.MotionEvent
 import androidx.appcompat.app.AppCompatActivity
 
 /**
- * Base activity for all SigLa / MotionSpeak screens.
+ * Base activity for all MotionSpeak / MotionSpeak screens.
  *
  * Ensures the user's chosen font-size scale (Settings -> Font size) is applied
  * consistently across every page:

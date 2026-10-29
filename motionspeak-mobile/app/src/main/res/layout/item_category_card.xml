@@ -4,7 +4,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/cardCategory"
-    style="@style/Widget.Sigla.Card.Tint"
+    style="@style/Widget.MotionSpeak.Card.Tint"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="6dp"
@@ -26,7 +26,7 @@
             android:src="@drawable/ic_tag_line" />
         <TextView
             android:id="@+id/tvCategoryName"
-            style="@style/Sigla.Text.BodyStrong"
+            style="@style/MotionSpeak.Text.BodyStrong"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/ms_space_8"
@@ -35,7 +35,7 @@
             tools:text="Greetings" />
         <TextView
             android:id="@+id/tvCategoryCount"
-            style="@style/Sigla.Text.Caption"
+            style="@style/MotionSpeak.Text.Caption"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             tools:text="14 words" />

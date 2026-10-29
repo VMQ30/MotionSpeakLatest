@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Light status-bar icons on the dark background. -->
-    <style name="Theme.Sigla" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.MotionSpeak" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">@color/ms_brand</item>
         <item name="colorPrimaryVariant">@color/ms_brand</item>
         <item name="colorOnPrimary">@color/ms_on_brand</item>
@@ -12,6 +12,6 @@
         <item name="android:navigationBarColor">@color/ms_nav_bar</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="27">@bool/ms_light_system_bars</item>
-        <item name="android:windowAnimationStyle">@style/Animation.Sigla.Screen</item>
+        <item name="android:windowAnimationStyle">@style/Animation.MotionSpeak.Screen</item>
     </style>
 </resources>

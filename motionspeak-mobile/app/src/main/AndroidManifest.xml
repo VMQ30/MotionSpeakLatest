@@ -23,7 +23,7 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Sigla"
+        android:theme="@style/Theme.MotionSpeak"
         android:usesCleartextTraffic="true"
         tools:replace="android:allowBackup,android:icon,android:label,android:theme"
 >
@@ -63,7 +63,7 @@
             android:name=".SplashActivity"
             android:exported="true"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.Sigla.Starting">
+            android:theme="@style/Theme.MotionSpeak.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -97,7 +97,7 @@
              configChanges keeps the playing video alive across that rotation. -->
         <activity android:name=".FullscreenVideoActivity" android:exported="false"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"
-            android:theme="@style/Theme.Sigla.Immersive" />
+            android:theme="@style/Theme.MotionSpeak.Immersive" />
         <activity android:name=".SettingsActivity" android:exported="false" android:launchMode="singleTop" android:screenOrientation="portrait" />
         <!-- adjustPan: never resizes the window (resizing squashed the old hero panel and
              lifted Skip / Get Started with the keyboard). The name field sits in the
@@ -111,7 +111,7 @@
             android:exported="false"
             android:launchMode="singleTask"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.Sigla.Sos" />
+            android:theme="@style/Theme.MotionSpeak.Sos" />
         
 
     </application>

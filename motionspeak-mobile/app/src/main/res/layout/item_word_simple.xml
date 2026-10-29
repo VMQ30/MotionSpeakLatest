@@ -4,7 +4,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    style="@style/Widget.Sigla.Card.Tint"
+    style="@style/Widget.MotionSpeak.Card.Tint"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="@dimen/ms_space_12"
@@ -27,7 +27,7 @@
             android:background="@drawable/bg_ms_thumb"
             android:importantForAccessibility="no"
             android:scaleType="centerCrop"
-            app:shapeAppearanceOverlay="@style/ShapeAppearance.Sigla.Thumb" />
+            app:shapeAppearanceOverlay="@style/ShapeAppearance.MotionSpeak.Thumb" />
 
         <LinearLayout
             android:layout_width="0dp"
@@ -37,7 +37,7 @@
             android:orientation="vertical">
             <TextView
                 android:id="@+id/tvSimpleWord"
-                style="@style/Sigla.Text.BodyStrong"
+                style="@style/MotionSpeak.Text.BodyStrong"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
@@ -45,7 +45,7 @@
                 tools:text="Good morning" />
             <TextView
                 android:id="@+id/tvWordFilipino"
-                style="@style/Sigla.Text.Caption"
+                style="@style/MotionSpeak.Text.Caption"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ellipsize="end"

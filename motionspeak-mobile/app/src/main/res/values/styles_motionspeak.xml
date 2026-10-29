@@ -1,58 +1,58 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- ── Text ── (4 sizes, 2 weights; spec §4) -->
-    <style name="Sigla.Text" parent="">
+    <style name="MotionSpeak.Text" parent="">
         <item name="android:fontFamily">@font/poppins_regular</item>
         <item name="android:textSize">@dimen/ms_text_body</item>
         <item name="android:textColor">@color/ms_text</item>
     </style>
-    <style name="Sigla.Text.Title">
+    <style name="MotionSpeak.Text.Title">
         <item name="android:fontFamily">@font/poppins_semibold</item>
         <item name="android:textSize">@dimen/ms_text_title</item>
         <item name="android:textColor">@color/ms_brand_text</item>
     </style>
-    <style name="Sigla.Text.Section">
+    <style name="MotionSpeak.Text.Section">
         <item name="android:fontFamily">@font/poppins_semibold</item>
         <item name="android:textSize">@dimen/ms_text_card</item>
     </style>
-    <style name="Sigla.Text.CardTitle">
+    <style name="MotionSpeak.Text.CardTitle">
         <item name="android:fontFamily">@font/poppins_semibold</item>
         <item name="android:textSize">@dimen/ms_text_card</item>
         <item name="android:textColor">@color/ms_brand_text</item>
     </style>
-    <style name="Sigla.Text.Body" />
-    <style name="Sigla.Text.BodyStrong">
+    <style name="MotionSpeak.Text.Body" />
+    <style name="MotionSpeak.Text.BodyStrong">
         <item name="android:fontFamily">@font/poppins_semibold</item>
     </style>
-    <style name="Sigla.Text.Secondary">
+    <style name="MotionSpeak.Text.Secondary">
         <item name="android:textColor">@color/ms_text_secondary</item>
     </style>
-    <style name="Sigla.Text.Caption">
+    <style name="MotionSpeak.Text.Caption">
         <item name="android:textSize">@dimen/ms_text_caption</item>
         <item name="android:textColor">@color/ms_text_secondary</item>
     </style>
-    <style name="Sigla.Text.Link">
+    <style name="MotionSpeak.Text.Link">
         <item name="android:fontFamily">@font/poppins_semibold</item>
         <item name="android:textSize">@dimen/ms_text_caption</item>
         <item name="android:textColor">@color/ms_text_secondary</item>
     </style>
-    <style name="Sigla.Text.StatValue">
+    <style name="MotionSpeak.Text.StatValue">
         <item name="android:fontFamily">@font/poppins_semibold</item>
         <item name="android:textSize">24sp</item>
         <item name="android:textColor">@color/ms_brand_text</item>
     </style>
-    <style name="Sigla.Text.StatLabel">
+    <style name="MotionSpeak.Text.StatLabel">
         <item name="android:textSize">@dimen/ms_text_caption</item>
         <item name="android:textColor">@color/ms_text_secondary</item>
     </style>
-    <style name="Sigla.Text.Display">
+    <style name="MotionSpeak.Text.Display">
         <item name="android:fontFamily">@font/poppins_semibold</item>
         <item name="android:textSize">@dimen/ms_text_display</item>
         <item name="android:textColor">@color/ms_brand_text</item>
     </style>
 
     <!-- ── Buttons ── -->
-    <style name="Widget.Sigla.Button" parent="Widget.MaterialComponents.Button">
+    <style name="Widget.MotionSpeak.Button" parent="Widget.MaterialComponents.Button">
         <item name="backgroundTint">@color/ms_brand</item>
         <item name="android:textColor">@color/ms_on_brand</item>
         <item name="cornerRadius">@dimen/ms_radius_sm</item>
@@ -66,21 +66,21 @@
     </style>
 
     <!-- ── Cards ── -->
-    <style name="Widget.Sigla.Card" parent="Widget.MaterialComponents.CardView">
+    <style name="Widget.MotionSpeak.Card" parent="Widget.MaterialComponents.CardView">
         <item name="cardElevation">0dp</item>
         <item name="cardCornerRadius">@dimen/ms_radius_md</item>
         <item name="cardBackgroundColor">@color/ms_tint</item>
         <item name="strokeWidth">1dp</item>
         <item name="strokeColor">@color/ms_divider</item>
     </style>
-    <style name="Widget.Sigla.Card.Tint" />
-    <style name="Widget.Sigla.Card.Brand">
+    <style name="Widget.MotionSpeak.Card.Tint" />
+    <style name="Widget.MotionSpeak.Card.Brand">
         <item name="cardCornerRadius">@dimen/ms_radius_lg</item>
         <item name="cardBackgroundColor">@color/ms_brand</item>
         <item name="strokeColor">@color/ms_divider</item>
         <item name="strokeWidth">1dp</item>
     </style>
-    <style name="Widget.Sigla.Card.Outlined">
+    <style name="Widget.MotionSpeak.Card.Outlined">
         <item name="cardCornerRadius">@dimen/ms_radius_lg</item>
         <item name="cardBackgroundColor">@color/ms_bg</item>
         <item name="strokeColor">@color/ms_divider</item>
@@ -88,7 +88,7 @@
     </style>
 
     <!-- ── Bottom bar ── -->
-    <style name="Widget.Sigla.BottomAppBar" parent="Widget.MaterialComponents.BottomAppBar">
+    <style name="Widget.MotionSpeak.BottomAppBar" parent="Widget.MaterialComponents.BottomAppBar">
         <item name="backgroundTint">@color/ms_bar_bg</item>
         <item name="fabAlignmentMode">center</item>
         <item name="fabCradleMargin">6dp</item>
@@ -99,7 +99,7 @@
         <item name="contentInsetStartWithNavigation">0dp</item>
         <item name="elevation">8dp</item>
     </style>
-    <style name="Widget.Sigla.Tab" parent="">
+    <style name="Widget.MotionSpeak.Tab" parent="">
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">match_parent</item>
         <item name="android:layout_weight">1</item>
@@ -110,12 +110,12 @@
         <item name="android:background">?attr/selectableItemBackgroundBorderless</item>
         <item name="android:stateListAnimator">@animator/press_scale</item>
     </style>
-    <style name="Widget.Sigla.TabIcon" parent="">
+    <style name="Widget.MotionSpeak.TabIcon" parent="">
         <item name="android:layout_width">24dp</item>
         <item name="android:layout_height">24dp</item>
         <item name="android:importantForAccessibility">no</item>
     </style>
-    <style name="Widget.Sigla.TabLabel" parent="Sigla.Text.Caption">
+    <style name="Widget.MotionSpeak.TabLabel" parent="MotionSpeak.Text.Caption">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_marginTop">2dp</item>
@@ -125,7 +125,7 @@
     <!-- ── Plan 2 components ── -->
 
     <!-- Round 48dp icon button on a tint background (back, flip camera, download…). -->
-    <style name="Widget.Sigla.IconButton" parent="Widget.MaterialComponents.Button.UnelevatedButton">
+    <style name="Widget.MotionSpeak.IconButton" parent="Widget.MaterialComponents.Button.UnelevatedButton">
         <item name="android:layout_width">@dimen/ms_touch_min</item>
         <item name="android:layout_height">@dimen/ms_touch_min</item>
         <item name="android:minWidth">0dp</item>
@@ -143,7 +143,7 @@
 
     <!-- Filter/toggle pill. 48dp touch height, 36dp drawn (6dp insets). Colours are
          set in code for on/off; these are the "off" defaults. -->
-    <style name="Widget.Sigla.Chip" parent="Widget.MaterialComponents.Button.UnelevatedButton">
+    <style name="Widget.MotionSpeak.Chip" parent="Widget.MaterialComponents.Button.UnelevatedButton">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:minWidth">0dp</item>
@@ -164,7 +164,7 @@
     </style>
 
     <!-- Translator bottom sheet: rounded top corners only. -->
-    <style name="ShapeAppearance.Sigla.TopSheet" parent="">
+    <style name="ShapeAppearance.MotionSpeak.TopSheet" parent="">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSizeTopLeft">28dp</item>
         <item name="cornerSizeTopRight">28dp</item>
@@ -173,14 +173,14 @@
     </style>
 
     <!-- Word row thumbnail. -->
-    <style name="ShapeAppearance.Sigla.Thumb" parent="">
+    <style name="ShapeAppearance.MotionSpeak.Thumb" parent="">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">14dp</item>
     </style>
 
     <!-- Onboarding hero panel: rounded bottom corners only (the panel sits at
          the top of the screen, so only its lower edge needs rounding). -->
-    <style name="ShapeAppearance.Sigla.OnboardHero" parent="">
+    <style name="ShapeAppearance.MotionSpeak.OnboardHero" parent="">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSizeTopLeft">0dp</item>
         <item name="cornerSizeTopRight">0dp</item>
@@ -188,7 +188,7 @@
         <item name="cornerSizeBottomRight">32dp</item>
     </style>
     <!-- Every pushed screen opens and closes with the same motion (app-motion spec §4.1). -->
-    <style name="Animation.Sigla.Screen" parent="@android:style/Animation.Activity">
+    <style name="Animation.MotionSpeak.Screen" parent="@android:style/Animation.Activity">
         <item name="android:activityOpenEnterAnimation">@anim/screen_open_enter</item>
         <item name="android:activityOpenExitAnimation">@anim/screen_open_exit</item>
         <item name="android:activityCloseEnterAnimation">@anim/screen_close_enter</item>

@@ -35,7 +35,7 @@
     <!-- Top back button over the camera -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnBack"
-        style="@style/Widget.Sigla.IconButton"
+        style="@style/Widget.MotionSpeak.IconButton"
         android:layout_marginStart="@dimen/ms_space_16"
         android:layout_marginTop="@dimen/ms_space_16"
         android:contentDescription="Back"
@@ -49,7 +49,7 @@
     <!-- Result card, floating under the top controls -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardResult"
-        style="@style/Widget.Sigla.Card.Outlined"
+        style="@style/Widget.MotionSpeak.Card.Outlined"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/ms_screen_padding"
@@ -95,7 +95,7 @@
                 android:orientation="vertical">
                 <TextView
                     android:id="@+id/tvResult"
-                    style="@style/Sigla.Text.CardTitle"
+                    style="@style/MotionSpeak.Text.CardTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
@@ -103,7 +103,7 @@
                     tools:text="GOOD MORNING" />
                 <TextView
                     android:id="@+id/tvFilipinoResult"
-                    style="@style/Sigla.Text.Caption"
+                    style="@style/MotionSpeak.Text.Caption"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
@@ -115,7 +115,7 @@
                      Hidden until the recognizer reports one. -->
                 <TextView
                     android:id="@+id/tvFacialCue"
-                    style="@style/Sigla.Text.Caption"
+                    style="@style/MotionSpeak.Text.Caption"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/ms_space_8"
@@ -139,13 +139,13 @@
             android:orientation="horizontal">
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnSpeakAgain"
-                style="@style/Widget.Sigla.Chip"
+                style="@style/Widget.MotionSpeak.Chip"
                 android:layout_marginEnd="@dimen/ms_space_8"
                 android:contentDescription="Speak the translation again"
                 android:text="Speak again" />
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCopyResult"
-                style="@style/Widget.Sigla.Chip"
+                style="@style/Widget.MotionSpeak.Chip"
                 android:contentDescription="Copy the translation"
                 android:text="Copy" />
         </LinearLayout>
@@ -155,7 +155,7 @@
 
     <TextView
         android:id="@+id/tvHandsWarning"
-        style="@style/Sigla.Text.Caption"
+        style="@style/MotionSpeak.Text.Caption"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/ms_space_8"
@@ -174,7 +174,7 @@
 
     <TextView
         android:id="@+id/tvEnvWarning"
-        style="@style/Sigla.Text.Caption"
+        style="@style/MotionSpeak.Text.Caption"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/ms_space_8"
@@ -218,7 +218,7 @@
 
             <TextView
                 android:id="@+id/tvDetectionLabel"
-                style="@style/Sigla.Text.Caption"
+                style="@style/MotionSpeak.Text.Caption"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -227,7 +227,7 @@
 
             <TextView
                 android:id="@+id/tvBufferPercent"
-                style="@style/Sigla.Text.Caption"
+                style="@style/MotionSpeak.Text.Caption"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="0%"
@@ -259,7 +259,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:shapeAppearanceOverlay="@style/ShapeAppearance.Sigla.TopSheet"
+        app:shapeAppearanceOverlay="@style/ShapeAppearance.MotionSpeak.TopSheet"
         app:strokeWidth="0dp">
 
         <LinearLayout
@@ -320,7 +320,7 @@
 
                     <TextView
                         android:id="@+id/tvStatus"
-                        style="@style/Sigla.Text.BodyStrong"
+                        style="@style/MotionSpeak.Text.BodyStrong"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="@dimen/ms_space_8"
@@ -340,13 +340,13 @@
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/chipWords"
-                        style="@style/Widget.Sigla.Chip"
+                        style="@style/Widget.MotionSpeak.Chip"
                         android:layout_marginEnd="@dimen/ms_space_8"
                         android:text="Words" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/chipLetters"
-                        style="@style/Widget.Sigla.Chip"
+                        style="@style/Widget.MotionSpeak.Chip"
                         android:layout_marginEnd="@dimen/ms_space_8"
                         android:text="Letters" />
                 </LinearLayout>
@@ -363,7 +363,7 @@
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/cardMessageBox"
-                    style="@style/Widget.Sigla.Card.Outlined"
+                    style="@style/Widget.MotionSpeak.Card.Outlined"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     app:cardBackgroundColor="@color/ms_tint"
@@ -382,7 +382,7 @@
 
                         <EditText
                             android:id="@+id/tvMessage"
-                            style="@style/Sigla.Text"
+                            style="@style/MotionSpeak.Text"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             android:background="@null"
@@ -415,7 +415,7 @@
     <!-- Left side: Copy button (Purple) -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnCopyMessage"
-        style="@style/Widget.Sigla.IconButton"
+        style="@style/Widget.MotionSpeak.IconButton"
         android:layout_width="44dp"
         android:layout_height="44dp"
         android:layout_marginStart="14dp"
@@ -435,7 +435,7 @@
     <!-- Right side [bottom]: Speak button (Blue) -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnSpeakMessage"
-        style="@style/Widget.Sigla.IconButton"
+        style="@style/Widget.MotionSpeak.IconButton"
         android:layout_width="44dp"
         android:layout_height="44dp"
         android:layout_marginEnd="14dp"
@@ -455,7 +455,7 @@
     <!-- Right side: Clear "X" button (Red) -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnClearMessage"
-        style="@style/Widget.Sigla.IconButton"
+        style="@style/Widget.MotionSpeak.IconButton"
         android:layout_width="44dp"
         android:layout_height="44dp"
         android:layout_marginEnd="14dp"
@@ -475,7 +475,7 @@
     <!-- Right side: Backspace button (below Flip Camera, above Clear) -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnBackspace"
-        style="@style/Widget.Sigla.IconButton"
+        style="@style/Widget.MotionSpeak.IconButton"
         android:layout_width="44dp"
         android:layout_height="44dp"
         android:layout_marginEnd="14dp"
@@ -496,7 +496,7 @@
     <!-- Right side [top]: Flip Camera button, right anchored above the Backspace button -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnFlipCamera"
-        style="@style/Widget.Sigla.IconButton"
+        style="@style/Widget.MotionSpeak.IconButton"
         android:layout_width="44dp"
         android:layout_height="44dp"
         android:layout_marginEnd="14dp"
@@ -517,7 +517,7 @@
     <!-- Centered floating action button to turn signed words into a sentence -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnMakeSentence"
-        style="@style/Widget.Sigla.Button"
+        style="@style/Widget.MotionSpeak.Button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:minHeight="48dp"

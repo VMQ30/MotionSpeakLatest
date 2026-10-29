@@ -2,7 +2,7 @@
 <com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    style="@style/Widget.Sigla.Card.Tint"
+    style="@style/Widget.MotionSpeak.Card.Tint"
     android:layout_width="0dp"
     android:layout_height="wrap_content"
     android:clickable="true"
@@ -25,7 +25,7 @@
 
         <TextView
             android:id="@+id/tvCategoryName"
-            style="@style/Sigla.Text.BodyStrong"
+            style="@style/MotionSpeak.Text.BodyStrong"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/ms_space_8"
@@ -35,7 +35,7 @@
 
         <TextView
             android:id="@+id/tvCategoryCount"
-            style="@style/Sigla.Text.Caption"
+            style="@style/MotionSpeak.Text.Caption"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             tools:text="14 words" />

@@ -14,7 +14,7 @@
 
     <TextView
         android:id="@+id/tvDialogSubtitle"
-        style="@style/Sigla.Text.Caption"
+        style="@style/MotionSpeak.Text.Caption"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="@dimen/ms_space_16"
@@ -37,7 +37,7 @@
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/etDialogField"
-            style="@style/Sigla.Text.Body"
+            style="@style/MotionSpeak.Text.Body"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:imeOptions="actionDone"
@@ -47,7 +47,7 @@
 
     <TextView
         android:id="@+id/tvDialogError"
-        style="@style/Sigla.Text.Caption"
+        style="@style/MotionSpeak.Text.Caption"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/ms_space_4"

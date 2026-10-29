@@ -35,7 +35,7 @@
         android:orientation="vertical">
         <TextView
             android:id="@+id/tvRecentWord"
-            style="@style/Sigla.Text.BodyStrong"
+            style="@style/MotionSpeak.Text.BodyStrong"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ellipsize="end"
@@ -43,7 +43,7 @@
             tools:text="Good Morning" />
         <TextView
             android:id="@+id/tvRecentMeta"
-            style="@style/Sigla.Text.Caption"
+            style="@style/MotionSpeak.Text.Caption"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             tools:text="Today · 9:41 AM" />

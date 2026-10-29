@@ -54,7 +54,7 @@ Translate Filipino Sign Language gestures and facial expressions into spoken and
 - **Landmark Extraction**: Automated pipelines using MediaPipe Holistic/Hands/Pose to extract 3D spatial coordinate sequences.
 - **Model Architectures**: Deep learning sequence classification models (LSTM / GRU / Bidirectional) optimized and quantized for mobile TFLite runtime.
 - **Facial Expression Pipeline**: Real-time facial action unit analysis and emotion classification.
-- **Offline Model Artifacts**: Pre-packaged models (`motionspeak.tflite`), label maps, and metadata in `motionspeak-mobile/model_file_v1/`.
+- **Offline Model Artifacts**: Pre-packaged models (`model.tflite`), label maps (`labels.txt`), and metadata (`meta.json`) bundled directly in `motionspeak-mobile/app/src/main/assets/`.
 
 ---
 

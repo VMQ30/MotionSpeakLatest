@@ -13,7 +13,7 @@ Run from `motionspeak-mobile/`:
 | Script | Writes | What it is |
 |---|---|---|
 | `make_launcher_icons.py` | `app/src/main/res/mipmap-*/ic_launcher*.webp` | Adaptive-icon foreground (all densities) plus legacy square/round icons for API 24-25. The adaptive background is the solid colour in `drawable/ic_launcher_background.xml`. |
-| `make_splash_icon.py` | `app/src/main/res/drawable-xxxhdpi/splash_icon.webp` | Logo with "SigLa" under it as one image, fitted to the system splash's 192dp visible circle. Used by the system splash and `SplashActivity`. |
+| `make_splash_icon.py` | `app/src/main/res/drawable-xxxhdpi/splash_icon.webp` | Logo with "MotionSpeak" under it as one image, fitted to the system splash's 192dp visible circle. Used by the system splash and `SplashActivity`. |
 
     python tools/make_launcher_icons.py ../docs/assets/favicon.svg app/src/main/res
     python tools/make_splash_icon.py ../docs/assets/favicon.svg \

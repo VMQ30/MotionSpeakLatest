@@ -6,9 +6,9 @@ import android.content.SharedPreferences
 class AppSettings(context: Context) {
 
     private val prefs: SharedPreferences =
-        context.getSharedPreferences("sigla_settings", Context.MODE_PRIVATE)
+        context.getSharedPreferences("motionspeak_settings", Context.MODE_PRIVATE)
     private val onboardingPrefs: SharedPreferences =
-        context.getSharedPreferences("sigla_onboarding", Context.MODE_PRIVATE)
+        context.getSharedPreferences("motionspeak_onboarding", Context.MODE_PRIVATE)
 
     companion object {
         private const val KEY_VOLUME = "volume"

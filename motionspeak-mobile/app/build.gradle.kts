@@ -55,7 +55,7 @@ android {
             applicationIdSuffix = ".dev"
             // Local backend for on-device testing (PC LAN IP, port 8080).
             // Requires the cleartext exception in network_security_config.xml.
-            buildConfigField("String", "BASE_URL", "\"https://siglaph.online/api/\"")
+            buildConfigField("String", "BASE_URL", "\"https://motionspeak.online/api/\"")
         }
         release {
             signingConfig = signingConfigs.getByName("release")
@@ -65,7 +65,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("String", "BASE_URL", "\"https://siglaph.online/api/\"")
+            buildConfigField("String", "BASE_URL", "\"https://motionspeak.online/api/\"")
         }
     }
     compileOptions {

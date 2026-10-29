@@ -7,8 +7,8 @@ from app.routers import model
 load_dotenv()
 
 app = FastAPI(
-    title="SIGLA ML Service",
-    description="Machine learning microservice for SIGLA — handles model training, testing, and deployment.",
+    title="MotionSpeak ML Service",
+    description="Machine learning microservice for MotionSpeak — handles model training, testing, and deployment.",
     version="1.0.0"
 )
 
@@ -30,7 +30,7 @@ app.include_router(model.router)
 @app.get("/")
 def root():
     return {
-        "service": "SIGLA ML Service",
+        "service": "MotionSpeak ML Service",
         "status":  "running",
         "version": "1.0.0"
     }

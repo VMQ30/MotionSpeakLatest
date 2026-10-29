@@ -24,19 +24,19 @@
         android:paddingEnd="@dimen/ms_screen_padding">
 
         <TextView
-            style="@style/Sigla.Text.Title"
+            style="@style/MotionSpeak.Text.Title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="History" />
         <TextView
-            style="@style/Sigla.Text.Caption"
+            style="@style/MotionSpeak.Text.Caption"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="What you've translated" />
 
         <!-- Summary card: entry count + Clear all -->
         <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.Sigla.Card.Brand"
+            style="@style/Widget.MotionSpeak.Card.Brand"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/ms_space_16">
@@ -50,7 +50,7 @@
 
                 <TextView
                     android:id="@+id/tvEntryCount"
-                    style="@style/Sigla.Text.BodyStrong"
+                    style="@style/MotionSpeak.Text.BodyStrong"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
@@ -59,7 +59,7 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnClearAll"
-                    style="@style/Widget.Sigla.Chip"
+                    style="@style/Widget.MotionSpeak.Chip"
                     android:text="Clear all"
                     app:backgroundTint="@color/ms_on_brand"
                     android:textColor="@color/ms_brand_text" />
@@ -105,13 +105,13 @@
                 </FrameLayout>
 
                 <TextView
-                    style="@style/Sigla.Text.CardTitle"
+                    style="@style/MotionSpeak.Text.CardTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/ms_space_16"
                     android:text="No translations yet" />
                 <TextView
-                    style="@style/Sigla.Text.Secondary"
+                    style="@style/MotionSpeak.Text.Secondary"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/ms_space_4"

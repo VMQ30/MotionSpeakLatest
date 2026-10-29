@@ -32,7 +32,7 @@
             android:paddingBottom="@dimen/ms_space_16">
 
             <TextView
-                style="@style/Sigla.Text.CardTitle"
+                style="@style/MotionSpeak.Text.CardTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Downloading demo videos"
@@ -52,7 +52,7 @@
 
             <TextView
                 android:id="@+id/tvDownloadCounter"
-                style="@style/Sigla.Text.BodyStrong"
+                style="@style/MotionSpeak.Text.BodyStrong"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Preparing…" />
@@ -70,7 +70,7 @@
 
             <TextView
                 android:id="@+id/tvDownloadCurrentWord"
-                style="@style/Sigla.Text.Caption"
+                style="@style/MotionSpeak.Text.Caption"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/ms_space_8"
@@ -87,7 +87,7 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnDownloadCancel"
-                    style="@style/Widget.Sigla.Chip"
+                    style="@style/Widget.MotionSpeak.Chip"
                     android:text="Cancel" />
             </LinearLayout>
         </LinearLayout>

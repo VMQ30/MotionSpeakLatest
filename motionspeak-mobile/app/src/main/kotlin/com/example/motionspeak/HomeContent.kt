@@ -44,10 +44,10 @@ internal fun dynamicRtcGreeting(
 
 
 /**
- * The Home stat banner. SigLa bridges signers and non-signers in the moment,
+ * The Home stat banner. MotionSpeak bridges signers and non-signers in the moment,
  * not a learning app, so these three describe capability and lifetime use
  * rather than a streak or a "words learned" score: words available (the word
- * bank's current size, what SigLa can recognize right now), translated today
+ * bank's current size, what MotionSpeak can recognize right now), translated today
  * (successful translations since local midnight, unaffected by deleting
  * history — see TranslationHistoryManager.getTranslatedToday), and favorites. Each
  * value comes from its own on-device source (word bank cache, history

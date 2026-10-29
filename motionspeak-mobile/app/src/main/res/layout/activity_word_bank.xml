@@ -31,20 +31,20 @@
                 android:layout_weight="1"
                 android:orientation="vertical">
                 <TextView
-                    style="@style/Sigla.Text.Title"
+                    style="@style/MotionSpeak.Text.Title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Word Bank" />
                 <TextView
                     android:id="@+id/tvWordBankSubtitle"
-                    style="@style/Sigla.Text.Caption"
+                    style="@style/MotionSpeak.Text.Caption"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="60 FSL signs" />
             </LinearLayout>
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDownloadAllVideos"
-                style="@style/Widget.Sigla.IconButton"
+                style="@style/Widget.MotionSpeak.IconButton"
                 android:contentDescription="Download all demo videos for offline use"
                 app:icon="@drawable/ic_download_all" />
         </LinearLayout>
@@ -67,7 +67,7 @@
                 android:tint="@color/ms_text_secondary" />
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etSearch"
-                style="@style/Sigla.Text.Body"
+                style="@style/MotionSpeak.Text.Body"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:layout_marginStart="@dimen/ms_space_12"
@@ -90,7 +90,7 @@
             tools:visibility="visible">
             <TextView
                 android:id="@+id/tvPracticeProgress"
-                style="@style/Sigla.Text.Caption"
+                style="@style/MotionSpeak.Text.Caption"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 tools:text="Practiced 12 of 60" />
@@ -131,7 +131,7 @@
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/pillAll"
-                        style="@style/Widget.Sigla.Chip"
+                        style="@style/Widget.MotionSpeak.Chip"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:minHeight="@dimen/ms_touch_min"
@@ -140,7 +140,7 @@
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/pillMedical"
-                        style="@style/Widget.Sigla.Chip"
+                        style="@style/Widget.MotionSpeak.Chip"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:minHeight="@dimen/ms_touch_min"
@@ -149,7 +149,7 @@
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/pillGeneral"
-                        style="@style/Widget.Sigla.Chip"
+                        style="@style/Widget.MotionSpeak.Chip"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:minHeight="@dimen/ms_touch_min"
@@ -158,7 +158,7 @@
             </HorizontalScrollView>
 
             <TextView
-                style="@style/Sigla.Text.Section"
+                style="@style/MotionSpeak.Text.Section"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/ms_space_8"
@@ -181,7 +181,7 @@
         <!-- List mode: search results -->
         <TextView
             android:id="@+id/tvEntryCount"
-            style="@style/Sigla.Text.Caption"
+            style="@style/MotionSpeak.Text.Caption"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/ms_space_16"
@@ -218,12 +218,12 @@
                 android:orientation="vertical"
                 android:visibility="gone">
                 <TextView
-                    style="@style/Sigla.Text.CardTitle"
+                    style="@style/MotionSpeak.Text.CardTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="No words found" />
                 <TextView
-                    style="@style/Sigla.Text.Secondary"
+                    style="@style/MotionSpeak.Text.Secondary"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/ms_space_4"

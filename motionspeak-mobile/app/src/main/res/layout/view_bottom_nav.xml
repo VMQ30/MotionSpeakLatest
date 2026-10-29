@@ -9,7 +9,7 @@
 
     <com.google.android.material.bottomappbar.BottomAppBar
         android:id="@+id/bottomAppBar"
-        style="@style/Widget.Sigla.BottomAppBar"
+        style="@style/Widget.MotionSpeak.BottomAppBar"
         android:layout_width="match_parent"
         android:layout_height="@dimen/ms_bottom_bar_height"
         android:layout_gravity="bottom">
@@ -19,17 +19,17 @@
             android:layout_height="match_parent"
             android:orientation="horizontal">
 
-            <LinearLayout android:id="@+id/tabHome" style="@style/Widget.Sigla.Tab">
-                <ImageView android:id="@+id/tabHomeIcon" style="@style/Widget.Sigla.TabIcon"
+            <LinearLayout android:id="@+id/tabHome" style="@style/Widget.MotionSpeak.Tab">
+                <ImageView android:id="@+id/tabHomeIcon" style="@style/Widget.MotionSpeak.TabIcon"
                     android:src="@drawable/ic_house_line" />
-                <TextView android:id="@+id/tabHomeLabel" style="@style/Widget.Sigla.TabLabel"
+                <TextView android:id="@+id/tabHomeLabel" style="@style/Widget.MotionSpeak.TabLabel"
                     android:text="Home" />
             </LinearLayout>
 
-            <LinearLayout android:id="@+id/tabWordBank" style="@style/Widget.Sigla.Tab">
-                <ImageView android:id="@+id/tabWordBankIcon" style="@style/Widget.Sigla.TabIcon"
+            <LinearLayout android:id="@+id/tabWordBank" style="@style/Widget.MotionSpeak.Tab">
+                <ImageView android:id="@+id/tabWordBankIcon" style="@style/Widget.MotionSpeak.TabIcon"
                     android:src="@drawable/ic_book_line" />
-                <TextView android:id="@+id/tabWordBankLabel" style="@style/Widget.Sigla.TabLabel"
+                <TextView android:id="@+id/tabWordBankLabel" style="@style/Widget.MotionSpeak.TabLabel"
                     android:text="Word Bank" />
             </LinearLayout>
 
@@ -39,17 +39,17 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1" />
 
-            <LinearLayout android:id="@+id/tabHistory" style="@style/Widget.Sigla.Tab">
-                <ImageView android:id="@+id/tabHistoryIcon" style="@style/Widget.Sigla.TabIcon"
+            <LinearLayout android:id="@+id/tabHistory" style="@style/Widget.MotionSpeak.Tab">
+                <ImageView android:id="@+id/tabHistoryIcon" style="@style/Widget.MotionSpeak.TabIcon"
                     android:src="@drawable/ic_history_line" />
-                <TextView android:id="@+id/tabHistoryLabel" style="@style/Widget.Sigla.TabLabel"
+                <TextView android:id="@+id/tabHistoryLabel" style="@style/Widget.MotionSpeak.TabLabel"
                     android:text="History" />
             </LinearLayout>
 
-            <LinearLayout android:id="@+id/tabSettings" style="@style/Widget.Sigla.Tab">
-                <ImageView android:id="@+id/tabSettingsIcon" style="@style/Widget.Sigla.TabIcon"
+            <LinearLayout android:id="@+id/tabSettings" style="@style/Widget.MotionSpeak.Tab">
+                <ImageView android:id="@+id/tabSettingsIcon" style="@style/Widget.MotionSpeak.TabIcon"
                     android:src="@drawable/ic_settings_line" />
-                <TextView android:id="@+id/tabSettingsLabel" style="@style/Widget.Sigla.TabLabel"
+                <TextView android:id="@+id/tabSettingsLabel" style="@style/Widget.MotionSpeak.TabLabel"
                     android:text="Settings" />
             </LinearLayout>
         </LinearLayout>

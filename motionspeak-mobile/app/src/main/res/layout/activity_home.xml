@@ -38,7 +38,7 @@
                     android:orientation="vertical">
                     <TextView
                         android:id="@+id/tvGreetingTitle"
-                        style="@style/Sigla.Text.Title"
+                        style="@style/MotionSpeak.Text.Title"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:textColor="@color/ms_home_accent"
@@ -49,7 +49,7 @@
                         tools:text="Hi Maria!" />
                     <TextView
                         android:id="@+id/tvGreetingSubtitle"
-                        style="@style/Sigla.Text.Secondary"
+                        style="@style/MotionSpeak.Text.Secondary"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:fontFamily="@font/poppins_bold"
@@ -60,7 +60,7 @@
 
                 <TextView
                     android:id="@+id/tvAvatar"
-                    style="@style/Sigla.Text.BodyStrong"
+                    style="@style/MotionSpeak.Text.BodyStrong"
                     android:layout_width="@dimen/ms_badge_size"
                     android:layout_height="@dimen/ms_badge_size"
                     android:layout_marginStart="@dimen/ms_space_12"
@@ -95,7 +95,7 @@
                     android:src="@drawable/ic_search_line"
                     android:tint="@color/ms_text_secondary" />
                 <TextView
-                    style="@style/Sigla.Text.Secondary"
+                    style="@style/MotionSpeak.Text.Secondary"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="@dimen/ms_space_12"
@@ -106,7 +106,7 @@
             <!-- Hero -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardHero"
-                style="@style/Widget.Sigla.Card.Tint"
+                style="@style/Widget.MotionSpeak.Card.Tint"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/ms_space_16"
@@ -130,21 +130,21 @@
                         android:clipToPadding="false"
                         android:orientation="vertical">
                         <TextView
-                            style="@style/Sigla.Text.CardTitle"
+                            style="@style/MotionSpeak.Text.CardTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:textColor="@color/ms_home_accent"
                             android:text="Start translating"
                             android:textSize="20sp" />
                         <TextView
-                            style="@style/Sigla.Text.Secondary"
+                            style="@style/MotionSpeak.Text.Secondary"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="@dimen/ms_space_4"
-                            android:text="Tap, sign one word, and SigLa reads it for you." />
+                            android:text="Tap, sign one word, and MotionSpeak reads it for you." />
                         <com.example.motionspeak.SiriLinearGradientButton
                             android:id="@+id/btnHeroStart"
-                            style="@style/Widget.Sigla.Button"
+                            style="@style/Widget.MotionSpeak.Button"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="@dimen/ms_space_12"
@@ -169,7 +169,7 @@
 
             <!-- Stats: one tint strip, three columns split by thin dividers -->
             <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.Sigla.Card.Tint"
+                style="@style/Widget.MotionSpeak.Card.Tint"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/ms_space_16">
@@ -187,11 +187,11 @@
                         android:layout_weight="1"
                         android:gravity="center_horizontal"
                         android:orientation="vertical">
-                        <TextView android:id="@+id/tvStatWords" style="@style/Sigla.Text.StatValue"
+                        <TextView android:id="@+id/tvStatWords" style="@style/MotionSpeak.Text.StatValue"
                             android:textColor="@color/ms_home_accent"
                             android:layout_width="wrap_content" android:layout_height="wrap_content"
                             tools:text="89" />
-                        <TextView style="@style/Sigla.Text.StatLabel"
+                        <TextView style="@style/MotionSpeak.Text.StatLabel"
                             android:layout_width="match_parent" android:layout_height="wrap_content"
                             android:gravity="center" android:text="Words" />
                     </LinearLayout>
@@ -205,11 +205,11 @@
                         android:layout_weight="1"
                         android:gravity="center_horizontal"
                         android:orientation="vertical">
-                        <TextView android:id="@+id/tvStatTotal" style="@style/Sigla.Text.StatValue"
+                        <TextView android:id="@+id/tvStatTotal" style="@style/MotionSpeak.Text.StatValue"
                             android:textColor="@color/ms_home_accent"
                             android:layout_width="wrap_content" android:layout_height="wrap_content"
                             tools:text="12" />
-                        <TextView style="@style/Sigla.Text.StatLabel"
+                        <TextView style="@style/MotionSpeak.Text.StatLabel"
                             android:layout_width="match_parent" android:layout_height="wrap_content"
                             android:gravity="center" android:text="Translated today" />
                     </LinearLayout>
@@ -223,11 +223,11 @@
                         android:layout_weight="1"
                         android:gravity="center_horizontal"
                         android:orientation="vertical">
-                        <TextView android:id="@+id/tvStatFavorites" style="@style/Sigla.Text.StatValue"
+                        <TextView android:id="@+id/tvStatFavorites" style="@style/MotionSpeak.Text.StatValue"
                             android:textColor="@color/ms_home_accent"
                             android:layout_width="wrap_content" android:layout_height="wrap_content"
                             tools:text="9" />
-                        <TextView style="@style/Sigla.Text.StatLabel"
+                        <TextView style="@style/MotionSpeak.Text.StatLabel"
                             android:layout_width="wrap_content" android:layout_height="wrap_content"
                             android:text="Favorites" />
                     </LinearLayout>
@@ -242,14 +242,14 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
                 <TextView
-                    style="@style/Sigla.Text.Section"
+                    style="@style/MotionSpeak.Text.Section"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Categories" />
                 <TextView
                     android:id="@+id/tvCategoriesViewAll"
-                    style="@style/Sigla.Text.Link"
+                    style="@style/MotionSpeak.Text.Link"
                     android:textColor="@color/ms_home_accent"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -272,7 +272,7 @@
 
             <TextView
                 android:id="@+id/tvCategoriesEmpty"
-                style="@style/Sigla.Text.Secondary"
+                style="@style/MotionSpeak.Text.Secondary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Connect to the internet once to download the word bank."
@@ -286,14 +286,14 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
                 <TextView
-                    style="@style/Sigla.Text.Section"
+                    style="@style/MotionSpeak.Text.Section"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Recent translations" />
                 <TextView
                     android:id="@+id/tvRecentViewAll"
-                    style="@style/Sigla.Text.Link"
+                    style="@style/MotionSpeak.Text.Link"
                     android:textColor="@color/ms_home_accent"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -316,7 +316,7 @@
                 android:orientation="vertical"
                 android:visibility="gone">
                 <TextView
-                    style="@style/Sigla.Text.Secondary"
+                    style="@style/MotionSpeak.Text.Secondary"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Your translations will appear here." />
