@@ -21,8 +21,11 @@ data class WordBankWord(
     val thumbnail_url: String? = null,
     val video_url: String? = null,
     val filipino_translation: String? = null,
-    /** "words" | "letters" from the backend; null in word banks cached before it was sent. */
-    val vocabulary: String? = null
+    val vocabulary: String? = null,
+    val usage_notes: String? = null,
+    val example_sentence_filipino: String? = null,
+    val example_sentence_english: String? = null,
+    val regional_variants: String? = null
 )
 
 data class WordBankResponse(val words: List<WordBankWord>)

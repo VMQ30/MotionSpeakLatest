@@ -58,6 +58,14 @@
                     tools:text="0 / 200 entries kept" />
 
                 <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnExportHistory"
+                    style="@style/Widget.Sigla.Chip"
+                    android:layout_marginEnd="@dimen/ms_space_8"
+                    android:text="Export"
+                    app:backgroundTint="@color/ms_on_brand"
+                    android:textColor="@color/ms_brand_text" />
+
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnClearAll"
                     style="@style/Widget.Sigla.Chip"
                     android:text="Clear all"

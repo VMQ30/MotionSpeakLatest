@@ -3,18 +3,9 @@ package com.example.motionspeak
 import android.util.Log
 
 /**
- * Temporary stage-level timing for the camera → MediaPipe → LSTM pipeline.
- *
- * PredictionService already reports LSTM latency, but that only covers
- * `interp.run()`. When the preview feels laggy the cost is just as often in the
- * stages around it — the two per-frame bitmap allocations, the MediaPipe graph
- * itself, or the feature canonicalization on the callback thread — and none of
- * those were measured. Guessing between them is what this exists to avoid.
- *
- * Debug-only (see [PIPELINE_PROFILING]); every call site is behind that flag so
- * release builds do not even evaluate the timestamps.
- *
- * Remove once the bottleneck is identified and fixed.
+ * Stage-level timing for the camera → MediaPipe → LSTM pipeline.
+ * Measures camera latency, MediaPipe parsing times, and computes
+ * p50, p95, and p99 percentile latencies across Android hardware.
  */
 object PipelineProfiler {
 
@@ -35,11 +26,13 @@ object PipelineProfiler {
     private var canonicalizeSum    = 0.0
     private var processFrameSum    = 0.0
 
-    // Wall-clock gap between consecutive frames arriving at the analyzer, which is
-    // what actually determines the perceived frame rate.
+    // Wall-clock gap between consecutive frames arriving at the analyzer
     private var lastFrameNs = 0L
     private var interFrameSum = 0.0
     private var interFrameMax = 0.0
+
+    // Rolling latency window for p50, p95, p99 calculation
+    private val latencyHistory = ArrayList<Double>(120)
 
     fun recordCamera(toBitmapMs: Double, prepareMs: Double, submitMs: Double) {
         synchronized(lock) {
@@ -51,6 +44,10 @@ object PipelineProfiler {
             }
             lastFrameNs = now
 
+            val totalFrameMs = toBitmapMs + prepareMs + submitMs
+            if (latencyHistory.size >= 120) latencyHistory.removeAt(0)
+            latencyHistory.add(totalFrameMs)
+
             frames++
             toBitmapSum += toBitmapMs
             prepareSum  += prepareMs
@@ -58,12 +55,14 @@ object PipelineProfiler {
 
             if (frames >= REPORT_EVERY) {
                 val n = frames.toDouble()
+                val (p50, p95, p99) = getPercentiles()
                 Log.d(TAG, "camera thread over $frames frames: " +
-                    "toBitmap=%.2fms prepare=%.2fms submit=%.2fms | interFrame avg=%.1fms max=%.1fms (%.1f fps)"
+                    "toBitmap=%.2fms prepare=%.2fms submit=%.2fms | interFrame avg=%.1fms (%.1f fps) | p50=%.1fms p95=%.1fms p99=%.1fms"
                         .format(
                             toBitmapSum / n, prepareSum / n, submitSum / n,
-                            interFrameSum / n, interFrameMax,
-                            if (interFrameSum > 0) 1000.0 / (interFrameSum / n) else 0.0
+                            interFrameSum / n,
+                            if (interFrameSum > 0) 1000.0 / (interFrameSum / n) else 0.0,
+                            p50, p95, p99
                         ))
                 frames = 0
                 toBitmapSum = 0.0; prepareSum = 0.0; submitSum = 0.0
@@ -87,6 +86,18 @@ object PipelineProfiler {
                 callbacks = 0
                 canonicalizeSum = 0.0; processFrameSum = 0.0; parseToCallbackSum = 0.0
             }
+        }
+    }
+
+    fun getPercentiles(): Triple<Double, Double, Double> {
+        synchronized(lock) {
+            if (latencyHistory.isEmpty()) return Triple(0.0, 0.0, 0.0)
+            val sorted = latencyHistory.sorted()
+            val n = sorted.size
+            val p50 = sorted[(n * 0.50).toInt().coerceIn(0, n - 1)]
+            val p95 = sorted[(n * 0.95).toInt().coerceIn(0, n - 1)]
+            val p99 = sorted[(n * 0.99).toInt().coerceIn(0, n - 1)]
+            return Triple(p50, p95, p99)
         }
     }
 }

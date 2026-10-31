@@ -58,7 +58,12 @@ android {
             buildConfigField("String", "BASE_URL", "\"https://siglaph.online/api/\"")
         }
         release {
-            signingConfig = signingConfigs.getByName("release")
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile?.exists() == true) {
+                signingConfig = releaseSigning
+            } else {
+                signingConfig = signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

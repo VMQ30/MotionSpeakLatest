@@ -12,6 +12,21 @@ private const val DEFAULT_SEQUENCE_LENGTH = MotionPreprocessor.SEQUENCE_LENGTH
 private const val LEFT_FLAG = MotionPreprocessor.LEFT_FLAG
 private const val RIGHT_FLAG = MotionPreprocessor.RIGHT_FLAG
 
+enum class ConfidenceTier { HIGH, MODERATE, LOW }
+
+data class PredictionAlternative(
+    val label: String,
+    val confidence: Float
+)
+
+data class PredictionDecision(
+    val topLabel: String,
+    val confidence: Float,
+    val tier: ConfidenceTier,
+    val alternatives: List<PredictionAlternative>,
+    val uncertaintyReason: String? = null
+)
+
 internal data class ModelMeta(
     val frames: Int = 30,
     val numFeatures: Int = 173,
@@ -56,6 +71,7 @@ class PredictionService(private val context: Context) {
         private set
 
     var onResult: ((String) -> Unit)? = null
+    var onDecision: ((PredictionDecision) -> Unit)? = null
     var onCollecting: ((Float) -> Unit)? = null
 
     fun init() {
@@ -167,6 +183,7 @@ class PredictionService(private val context: Context) {
         val resampled = MotionPreprocessor.resample(active, sequenceLength)
 
         // 4. Construct input tensor dynamically based on model specification
+        val settings = AppSettings.getInstance(context)
         MotionPreprocessor.prepareModelInput(
             resampled = resampled,
             target = inputBuffer[0],
@@ -174,7 +191,9 @@ class PredictionService(private val context: Context) {
             handShape = modelMeta.handShape || (numFeatures >= 299),
             motion = modelMeta.motion || (numFeatures >= 350),
             noZ = modelMeta.noZ,
-            motionScale = modelMeta.motionScale
+            motionScale = modelMeta.motionScale,
+            signerHandScale = settings.signerHandScale,
+            signerSpeedFactor = settings.signerSpeedFactor
         )
 
         // 5. Run TFLite inference safely inside try-catch
@@ -185,20 +204,53 @@ class PredictionService(private val context: Context) {
             return false
         }
 
-        var maxIdx = 0
-        var maxConf = 0f
+        val candidates = ArrayList<Pair<Int, Float>>(numClasses)
         for (i in 0 until numClasses) {
-            val score = outputBuffer[0][i]
-            if (score > maxConf) {
-                maxConf = score
-                maxIdx = i
-            }
+            candidates.add(i to outputBuffer[0][i])
+        }
+        candidates.sortByDescending { it.second }
+
+        val top1 = candidates.getOrNull(0) ?: return false
+        val topIdx = top1.first
+        val topConf = top1.second
+        val topLabel = labels.getOrElse(topIdx) { "Unknown" }
+
+        val topAlternatives = candidates.take(3).map { (idx, conf) ->
+            PredictionAlternative(labels.getOrElse(idx) { "Unknown" }, conf)
         }
 
-        // Firing threshold: emit when confident (model achieves >95% confidence on valid signs)
-        if (maxConf >= 0.70f) {
-            val label = labels.getOrElse(maxIdx) { "Unknown" }
-            onResult?.invoke(label)
+        val tier = when {
+            topConf >= 0.75f -> ConfidenceTier.HIGH
+            topConf >= 0.45f -> ConfidenceTier.MODERATE
+            else -> ConfidenceTier.LOW
+        }
+
+        val second = candidates.getOrNull(1)
+        val diff = if (second != null) topConf - second.second else 1.0f
+        val uncertaintyReason = when {
+            tier == ConfidenceTier.LOW -> "Gesture confidence low (${(topConf * 100).toInt()}%). Please repeat the gesture."
+            tier == ConfidenceTier.MODERATE && diff < 0.15f && second != null -> {
+                val secondLabel = labels.getOrElse(second.first) { "Unknown" }
+                "Uncertain between $topLabel and $secondLabel. Tap your intended sign."
+            }
+            tier == ConfidenceTier.MODERATE -> "Moderate confidence (${(topConf * 100).toInt()}%). Tap to confirm or re-sign."
+            else -> null
+        }
+
+        val decision = PredictionDecision(
+            topLabel = topLabel,
+            confidence = topConf,
+            tier = tier,
+            alternatives = topAlternatives,
+            uncertaintyReason = uncertaintyReason
+        )
+
+        onDecision?.invoke(decision)
+
+        if (tier == ConfidenceTier.HIGH || tier == ConfidenceTier.MODERATE) {
+            if (onDecision == null) {
+                onResult?.invoke(topLabel)
+            }
             return true
         }
         return false

@@ -24,7 +24,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Sigla"
-        android:usesCleartextTraffic="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         tools:replace="android:allowBackup,android:icon,android:label,android:theme"
 >
 
@@ -112,6 +113,16 @@
             android:launchMode="singleTask"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.Sigla.Sos" />
+
+        <activity
+            android:name=".SignerCalibrationActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".TwoWayConversationActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
         
 
     </application>

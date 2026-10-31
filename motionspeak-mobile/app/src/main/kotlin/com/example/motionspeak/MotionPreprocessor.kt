@@ -95,7 +95,9 @@ object MotionPreprocessor {
         handShape: Boolean = (numFeatures >= 299),
         motion: Boolean = (numFeatures >= 350),
         noZ: Boolean = true,
-        motionScale: Float = MOTION_SCALE
+        motionScale: Float = MOTION_SCALE,
+        signerHandScale: Float = 1.0f,
+        signerSpeedFactor: Float = 1.0f
     ) {
         val m = resampled.size
         // 1. Copy base features

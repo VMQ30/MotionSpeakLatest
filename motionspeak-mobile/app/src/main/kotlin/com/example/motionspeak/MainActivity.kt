@@ -244,8 +244,37 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupCallbacks() {
         val predictor = this.predictor ?: return
-        predictor.onResult = { label -> runOnUiThread { showResult(label) } }
+        var inferenceStartMs = 0L
+
+        predictor.onDecision = { decision ->
+            val latencyMs = if (inferenceStartMs > 0L) (SystemClock.elapsedRealtime() - inferenceStartMs) else 20L
+            AnalyticsManager.getInstance(applicationContext).recordPrediction(decision, latencyMs)
+
+            runOnUiThread {
+                when (decision.tier) {
+                    ConfidenceTier.HIGH -> {
+                        showResult(decision.topLabel)
+                    }
+                    ConfidenceTier.MODERATE -> {
+                        showResult(decision.topLabel)
+                        if (decision.uncertaintyReason != null) {
+                            Toast.makeText(this@MainActivity, decision.uncertaintyReason, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    ConfidenceTier.LOW -> {
+                        Haptics.reject(binding.root)
+                        Toast.makeText(this@MainActivity, decision.uncertaintyReason ?: "Low confidence. Please repeat the gesture.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+
         predictor.onCollecting = { progress ->
+            if (progress > 0.05f && inferenceStartMs == 0L) {
+                inferenceStartMs = SystemClock.elapsedRealtime()
+            } else if (progress <= 0f) {
+                inferenceStartMs = 0L
+            }
             val pct = (progress.coerceIn(0f, 1f) * 100).toInt().coerceIn(0, 100)
             pendingCollectPct = pct
             runOnUiThread {
@@ -672,12 +701,25 @@ class MainActivity : AppCompatActivity() {
             .setOutputImageRotationEnabled(true)
             .build()
 
+        var lastFrameTimeMs = 0L
+        var dropAlternateFrame = false
+
         analysis.setAnalyzer(executor) { imageProxy ->
             val lm = landmarker
             if (lm == null) {
                 imageProxy.close()
                 return@setAnalyzer
             }
+
+            val nowRealtime = SystemClock.elapsedRealtime()
+            if (lastFrameTimeMs > 0L && (nowRealtime - lastFrameTimeMs) > 40L) {
+                dropAlternateFrame = !dropAlternateFrame
+                if (dropAlternateFrame) {
+                    imageProxy.close()
+                    return@setAnalyzer
+                }
+            }
+            lastFrameTimeMs = nowRealtime
 
             CaptureRateMonitor.onFrame()
             val bitmap          = imageProxy.toBitmap()
@@ -687,36 +729,41 @@ class MainActivity : AppCompatActivity() {
                 bitmap.recycle()
             }
 
-            // --- EMOTION PIPELINE ---
-            val now = System.currentTimeMillis()
-            if (now - lastEmotionCheckTime > 500L) {
-                lastEmotionCheckTime = now
-                val classifier = emotionClassifier
-                if (classifier != null && emotionInFlight.compareAndSet(false, true)) {
-                    emotionExecutor.execute {
-                        try {
-                            val result = classifier.predictTone(prepared)
-                            if (result != null) {
-                                val emotionLabel = result.first.replaceFirstChar { it.uppercase() }
-                                val tone = ToneMapper.fromEmotion(emotionLabel)
-                                sentenceComposer?.currentTone = SentenceTone.fromToneString(tone)
-                                Log.i("MotionSpeak", "Emotion: $emotionLabel -> Tone: $tone")
-                                runOnUiThread {
-                                    binding.overlayView.setDetectedEmotion(emotionLabel)
+            // --- EMOTION & NON-MANUAL MARKERS PIPELINE ---
+            if (appSettings.isFacialAnalysisEnabled) {
+                val now = System.currentTimeMillis()
+                if (now - lastEmotionCheckTime > 500L) {
+                    lastEmotionCheckTime = now
+                    val classifier = emotionClassifier
+                    if (classifier != null && emotionInFlight.compareAndSet(false, true)) {
+                        emotionExecutor.execute {
+                            try {
+                                val result = classifier.predictTone(prepared)
+                                if (result != null) {
+                                    val emotionLabel = result.first.replaceFirstChar { it.uppercase() }
+                                    val tone = ToneMapper.fromEmotion(emotionLabel)
+                                    sentenceComposer?.currentTone = SentenceTone.fromToneString(tone)
+                                    Log.i("MotionSpeak", "Emotion: $emotionLabel -> Tone: $tone")
+                                    runOnUiThread {
+                                        binding.overlayView.setDetectedEmotion(emotionLabel)
+                                    }
+                                } else {
+                                    sentenceComposer?.currentTone = SentenceTone.NEUTRAL
+                                    runOnUiThread {
+                                        binding.overlayView.setDetectedEmotion(null)
+                                    }
                                 }
-                            } else {
-                                sentenceComposer?.currentTone = SentenceTone.NEUTRAL
-                                runOnUiThread {
-                                    binding.overlayView.setDetectedEmotion(null)
-                                }
+                            } finally {
+                                emotionInFlight.set(false)
                             }
-                        } finally {
-                            emotionInFlight.set(false)
                         }
                     }
                 }
+            } else {
+                sentenceComposer?.currentTone = SentenceTone.NEUTRAL
+                runOnUiThread { binding.overlayView.setDetectedEmotion(null) }
             }
-            // ------------------------------
+            // ---------------------------------------------
 
             lm.detectAsync(prepared, SystemClock.elapsedRealtime())
             imageProxy.close()

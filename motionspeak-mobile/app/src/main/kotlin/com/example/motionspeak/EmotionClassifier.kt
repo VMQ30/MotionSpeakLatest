@@ -14,6 +14,13 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 
+data class FacialAnalysisResult(
+    val affectiveEmotion: String,
+    val affectiveConfidence: Float,
+    val isQuestionMarker: Boolean,
+    val isNegationMarker: Boolean
+)
+
 class EmotionClassifier(private val context: Context) {
     private var faceLandmarker: FaceLandmarker? = null
     private var emotionInterpreter: Interpreter? = null
@@ -21,6 +28,11 @@ class EmotionClassifier(private val context: Context) {
     /** Latest face landmark coordinates (x,y pairs) for overlay rendering. */
     @Volatile var lastFaceLandmarks: List<FloatArray> = emptyList()
         private set
+
+    /** Latest grammatical non-manual markers: (isQuestionMarker, isNegationMarker). */
+    @Volatile var latestLinguisticMarkers: Pair<Boolean, Boolean> = Pair(false, false)
+        private set
+
 
     private val emotionLabels = listOf(
         "angry", "contempt", "disgust", "fear", "happy", "neutral", "sad", "surprise"
@@ -63,6 +75,11 @@ class EmotionClassifier(private val context: Context) {
      */
     @Synchronized
     fun predictTone(bitmap: Bitmap): Pair<String, Float>? {
+        if (!AppSettings.getInstance(context).isFacialAnalysisEnabled) {
+            lastFaceLandmarks = emptyList()
+            latestLinguisticMarkers = Pair(false, false)
+            return null
+        }
         val fl = faceLandmarker ?: return null
         val interp = emotionInterpreter ?: return null
 
@@ -98,6 +115,21 @@ class EmotionClassifier(private val context: Context) {
             maxX = (maxX + w * 0.15f).coerceAtMost(1f)
             minY = (minY - h * 0.15f).coerceAtLeast(0f)
             maxY = (maxY + h * 0.15f).coerceAtMost(1f)
+
+            // Calculate grammatical non-manual markers from facial geometry
+            // Brows: landmark 70 (left), 300 (right); Upper eyelids: 159 (left), 386 (right)
+            var isQuestion = false
+            var isNegation = false
+            if (face.size >= 400) {
+                val dyLeft = kotlin.math.abs(face[159].y() - face[70].y())
+                val dyRight = kotlin.math.abs(face[386].y() - face[300].y())
+                val avgBrowDist = (dyLeft + dyRight) / 2f
+                val faceH = (maxY - minY).coerceAtLeast(0.01f)
+                val normBrow = avgBrowDist / faceH
+                isQuestion = normBrow > 0.085f
+                isNegation = normBrow < 0.045f
+            }
+            latestLinguisticMarkers = Pair(isQuestion, isNegation)
 
             // 2. Crop the bitmap safely within bitmap dimensions
             val left = (minX * bitmap.width).toInt().coerceIn(0, (bitmap.width - 1).coerceAtLeast(0))

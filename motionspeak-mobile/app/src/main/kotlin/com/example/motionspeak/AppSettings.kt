@@ -28,6 +28,10 @@ class AppSettings(context: Context) {
         private const val KEY_SENTENCE_LANGUAGE = "sentence_language"
         private const val KEY_SENTENCE_PAUSE_MS = "sentence_pause_ms"
         private const val DEFAULT_DARK_MODE = false
+        private const val KEY_RECORD_HISTORY = "record_translation_history"
+        private const val KEY_FACIAL_ANALYSIS_ENABLED = "facial_analysis_enabled"
+        private const val KEY_SIGNER_HAND_SCALE = "signer_hand_scale"
+        private const val KEY_SIGNER_SPEED_FACTOR = "signer_speed_factor"
 
         const val VOICE_FEMALE = "female"
         const val VOICE_MALE = "male"
@@ -126,6 +130,22 @@ class AppSettings(context: Context) {
         get() = prefs.getString(KEY_SENTENCE_LANGUAGE, "en") ?: "en"
         set(v) = prefs.edit().putString(KEY_SENTENCE_LANGUAGE, v).apply()
 
+    var recordTranslationHistory: Boolean
+        get() = prefs.getBoolean(KEY_RECORD_HISTORY, true)
+        set(v) = prefs.edit().putBoolean(KEY_RECORD_HISTORY, v).apply()
+
+    var isFacialAnalysisEnabled: Boolean
+        get() = prefs.getBoolean(KEY_FACIAL_ANALYSIS_ENABLED, true)
+        set(v) = prefs.edit().putBoolean(KEY_FACIAL_ANALYSIS_ENABLED, v).apply()
+
+    var signerHandScale: Float
+        get() = prefs.getFloat(KEY_SIGNER_HAND_SCALE, 1.0f)
+        set(v) = prefs.edit().putFloat(KEY_SIGNER_HAND_SCALE, v).apply()
+
+    var signerSpeedFactor: Float
+        get() = prefs.getFloat(KEY_SIGNER_SPEED_FACTOR, 1.0f)
+        set(v) = prefs.edit().putFloat(KEY_SIGNER_SPEED_FACTOR, v).apply()
+
     var sentencePauseDurationMs: Long
         get() = prefs.getLong(KEY_SENTENCE_PAUSE_MS, 2000L)
         set(v) = prefs.edit().putLong(KEY_SENTENCE_PAUSE_MS, v).apply()
@@ -141,6 +161,10 @@ class AppSettings(context: Context) {
             .putBoolean(KEY_LLM_SYNTHESIS_ENABLED, true)
             .putString(KEY_SENTENCE_LANGUAGE, "en")
             .putLong(KEY_SENTENCE_PAUSE_MS, 2000L)
+            .putBoolean(KEY_RECORD_HISTORY, true)
+            .putBoolean(KEY_FACIAL_ANALYSIS_ENABLED, true)
+            .putFloat(KEY_SIGNER_HAND_SCALE, 1.0f)
+            .putFloat(KEY_SIGNER_SPEED_FACTOR, 1.0f)
             .apply()
     }
 }

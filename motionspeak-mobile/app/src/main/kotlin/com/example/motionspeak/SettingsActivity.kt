@@ -75,6 +75,8 @@ class SettingsActivity : BaseActivity() {
         bindDarkModeSwitch()
         bindHapticToggle()
         bindSentenceSynthesisControls()
+        bindPrivacyControls()
+        bindAdvancedTools()
         bindResetButton()
         bindReplayTutorial()
     }
@@ -120,6 +122,10 @@ class SettingsActivity : BaseActivity() {
         val darkSwitch = findViewById<SwitchMaterial>(R.id.switchDarkMode)
         darkSwitch?.isChecked = currentDarkMode
         updateDarkModeSubtitle(currentDarkMode)
+
+        // Privacy controls
+        findViewById<SwitchMaterial>(R.id.switchRecordHistory)?.isChecked = appSettings.recordTranslationHistory
+        findViewById<SwitchMaterial>(R.id.switchFacialAnalysis)?.isChecked = appSettings.isFacialAnalysisEnabled
     }
 
     // ── Volume ────────────────────────────────────────────────────────────────
@@ -319,6 +325,60 @@ class SettingsActivity : BaseActivity() {
         style(btnOff,   mode == AppSettings.HAPTIC_OFF)
         style(btnLight, mode == AppSettings.HAPTIC_LIGHT)
         style(btnMax,   mode == AppSettings.HAPTIC_MAX)
+    }
+
+    // ── Privacy & Advanced Tools ──────────────────────────────────────────
+
+    private fun bindPrivacyControls() {
+        val switchHistory = findViewById<SwitchMaterial>(R.id.switchRecordHistory)
+        switchHistory?.isChecked = appSettings.recordTranslationHistory
+        switchHistory?.setOnCheckedChangeListener { _, isChecked ->
+            appSettings.recordTranslationHistory = isChecked
+        }
+
+        val switchFacial = findViewById<SwitchMaterial>(R.id.switchFacialAnalysis)
+        switchFacial?.isChecked = appSettings.isFacialAnalysisEnabled
+        switchFacial?.setOnCheckedChangeListener { _, isChecked ->
+            appSettings.isFacialAnalysisEnabled = isChecked
+        }
+    }
+
+    private fun bindAdvancedTools() {
+        findViewById<View>(R.id.rowSignerCalibration)?.setOnClickListener {
+            startActivity(Intent(this, SignerCalibrationActivity::class.java))
+        }
+
+        findViewById<View>(R.id.rowTwoWayConversation)?.setOnClickListener {
+            startActivity(Intent(this, TwoWayConversationActivity::class.java))
+        }
+
+        findViewById<View>(R.id.rowDiagnostics)?.setOnClickListener {
+            showDiagnosticsDialog()
+        }
+    }
+
+    private fun showDiagnosticsDialog() {
+        val (p50, p95, p99) = PipelineProfiler.getPercentiles()
+        val summary = AnalyticsManager.getInstance(this).getSummary()
+
+        val msg = """
+• Model: motionspeak.tflite (On-device TFLite)
+• Security: Hardware-backed KeyStore encryption
+• Total Inferences: ${summary.totalInferences}
+• Average Latency: ${"%.1f".format(summary.averageLatencyMs)} ms
+• Pipeline Latency Percentiles:
+    p50: ${"%.1f".format(p50)} ms | p95: ${"%.1f".format(p95)} ms | p99: ${"%.1f".format(p99)} ms
+• Confidence Distribution:
+    High: ${summary.highConfidenceCount} | Moderate: ${summary.moderateConfidenceCount} | Low: ${summary.lowConfidenceCount}
+• Signer Calibration:
+    Hand Scale: ${"%.2f".format(appSettings.signerHandScale)}x | Speed Factor: ${"%.2f".format(appSettings.signerSpeedFactor)}x
+        """.trimIndent()
+
+        AlertDialog.Builder(this)
+            .setTitle("System & Model Diagnostics")
+            .setMessage(msg)
+            .setPositiveButton("Close", null)
+            .show()
     }
 
     // ── Sentence Generation (LLM) ─────────────────────────────────────────────

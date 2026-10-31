@@ -17,6 +17,7 @@ data class TranslationEntry(
 
 class TranslationHistoryManager private constructor(context: Context) {
 
+    private val prefsContext: Context = context.applicationContext
     private val prefs: SharedPreferences =
         context.getSharedPreferences("sigla_history", Context.MODE_PRIVATE)
     private val gson = Gson()
@@ -74,11 +75,12 @@ class TranslationHistoryManager private constructor(context: Context) {
     fun getAll(): List<TranslationEntry> {
         cache?.let { return it }
 
-        val json = prefs.getString(KEY_HISTORY, null)
-        val list: List<TranslationEntry> = if (json == null) {
+        val raw = prefs.getString(KEY_HISTORY, null)
+        val list: List<TranslationEntry> = if (raw == null) {
             emptyList()
         } else {
             try {
+                val json = CryptoManager.decrypt(raw)
                 gson.fromJson<List<TranslationEntry>>(json, listType)
                     .sortedByDescending { it.timestamp }
             } catch (e: Exception) {
@@ -91,6 +93,8 @@ class TranslationHistoryManager private constructor(context: Context) {
 
     @Synchronized
     fun add(word: String, confidence: Int, gestureType: String, rawTokens: String? = null) {
+        val appSettings = AppSettings.getInstance(prefsContext)
+        if (!appSettings.recordTranslationHistory) return
         // Read before the new entry is saved: a first-ever call seeds from today's
         // history, which must not already include this entry.
         val todayBefore = getTranslatedToday()
@@ -195,7 +199,8 @@ class TranslationHistoryManager private constructor(context: Context) {
     private fun saveToPrefs(entries: List<TranslationEntry>) {
         cache = entries
         val json = gson.toJson(entries)
-        prefs.edit().putString(KEY_HISTORY, json).apply()
+        val encrypted = CryptoManager.encrypt(json)
+        prefs.edit().putString(KEY_HISTORY, encrypted).apply()
     }
 
     fun setTranslation(word: String, translation: String) {
@@ -209,4 +214,27 @@ class TranslationHistoryManager private constructor(context: Context) {
      * Filipino translation in the word bank.
      */
     fun getTranslation(word: String): String? = translationPrefs.getString(word.lowercase(), null)
+
+    fun exportHistoryText(): String {
+        val entries = getAll()
+        val sb = StringBuilder()
+        sb.append("MotionSpeak Translation History Export\n")
+        sb.append("Generated: ${formatDate(System.currentTimeMillis())} ${formatTime(System.currentTimeMillis())}\n")
+        sb.append("Total entries: ${entries.size}\n\n")
+        for ((index, entry) in entries.withIndex()) {
+            sb.append("${index + 1}. [${formatDate(entry.timestamp)} ${formatTime(entry.timestamp)}] ")
+            sb.append("${entry.word} (${entry.confidence}% confidence, ${entry.gestureType})\n")
+        }
+        return sb.toString()
+    }
+
+    @Synchronized
+    fun clearAllHistory() {
+        cache = emptyList()
+        prefs.edit()
+            .remove(KEY_HISTORY)
+            .putInt(KEY_TOTAL_TRANSLATED, 0)
+            .putInt(KEY_TODAY_COUNT, 0)
+            .apply()
+    }
 }

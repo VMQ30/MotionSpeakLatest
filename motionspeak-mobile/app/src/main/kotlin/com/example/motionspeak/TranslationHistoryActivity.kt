@@ -16,6 +16,7 @@ import com.google.android.material.button.MaterialButton
 
 class TranslationHistoryActivity : BaseActivity() {
 
+    private lateinit var btnExportHistory: MaterialButton
     private lateinit var btnClearAll: MaterialButton
     private lateinit var rvHistory: RecyclerView
     private lateinit var emptyState: View
@@ -56,6 +57,7 @@ class TranslationHistoryActivity : BaseActivity() {
     // ── Views ─────────────────────────────────────────────────────────────────
 
     private fun bindViews() {
+        btnExportHistory = findViewById(R.id.btnExportHistory)
         btnClearAll  = findViewById(R.id.btnClearAll)
         rvHistory    = findViewById(R.id.rvHistory)
         emptyState   = findViewById(R.id.emptyState)
@@ -130,7 +132,33 @@ class TranslationHistoryActivity : BaseActivity() {
     // ── Listeners ─────────────────────────────────────────────────────────────
 
     private fun wireListeners() {
+        btnExportHistory.setOnClickListener { confirmExport() }
         btnClearAll.setOnClickListener { confirmClearAll() }
+    }
+
+    private fun confirmExport() {
+        val view = layoutInflater.inflate(R.layout.dialog_confirm_action, null)
+        val dialog = AlertDialog.Builder(this).setView(view).create()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        view.findViewById<TextView>(R.id.tvConfirmTitle).text = "Export Translation History?"
+        view.findViewById<TextView>(R.id.tvConfirmMessage).text =
+            "User confirmation is required before exporting or sharing your recorded translations."
+        view.findViewById<MaterialButton>(R.id.btnConfirmAction).text = "Export"
+
+        view.findViewById<MaterialButton>(R.id.btnConfirmCancel).setOnClickListener { dialog.dismiss() }
+        view.findViewById<MaterialButton>(R.id.btnConfirmAction).setOnClickListener {
+            dialog.dismiss()
+            val text = historyManager.exportHistoryText()
+            val sendIntent = android.content.Intent().apply {
+                action = android.content.Intent.ACTION_SEND
+                putExtra(android.content.Intent.EXTRA_TEXT, text)
+                type = "text/plain"
+            }
+            startActivity(android.content.Intent.createChooser(sendIntent, "Export Translations"))
+        }
+
+        dialog.show()
     }
 
     // ── Delete helpers ────────────────────────────────────────────────────────
@@ -147,7 +175,7 @@ class TranslationHistoryActivity : BaseActivity() {
 
         view.findViewById<MaterialButton>(R.id.btnConfirmCancel).setOnClickListener { dialog.dismiss() }
         view.findViewById<MaterialButton>(R.id.btnConfirmAction).setOnClickListener {
-            historyManager.clearAll()
+            historyManager.clearAllHistory()
             refreshList()
             dialog.dismiss()
         }
@@ -162,6 +190,7 @@ class TranslationHistoryActivity : BaseActivity() {
         tvEntryCount.text     = "$count / $MAX_ENTRIES entries kept"
         emptyState.showEmptyState(count == 0)
         rvHistory.visibility  = if (count == 0) View.GONE   else View.VISIBLE
+        btnExportHistory.isEnabled = count > 0
         btnClearAll.isEnabled = count > 0
     }
 

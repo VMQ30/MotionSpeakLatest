@@ -173,9 +173,9 @@ object ModelUpdateManager {
             val wordsFile = getInstalledModelFile(context, "sign_model_motion.tflite")
             val lettersFile = getInstalledModelFile(context, "sign_model_letters.tflite")
             val checksumsMatch =
-                (words.checksum.isNullOrBlank() ||
+                (!words.checksum.isNullOrBlank() &&
                     (wordsFile.exists() && computeSha256(wordsFile).equals(words.checksum, true))) &&
-                (letters.checksum.isNullOrBlank() ||
+                (!letters.checksum.isNullOrBlank() &&
                     (lettersFile.exists() && computeSha256(lettersFile).equals(letters.checksum, true)))
 
             if (!force && current == deploymentVersion && hasCompleteLocalPair(context) && checksumsMatch) {
@@ -216,7 +216,9 @@ object ModelUpdateManager {
                 downloadToFile(lettersLabelsUrl, stagedLettersLabels)
             if (!staged ||
                 !labelsFileIsValid(stagedWordsLabels, words.total_classes) ||
-                !labelsFileIsValid(stagedLettersLabels, letters.total_classes)
+                !labelsFileIsValid(stagedLettersLabels, letters.total_classes) ||
+                !verifyModelLoadable(stagedWords) ||
+                !verifyModelLoadable(stagedLetters)
             ) {
                 Log.e(TAG, "Model pair download or validation failed; keeping the active bundle")
                 staging.deleteRecursively()
@@ -293,8 +295,9 @@ object ModelUpdateManager {
                 continue
             }
             if (expectedChecksum.isNullOrBlank()) {
-                Log.w(TAG, "No checksum provided by server — skipping integrity check")
-                return true
+                Log.e(TAG, "Rejecting model download: expected checksum missing from release manifest")
+                staging.delete()
+                return false
             }
             val actual = computeSha256(staging)
             if (actual == expectedChecksum) {
@@ -632,5 +635,18 @@ object ModelUpdateManager {
     // Add this function to ModelUpdateManager.kt
     suspend fun forceDownloadModel(context: Context): Boolean {
         return checkAndUpdate(context, force = true)
+    }
+
+    private fun verifyModelLoadable(file: File): Boolean {
+        return try {
+            val interp = org.tensorflow.lite.Interpreter(file)
+            val inputs = interp.inputTensorCount
+            val outputs = interp.outputTensorCount
+            interp.close()
+            inputs > 0 && outputs > 0
+        } catch (e: Exception) {
+            Log.e(TAG, "Model compatibility verification failed for ${file.name}: ${e.message}")
+            false
+        }
     }
 }
