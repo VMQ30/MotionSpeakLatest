@@ -39,6 +39,7 @@ data class ModelInfo(
     val accuracy: Double? = null,
     val total_classes: Int? = null,
     val checksum: String? = null,
+    val signature: String? = null,
     val deployed_at: String? = null
 )
 
@@ -50,7 +51,8 @@ data class DeployedModels(
 data class ModelResponse(
     val model: ModelInfo,
     val models: DeployedModels? = null,
-    val deployment_version: String? = null
+    val deployment_version: String? = null,
+    val manifest_signature: String? = null
 )
 
 interface ApiService {

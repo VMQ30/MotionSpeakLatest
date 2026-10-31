@@ -51,6 +51,7 @@ class SentenceComposer(
     // Current state inputs
     @Volatile var currentTone: SentenceTone = SentenceTone.NEUTRAL
     @Volatile var currentLanguage: SentenceLanguage = SentenceLanguage.ENGLISH
+    @Volatile var currentMarkers: LinguisticMarkers = LinguisticMarkers()
 
     // Listeners
     var onSentenceComposed: ((SentenceResult) -> Unit)? = null
@@ -126,6 +127,7 @@ class SentenceComposer(
             val tokensToCompose: List<String>
             val toneSnapshot = currentTone
             val langSnapshot = currentLanguage
+            val markersSnapshot = currentMarkers
 
             mutex.withLock {
                 pauseTimerJob?.cancel()
@@ -153,7 +155,7 @@ class SentenceComposer(
             onComposingStateChanged?.invoke(true)
 
             try {
-                val result = synthesizer.compose(tokensToCompose, toneSnapshot, langSnapshot)
+                val result = synthesizer.compose(tokensToCompose, toneSnapshot, langSnapshot, markersSnapshot)
                 onSentenceComposed?.invoke(result)
             } catch (e: Exception) {
                 // If anything unexpected occurs, fall back to safe pass-through text

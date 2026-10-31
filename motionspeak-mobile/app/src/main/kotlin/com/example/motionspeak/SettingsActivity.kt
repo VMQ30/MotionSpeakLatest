@@ -341,6 +341,12 @@ class SettingsActivity : BaseActivity() {
         switchFacial?.setOnCheckedChangeListener { _, isChecked ->
             appSettings.isFacialAnalysisEnabled = isChecked
         }
+
+        val switchGpu = findViewById<SwitchMaterial>(R.id.switchGpuInference)
+        switchGpu?.isChecked = appSettings.isInferenceGpuEnabled
+        switchGpu?.setOnCheckedChangeListener { _, isChecked ->
+            appSettings.isInferenceGpuEnabled = isChecked
+        }
     }
 
     private fun bindAdvancedTools() {
@@ -353,7 +359,7 @@ class SettingsActivity : BaseActivity() {
         }
 
         findViewById<View>(R.id.rowDiagnostics)?.setOnClickListener {
-            showDiagnosticsDialog()
+            startActivity(Intent(this, QualityDashboardActivity::class.java))
         }
     }
 

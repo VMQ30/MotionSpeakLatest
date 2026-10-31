@@ -19,6 +19,18 @@ data class PredictionAlternative(
     val confidence: Float
 )
 
+data class ModelDiagnosticInfo(
+    val modelName: String,
+    val isReady: Boolean,
+    val sequenceLength: Int,
+    val numFeatures: Int,
+    val numClasses: Int,
+    val activeVocabulary: String,
+    val activeBundleVersion: String?,
+    val inputTensorShape: List<Int>,
+    val outputTensorShape: List<Int>
+)
+
 data class PredictionDecision(
     val topLabel: String,
     val confidence: Float,
@@ -46,6 +58,12 @@ class PredictionService(private val context: Context) {
     companion object {
         /** Intent extra key: desired starting Vocabulary for the translator screen. */
         const val EXTRA_START_VOCABULARY = "extra_start_vocabulary"
+        const val NO_HAND_TIMEOUT = 6
+        const val MIN_POSE_FRAMES = 24
+        const val SEQUENCE_LENGTH = 30
+        const val MIN_SEQUENCE_MOTION = 0.50f
+        const val MIN_REAL_FRAMES_FOR_FIRE = 20
+        const val MIN_MOTION_FRAMES = 6
     }
 
     private var interpreter: Interpreter? = null
@@ -99,6 +117,17 @@ class PredictionService(private val context: Context) {
             Log.i(TAG, "Model & Labels loaded. Input: [1, $sequenceLength, $numFeatures], Classes: $numClasses")
         } catch (e: Exception) {
             Log.e(TAG, "Init failed: ${e.message}", e)
+            if (ModelUpdateManager.hasActiveModelBundle(context)) {
+                ModelUpdateManager.rollbackToLastKnownGood(context)
+                try {
+                    val fallbackInterp = Interpreter(loadModel("motionspeak.tflite"))
+                    interpreter = fallbackInterp
+                    isReady = true
+                    Log.i(TAG, "Successfully recovered using fallback baseline model after rollback")
+                } catch (e2: Exception) {
+                    Log.e(TAG, "Baseline fallback also failed: ${e2.message}", e2)
+                }
+            }
         }
     }
 
@@ -227,13 +256,16 @@ class PredictionService(private val context: Context) {
 
         val second = candidates.getOrNull(1)
         val diff = if (second != null) topConf - second.second else 1.0f
+        val pct = (topConf * 100).toInt()
+        val topFormatted = topLabel.replace('_', ' ').split(' ').joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
         val uncertaintyReason = when {
-            tier == ConfidenceTier.LOW -> "Gesture confidence low (${(topConf * 100).toInt()}%). Please repeat the gesture."
+            tier == ConfidenceTier.LOW -> "<b>Gesture confidence low</b> ($pct%). Please repeat the gesture."
             tier == ConfidenceTier.MODERATE && diff < 0.15f && second != null -> {
-                val secondLabel = labels.getOrElse(second.first) { "Unknown" }
-                "Uncertain between $topLabel and $secondLabel. Tap your intended sign."
+                val secondRaw = labels.getOrElse(second.first) { "Unknown" }
+                val secondFormatted = secondRaw.replace('_', ' ').split(' ').joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+                "Uncertain between <b>$topFormatted</b> and <b>$secondFormatted</b> ($pct%). Tap the blinking red words to adjust."
             }
-            tier == ConfidenceTier.MODERATE -> "Moderate confidence (${(topConf * 100).toInt()}%). Tap to confirm or re-sign."
+            tier == ConfidenceTier.MODERATE -> "<b>Moderate confidence</b> ($pct%). Tap the blinking red words to adjust."
             else -> null
         }
 
@@ -298,6 +330,30 @@ class PredictionService(private val context: Context) {
         inactiveStreak = 0
         holdFrames = 0
         onCollecting?.invoke(0f)
+    }
+
+    fun getModelDiagnostics(): ModelDiagnosticInfo {
+        val inShape = try {
+            interpreter?.getInputTensor(0)?.shape()?.toList() ?: listOf(1, sequenceLength, numFeatures)
+        } catch (_: Exception) {
+            listOf(1, sequenceLength, numFeatures)
+        }
+        val outShape = try {
+            interpreter?.getOutputTensor(0)?.shape()?.toList() ?: listOf(1, numClasses)
+        } catch (_: Exception) {
+            listOf(1, numClasses)
+        }
+        return ModelDiagnosticInfo(
+            modelName = "sign_model_motion.tflite",
+            isReady = isReady,
+            sequenceLength = sequenceLength,
+            numFeatures = numFeatures,
+            numClasses = numClasses,
+            activeVocabulary = Vocabulary.WORDS.name,
+            activeBundleVersion = ModelUpdateManager.getCachedVersion(context),
+            inputTensorShape = inShape,
+            outputTensorShape = outShape
+        )
     }
 
     fun close() {

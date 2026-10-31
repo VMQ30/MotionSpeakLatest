@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/ms_bg"
+    android:orientation="vertical">
+
+    <!-- Top App Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="@dimen/ms_space_16">
+
+        <ImageButton
+            android:id="@+id/btnBack"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Back"
+            android:src="@drawable/ic_back"
+            app:tint="@color/ms_text" />
+
+        <TextView
+            style="@style/Sigla.Text.Title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/ms_space_8"
+            android:layout_weight="1"
+            android:text="Quality &amp; Intelligence"
+            android:textColor="@color/ms_text" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:paddingHorizontal="@dimen/ms_space_16"
+        android:paddingBottom="@dimen/ms_space_24">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                style="@style/Sigla.Text.Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/ms_space_8"
+                android:text="System Reliability &amp; Research Intelligence"
+                android:textColor="@color/ms_text_secondary" />
+
+            <!-- 1. Security Status Card -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Sigla.Card.Outlined"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/ms_space_16"
+                app:cardBackgroundColor="@color/ms_bar_bg">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/ms_space_16">
+
+                    <TextView
+                        style="@style/Sigla.Text.BodyStrong"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Security &amp; Vulnerability Posture"
+                        android:textColor="@color/ms_text" />
+
+                    <TextView
+                        android:id="@+id/tvSecurityAuditSummary"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/ms_space_8"
+                        android:fontFamily="monospace"
+                        android:text="• Cleartext: Disabled in production\n• Encryption: AES-256 GCM (Android KeyStore)\n• OTA Integrity: SHA-256 + ECDSA Public Key\n• Cloud Backup: Sensitive data excluded"
+                        android:textColor="@color/ms_text_secondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 2. Model Performance Card -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Sigla.Card.Outlined"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/ms_space_12"
+                app:cardBackgroundColor="@color/ms_bar_bg">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/ms_space_16">
+
+                    <TextView
+                        style="@style/Sigla.Text.BodyStrong"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Model Performance &amp; Generalization"
+                        android:textColor="@color/ms_text" />
+
+                    <TextView
+                        android:id="@+id/tvModelPerformanceSummary"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/ms_space_8"
+                        android:fontFamily="monospace"
+                        android:text="• Architecture: 3-Layer BiLSTM + Linear Blend\n• Signer Independence: Validated Held-Out Signer\n• Deployment Gate: ModelValidationService Enforced\n• Vocabulary: 60 Active Classes (45 Med, 15 Gen)"
+                        android:textColor="@color/ms_text_secondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 3. Latency & Device Performance Card -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Sigla.Card.Outlined"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/ms_space_12"
+                app:cardBackgroundColor="@color/ms_bar_bg">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/ms_space_16">
+
+                    <TextView
+                        style="@style/Sigla.Text.BodyStrong"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Inference Latency Percentiles"
+                        android:textColor="@color/ms_text" />
+
+                    <TextView
+                        android:id="@+id/tvLatencySummary"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/ms_space_8"
+                        android:fontFamily="monospace"
+                        android:text="• p50 Latency: Loading...\n• p95 Latency: Loading...\n• p99 Latency: Loading...\n• Sampling: Adaptive Frame Rate Dropping (>40ms)"
+                        android:textColor="@color/ms_text_secondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 4. Signer Calibration & Coverage Card -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Sigla.Card.Outlined"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/ms_space_12"
+                app:cardBackgroundColor="@color/ms_bar_bg">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/ms_space_16">
+
+                    <TextView
+                        style="@style/Sigla.Text.BodyStrong"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Signer Calibration &amp; Adaptation"
+                        android:textColor="@color/ms_text" />
+
+                    <TextView
+                        android:id="@+id/tvCalibrationSummary"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/ms_space_8"
+                        android:fontFamily="monospace"
+                        android:text="• Hand Scale Factor: 1.00x\n• Signing Speed Factor: 1.00x\n• Kinematic Trajectory: Velocity Vector Angle Active\n• Grammatical Facial Analysis: Active"
+                        android:textColor="@color/ms_text_secondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 5. Confidence Distribution Card -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Sigla.Card.Outlined"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/ms_space_12"
+                app:cardBackgroundColor="@color/ms_bar_bg">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/ms_space_16">
+
+                    <TextView
+                        style="@style/Sigla.Text.BodyStrong"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Confidence Safeguards &amp; Error Recovery"
+                        android:textColor="@color/ms_text" />
+
+                    <TextView
+                        android:id="@+id/tvConfidenceSummary"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/ms_space_8"
+                        android:fontFamily="monospace"
+                        android:text="• Total Inferences: 0\n• High Confidence: 0\n• Moderate (Alternatives Presented): 0\n• Low (Haptic Rejected): 0"
+                        android:textColor="@color/ms_text_secondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

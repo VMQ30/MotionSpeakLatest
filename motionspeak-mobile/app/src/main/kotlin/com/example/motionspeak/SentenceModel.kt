@@ -30,6 +30,14 @@ enum class SentenceTone(val id: String) {
 }
 
 /**
+ * Non-manual grammatical markers identified from facial geometry.
+ */
+data class LinguisticMarkers(
+    val isQuestion: Boolean = false,
+    val isNegation: Boolean = false
+)
+
+/**
  * Output of sentence synthesis.
  */
 data class SentenceResult(
@@ -38,5 +46,6 @@ data class SentenceResult(
     val language: SentenceLanguage,
     val tone: SentenceTone,
     val isLlmGenerated: Boolean,
-    val latencyMs: Long = 0L
+    val latencyMs: Long = 0L,
+    val linguisticMarkers: LinguisticMarkers = LinguisticMarkers()
 )

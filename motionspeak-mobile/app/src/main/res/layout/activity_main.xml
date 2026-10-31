@@ -192,12 +192,82 @@
         tools:text="Low light. Move to a brighter spot."
         tools:visibility="visible" />
 
+    <TextView
+        android:id="@+id/tvUncertaintyBanner"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/ms_screen_padding"
+        android:layout_marginTop="106dp"
+        android:layout_marginEnd="@dimen/ms_screen_padding"
+        android:background="@drawable/bg_ms_pill"
+        android:backgroundTint="@color/ms_danger"
+        android:gravity="center"
+        android:paddingStart="@dimen/ms_space_16"
+        android:paddingTop="9dp"
+        android:paddingEnd="@dimen/ms_space_16"
+        android:paddingBottom="9dp"
+        android:fontFamily="sans-serif"
+        android:textSize="14sp"
+        android:textColor="@color/ms_on_dark"
+        android:elevation="6dp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="Uncertain whether gesture means KNOW or DON'T UNDERSTAND." />
+
     <!-- Detection percentage and Siri animated gradient progress bar -->
 
     <!-- Live mode readout, in the same place as the record button. Its children
          are shown/hidden individually by renderTapState(); with all three gone the
          container collapses. -->
+        <!-- Left-aligned status: loading/ready text alongside blinking dot above detection meter -->
     <LinearLayout
+        android:id="@+id/statusLayout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/ms_screen_padding"
+        android:layout_marginBottom="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toTopOf="@id/detectionContainer"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <FrameLayout
+            android:layout_width="16dp"
+            android:layout_height="16dp">
+
+            <View
+                android:id="@+id/statusDot"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_ms_status_dot"
+                android:backgroundTint="@color/ms_success"
+                android:visibility="gone" />
+
+            <ProgressBar
+                android:id="@+id/statusSpinner"
+                style="?android:attr/progressBarStyleSmall"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_gravity="center"
+                android:indeterminateTint="@color/ms_on_dark" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/tvStatus"
+            style="@style/Sigla.Text.Caption"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Starting camera…"
+            android:textColor="@color/ms_on_dark" />
+    </LinearLayout>
+
+<LinearLayout
         android:id="@+id/detectionContainer"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -280,60 +350,47 @@
                 android:background="@drawable/bg_ms_pill"
                 android:backgroundTint="@color/ms_divider" />
 
-            <!-- [top] ready status -->
-            <LinearLayout
+            <!-- [top] action button row -->
+            <RelativeLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="@dimen/ms_space_12"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:layout_marginBottom="@dimen/ms_space_8">
 
-                <!-- Ready status with loading spinner & ready indicator -->
-                <LinearLayout
-                    android:layout_width="0dp"
+                <!-- Center: Turn into sentence button inside dialogue box panel (solid vibrant pill) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnMakeSentence"
+                    style="@style/Widget.Sigla.Button"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:layout_centerInParent="true"
+                    android:minHeight="34dp"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp"
+                    android:text="Turn into sentence"
+                    android:textSize="12sp"
+                    android:textColor="@color/ms_on_brand"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:alpha="1.0"
+                    android:elevation="4dp"
+                    app:elevation="4dp"
+                    app:backgroundTint="@color/ms_brand"
+                    app:cornerRadius="17dp"
+                    app:icon="@drawable/ic_chat_line"
+                    app:iconGravity="textStart"
+                    app:iconPadding="4dp"
+                    app:iconSize="16dp"
+                    app:iconTint="@color/ms_on_brand" />
 
-                    <FrameLayout
-                        android:layout_width="16dp"
-                        android:layout_height="16dp">
-
-                        <View
-                            android:id="@+id/statusDot"
-                            android:layout_width="14dp"
-                            android:layout_height="14dp"
-                            android:layout_gravity="center"
-                            android:background="@drawable/bg_ms_status_dot"
-                            android:backgroundTint="@color/ms_scarlet"
-                            android:visibility="gone" />
-
-                        <ProgressBar
-                            android:id="@+id/statusSpinner"
-                            style="?android:attr/progressBarStyleSmall"
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:layout_gravity="center"
-                            android:indeterminateTint="@color/ms_brand" />
-                    </FrameLayout>
-
-                    <TextView
-                        android:id="@+id/tvStatus"
-                        style="@style/Sigla.Text.BodyStrong"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="@dimen/ms_space_8"
-                        android:ellipsize="end"
-                        android:maxLines="1"
-                        android:text="Starting camera…"
-                        android:textColor="@color/ms_text_secondary" />
-                </LinearLayout>
-
+                <!-- Right side: Words / Letters toggle -->
                 <LinearLayout
                     android:id="@+id/btnToggleVocabulary"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
                     android:orientation="horizontal"
                     android:visibility="gone"
                     tools:visibility="visible">
@@ -350,7 +407,7 @@
                         android:layout_marginEnd="@dimen/ms_space_8"
                         android:text="Letters" />
                 </LinearLayout>
-            </LinearLayout>
+            </RelativeLayout>
 
             <!-- [bottom] message box: scrollable to support incoming strings -->
             <FrameLayout
@@ -405,6 +462,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:visibility="gone" />
+
             </FrameLayout>
 
         </LinearLayout>
@@ -514,31 +572,50 @@
         app:layout_constraintBottom_toTopOf="@id/btnBackspace"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Centered floating action button to turn signed words into a sentence -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnMakeSentence"
-        style="@style/Widget.Sigla.Button"
+    <!-- Right-aligned notification badge: # low conf, on the right side above the detection meter -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/badgeUncertainWords"
+        style="@style/Widget.Sigla.Card"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:minHeight="48dp"
-        android:paddingStart="@dimen/ms_space_16"
-        android:paddingEnd="@dimen/ms_space_16"
-        android:text="Turn into sentence"
-        android:textColor="@color/ms_on_brand"
+        android:layout_height="36dp"
+        android:layout_marginEnd="@dimen/ms_screen_padding"
+        android:layout_marginBottom="8dp"
         android:clickable="true"
         android:focusable="true"
-        android:elevation="24dp"
-        app:elevation="24dp"
-        app:backgroundTint="@color/ms_brand"
-        app:cornerRadius="24dp"
-        app:icon="@drawable/ic_chat_line"
-        app:iconGravity="textStart"
-        app:iconPadding="8dp"
-        app:iconSize="20dp"
-        app:iconTint="@color/ms_on_brand"
-        android:layout_marginBottom="16dp"
-        app:layout_constraintBottom_toTopOf="@id/bottomSheet"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        android:visibility="gone"
+        app:cardBackgroundColor="@color/ms_danger"
+        app:cardCornerRadius="18dp"
+        app:cardElevation="14dp"
+        app:strokeColor="@color/ms_on_dark"
+        app:strokeWidth="1.5dp"
+        app:layout_constraintBottom_toTopOf="@id/detectionContainer"
+        app:layout_constraintEnd_toEndOf="@id/detectionContainer">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="10dp"
+            android:paddingEnd="12dp">
+
+            <ImageView
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:src="@drawable/ic_sos_alert"
+                app:tint="@color/ms_on_dark"
+                android:contentDescription="Review needed" />
+
+            <TextView
+                android:id="@+id/tvUncertainWordsCount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="5dp"
+                android:fontFamily="sans-serif-medium"
+                android:textColor="@color/ms_on_dark"
+                android:textSize="12sp"
+                android:text="1 low conf" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

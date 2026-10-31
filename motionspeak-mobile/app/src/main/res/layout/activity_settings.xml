@@ -732,6 +732,48 @@
                             app:thumbTint="@color/ms_bg"
                             app:trackTint="@color/ms_cat_violet_bg" />
                     </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="@dimen/ms_space_12"
+                        android:layout_marginBottom="@dimen/ms_space_12"
+                        android:background="@color/ms_divider" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                style="@style/Sigla.Text.BodyStrong"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Hardware GPU Acceleration" />
+
+                            <TextView
+                                style="@style/Sigla.Text.Caption"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="@dimen/ms_space_4"
+                                android:text="Use GPU delegate for ML inference; toggle off for CPU mode" />
+                        </LinearLayout>
+
+                        <com.google.android.material.switchmaterial.SwitchMaterial
+                            android:id="@+id/switchGpuInference"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:checked="true"
+                            app:thumbTint="@color/ms_bg"
+                            app:trackTint="@color/ms_cat_violet_bg" />
+                    </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 

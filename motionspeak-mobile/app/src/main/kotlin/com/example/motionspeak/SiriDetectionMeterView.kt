@@ -21,8 +21,9 @@ import kotlin.math.sin
 
 /**
  * Custom detection meter bar that continuously shifts through the Siri spectrum
- * (Light Blue -> Teal -> Electric Blue -> Electric Violet) identical to the homepage
- * "Open camera" Siri button.
+ * (Light Blue -> Teal -> Electric Blue -> Electric Violet).
+ * When in sentence state, halts detection and displays the rainbow sheen
+ * identical to the dialogue box SiriGradientBorderView.
  */
 class SiriDetectionMeterView @JvmOverloads constructor(
     context: Context,
@@ -31,7 +32,8 @@ class SiriDetectionMeterView @JvmOverloads constructor(
 ) : View(context, attrs, defStyleAttr) {
 
     companion object {
-        private const val SHIFT_DURATION_MS = 3500L
+        private const val SHIFT_DURATION_DETECTION_MS = 5000L
+        private const val SHIFT_DURATION_RAINBOW_MS = 9000L
         private const val PROGRESS_ANIM_DURATION_MS = 140L
         private const val GRADIENT_ANGLE_DEG = 15.0
 
@@ -41,6 +43,21 @@ class SiriDetectionMeterView @JvmOverloads constructor(
             0xFF0066FF.toInt(), // Electric Blue
             0xFF8B5CF6.toInt(), // Electric Violet
             0xFF38BDF8.toInt()  // Seamless loop back
+        )
+
+        // Exact rainbow sheen colors matching SiriGradientBorderView
+        val RAINBOW_SHEEN_COLORS = intArrayOf(
+            0xFF38BDF8.toInt(), // Light Blue
+            0xFF2DD4BF.toInt(), // Teal
+            0xFF0066FF.toInt(), // Electric Blue
+            0xFF8B5CF6.toInt(), // Electric Violet
+            0xFFEC4899.toInt(), // Hot Pink
+            0xFFF59E0B.toInt(), // Amber
+            0xFF38BDF8.toInt()  // Loop back
+        )
+
+        val RAINBOW_SHEEN_POSITIONS = floatArrayOf(
+            0.0f, 0.18f, 0.36f, 0.54f, 0.72f, 0.90f, 1.0f
         )
     }
 
@@ -70,7 +87,9 @@ class SiriDetectionMeterView @JvmOverloads constructor(
     private val shaderMatrix = Matrix()
 
     private var linearGradient: LinearGradient? = null
+    private var rainbowSheenGradient: LinearGradient? = null
     private var cycleLength = 0f
+    private var rainbowCycleLength = 0f
     private var cosAngle = 0f
     private var sinAngle = 0f
 
@@ -78,6 +97,10 @@ class SiriDetectionMeterView @JvmOverloads constructor(
     var progress: Int = 0
         private set
     private var displayProgress: Float = 0f
+
+    // Halted rainbow sheen state
+    var isHaltedRainbowSheen: Boolean = false
+        private set
 
     // Animations
     private var currentShiftProgress = 0f
@@ -113,8 +136,10 @@ class SiriDetectionMeterView @JvmOverloads constructor(
 
     fun setProgress(value: Int, animate: Boolean = true) {
         val clamped = value.coerceIn(0, 100)
-        if (clamped == progress) return
         progress = clamped
+        if (isHaltedRainbowSheen) {
+            return
+        }
 
         progressAnimator?.cancel()
         if (animate && isAttachedToWindow && width > 0) {
@@ -130,6 +155,23 @@ class SiriDetectionMeterView @JvmOverloads constructor(
             displayProgress = clamped.toFloat()
             invalidate()
         }
+    }
+
+    fun setHaltedRainbowSheen(enabled: Boolean) {
+        if (isHaltedRainbowSheen == enabled) return
+        isHaltedRainbowSheen = enabled
+        progressAnimator?.cancel()
+
+        if (enabled) {
+            displayProgress = 100f
+            fillPaint.shader = rainbowSheenGradient
+            startAnimation(SHIFT_DURATION_RAINBOW_MS)
+        } else {
+            displayProgress = progress.toFloat()
+            fillPaint.shader = linearGradient
+            startAnimation(SHIFT_DURATION_DETECTION_MS)
+        }
+        invalidate()
     }
 
     override fun onAttachedToWindow() {
@@ -151,10 +193,10 @@ class SiriDetectionMeterView @JvmOverloads constructor(
         }
     }
 
-    private fun startAnimation() {
+    private fun startAnimation(durationMs: Long = if (isHaltedRainbowSheen) SHIFT_DURATION_RAINBOW_MS else SHIFT_DURATION_DETECTION_MS) {
         if (shiftAnimator == null) {
             shiftAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-                duration = SHIFTIFT()
+                duration = durationMs
                 interpolator = LinearInterpolator()
                 repeatCount = ValueAnimator.INFINITE
                 repeatMode = ValueAnimator.RESTART
@@ -163,13 +205,13 @@ class SiriDetectionMeterView @JvmOverloads constructor(
                     postInvalidateOnAnimation()
                 }
             }
+        } else {
+            shiftAnimator?.duration = durationMs
         }
         if (shiftAnimator?.isStarted != true) {
             shiftAnimator?.start()
         }
     }
-
-    private fun SHIFTIFT(): Long = SHIFT_DURATION_MS
 
     private fun stopAnimation() {
         shiftAnimator?.cancel()
@@ -190,16 +232,25 @@ class SiriDetectionMeterView @JvmOverloads constructor(
         sinAngle = sin(rad).toFloat()
 
         val diagonal = hypot(w.toFloat(), h.toFloat())
-        cycleLength = max(w.toFloat(), diagonal) * 1.5f
-        val totalSpan = cycleLength * 2f
+        cycleLength = max(w.toFloat() * 1.8f, diagonal * 2.0f)
+        rainbowCycleLength = max(w.toFloat() * 2.8f, diagonal * 3.2f)
 
+        // Gradient period matches cycleLength exactly for seamless color looping
         linearGradient = LinearGradient(
-            0f, 0f, totalSpan * cosAngle, totalSpan * sinAngle,
+            0f, 0f, cycleLength * cosAngle, cycleLength * sinAngle,
             spectrumColors,
             spectrumPositions,
             Shader.TileMode.REPEAT
         )
-        fillPaint.shader = linearGradient
+
+        rainbowSheenGradient = LinearGradient(
+            0f, 0f, rainbowCycleLength * cosAngle, rainbowCycleLength * sinAngle,
+            RAINBOW_SHEEN_COLORS,
+            RAINBOW_SHEEN_POSITIONS,
+            Shader.TileMode.REPEAT
+        )
+
+        fillPaint.shader = if (isHaltedRainbowSheen) rainbowSheenGradient else linearGradient
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -215,12 +266,15 @@ class SiriDetectionMeterView @JvmOverloads constructor(
         canvas.drawRoundRect(trackRect, radius, radius, trackBorderPaint)
 
         // Draw animated gradient progress
+        val activeShader = if (isHaltedRainbowSheen) rainbowSheenGradient else linearGradient
+        val activeCycle = if (isHaltedRainbowSheen) rainbowCycleLength else cycleLength
         val fillWidth = (displayProgress / 100f) * w
-        if (fillWidth > 0f && linearGradient != null) {
-            val offset = currentShiftProgress * cycleLength
+        if (fillWidth > 0f && activeShader != null) {
+            val offset = currentShiftProgress * activeCycle
             shaderMatrix.reset()
             shaderMatrix.setTranslate(-offset * cosAngle, -offset * sinAngle)
-            linearGradient?.setLocalMatrix(shaderMatrix)
+            activeShader.setLocalMatrix(shaderMatrix)
+            fillPaint.shader = activeShader
 
             canvas.save()
             canvas.clipPath(trackPath)

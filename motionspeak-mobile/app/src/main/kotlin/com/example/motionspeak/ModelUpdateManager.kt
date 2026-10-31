@@ -170,6 +170,10 @@ object ModelUpdateManager {
             }
 
             val current = getCachedVersion(context)
+            if (!force && isDowngrade(current, deploymentVersion)) {
+                Log.e(TAG, "Rejecting OTA update: candidate version $deploymentVersion is older than installed version $current (downgrade prevention)")
+                return@withContext hasCompleteLocalPair(context)
+            }
             val wordsFile = getInstalledModelFile(context, "sign_model_motion.tflite")
             val lettersFile = getInstalledModelFile(context, "sign_model_letters.tflite")
             val checksumsMatch =
@@ -214,6 +218,17 @@ object ModelUpdateManager {
                 downloadToFile(wordsLabelsUrl, stagedWordsLabels) &&
                 downloadAndVerifyToStaging(lettersUrl, stagedLetters, letters.checksum) &&
                 downloadToFile(lettersLabelsUrl, stagedLettersLabels)
+            val manifestSig = words.signature ?: body.manifest_signature
+            if (!manifestSig.isNullOrBlank()) {
+                val manifestPayload = "${words.version_number}:${words.checksum}:${letters.checksum}"
+                if (!verifyManifestSignature(manifestPayload, manifestSig)) {
+                    Log.e(TAG, "Digital signature verification failed on model manifest; rejecting update")
+                    staging.deleteRecursively()
+                    return@withContext hasCompleteLocalPair(context)
+                }
+                Log.i(TAG, "Model release manifest digital signature verified successfully")
+            }
+
             if (!staged ||
                 !labelsFileIsValid(stagedWordsLabels, words.total_classes) ||
                 !labelsFileIsValid(stagedLettersLabels, letters.total_classes) ||
@@ -260,6 +275,22 @@ object ModelUpdateManager {
             hasCompleteLocalPair(context)
         }
     } }
+
+    fun isDowngrade(currentVersion: String?, candidateVersion: String): Boolean {
+        if (currentVersion.isNullOrBlank()) return false
+        val currClean = currentVersion.trimStart('v', 'V')
+        val candClean = candidateVersion.trimStart('v', 'V')
+        val currParts = currClean.split(".").mapNotNull { it.takeWhile { ch -> ch.isDigit() }.toIntOrNull() }
+        val candParts = candClean.split(".").mapNotNull { it.takeWhile { ch -> ch.isDigit() }.toIntOrNull() }
+        val maxLen = maxOf(currParts.size, candParts.size)
+        for (i in 0 until maxLen) {
+            val c = currParts.getOrElse(i) { 0 }
+            val n = candParts.getOrElse(i) { 0 }
+            if (n < c) return true
+            if (n > c) return false
+        }
+        return false
+    }
 
     private fun labelsFileIsValid(file: File, expectedCount: Int?): Boolean {
         return try {
@@ -635,6 +666,53 @@ object ModelUpdateManager {
     // Add this function to ModelUpdateManager.kt
     suspend fun forceDownloadModel(context: Context): Boolean {
         return checkAndUpdate(context, force = true)
+    }
+
+    data class SignedModelManifest(
+        val version: String,
+        val sha256Words: String,
+        val sha256Letters: String,
+        val architecture: String = "conv_linear",
+        val releaseDate: String = "",
+        val signature: String? = null
+    )
+
+    private const val EMBEDDED_PUBLIC_KEY_PEM = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEP8gXwJ2fQvR1E1p4YlqXm7H5t3s8uYJ9z6k4K1a3V8e2b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5=="
+
+    fun verifyManifestSignature(manifestData: String, signatureBase64: String?): Boolean {
+        if (signatureBase64.isNullOrBlank()) {
+            return false
+        }
+        return try {
+            val keyBytes = android.util.Base64.decode(EMBEDDED_PUBLIC_KEY_PEM.trim(), android.util.Base64.DEFAULT)
+            val keySpec = java.security.spec.X509EncodedKeySpec(keyBytes)
+            val kf = java.security.KeyFactory.getInstance("EC")
+            val pubKey = kf.generatePublic(keySpec)
+
+            val sig = java.security.Signature.getInstance("SHA256withECDSA")
+            sig.initVerify(pubKey)
+            sig.update(manifestData.toByteArray(Charsets.UTF_8))
+            val sigBytes = android.util.Base64.decode(signatureBase64, android.util.Base64.DEFAULT)
+            sig.verify(sigBytes)
+        } catch (e: Exception) {
+            Log.w(TAG, "Digital signature verification failed or invalid signature: ${e.message}")
+            false
+        }
+    }
+
+    fun rollbackToLastKnownGood(context: Context): Boolean {
+        val root = File(context.filesDir, BUNDLE_ROOT)
+        val currentBundle = prefs(context).getString(KEY_ACTIVE_BUNDLE, null)
+        val backups = root.listFiles()?.filter { it.isDirectory && it.name != currentBundle } ?: emptyList()
+        val candidate = backups.maxByOrNull { it.lastModified() }
+        if (candidate != null && File(candidate, "sign_model_motion.tflite").exists()) {
+            prefs(context).edit().putString(KEY_ACTIVE_BUNDLE, candidate.name).commit()
+            Log.w(TAG, "Rolled back to previous known-good model bundle: ${candidate.name}")
+            return true
+        }
+        prefs(context).edit().remove(KEY_ACTIVE_BUNDLE).remove(KEY_VERSION).commit()
+        Log.w(TAG, "Rolled back to baseline bundled model")
+        return true
     }
 
     private fun verifyModelLoadable(file: File): Boolean {

@@ -41,9 +41,13 @@ class DeterministicSentenceSynthesizer(
             )
         }
 
+        val deduplicatedTokens = tokens.filterIndexed { index, token ->
+            index == 0 || !token.trim().equals(tokens[index - 1].trim(), ignoreCase = true)
+        }
+
         val text = when (language) {
-            SentenceLanguage.ENGLISH -> composeEnglish(tokens, tone)
-            SentenceLanguage.FILIPINO -> composeFilipino(tokens, tone)
+            SentenceLanguage.ENGLISH -> composeEnglish(deduplicatedTokens, tone)
+            SentenceLanguage.FILIPINO -> composeFilipino(deduplicatedTokens, tone)
         }
 
         return SentenceResult(
@@ -54,6 +58,24 @@ class DeterministicSentenceSynthesizer(
             isLlmGenerated = false,
             latencyMs = 0L
         )
+    }
+
+    override suspend fun compose(
+        tokens: List<String>,
+        tone: SentenceTone,
+        language: SentenceLanguage,
+        markers: LinguisticMarkers
+    ): SentenceResult {
+        val base = compose(tokens, tone, language)
+        var adjustedText = base.text
+        if (markers.isQuestion && !adjustedText.endsWith("?")) {
+            adjustedText = if (adjustedText.endsWith(".")) {
+                adjustedText.dropLast(1) + "?"
+            } else {
+                "${base.text}?"
+            }
+        }
+        return base.copy(text = adjustedText, linguisticMarkers = markers)
     }
 
     private fun composeEnglish(tokens: List<String>, tone: SentenceTone): String {

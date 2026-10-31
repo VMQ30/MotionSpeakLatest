@@ -23,6 +23,44 @@ object MotionPreprocessor {
     const val MIN_ACTIVE = 6
     const val MOTION_SCALE = 5.0f
 
+    data class KinematicTrajectory(
+        val dominantDirectionX: Float,
+        val dominantDirectionY: Float,
+        val movementMagnitude: Float,
+        val isStationaryStroke: Boolean
+    )
+
+    fun analyzeKinematicTrajectory(frames: List<FloatArray>): KinematicTrajectory {
+        if (frames.size < 2) return KinematicTrajectory(0f, 0f, 0f, true)
+        var totalDx = 0f
+        var totalDy = 0f
+        var count = 0
+
+        for (i in 1 until frames.size) {
+            val curr = frames[i]
+            val prev = frames[i - 1]
+            if (curr[RIGHT_FLAG] > 0f && prev[RIGHT_FLAG] > 0f) {
+                totalDx += (curr[63] - prev[63])
+                totalDy += (curr[64] - prev[64])
+                count++
+            } else if (curr[LEFT_FLAG] > 0f && prev[LEFT_FLAG] > 0f) {
+                totalDx += (curr[0] - prev[0])
+                totalDy += (curr[1] - prev[1])
+                count++
+            }
+        }
+        if (count == 0) return KinematicTrajectory(0f, 0f, 0f, true)
+        val avgDx = totalDx / count
+        val avgDy = totalDy / count
+        val mag = sqrt(avgDx * avgDx + avgDy * avgDy)
+        return KinematicTrajectory(
+            dominantDirectionX = avgDx,
+            dominantDirectionY = avgDy,
+            movementMagnitude = mag,
+            isStationaryStroke = mag < 0.005f
+        )
+    }
+
     fun fillGaps(frames: List<FloatArray>, maxGap: Int = MAX_GAP): List<FloatArray> {
         if (frames.size < 2) return frames.map { it.clone() }
         val out = frames.map { it.clone() }

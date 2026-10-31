@@ -32,6 +32,7 @@ class AppSettings(context: Context) {
         private const val KEY_FACIAL_ANALYSIS_ENABLED = "facial_analysis_enabled"
         private const val KEY_SIGNER_HAND_SCALE = "signer_hand_scale"
         private const val KEY_SIGNER_SPEED_FACTOR = "signer_speed_factor"
+        private const val KEY_INFERENCE_GPU_ENABLED = "inference_gpu_enabled"
 
         const val VOICE_FEMALE = "female"
         const val VOICE_MALE = "male"
@@ -150,6 +151,10 @@ class AppSettings(context: Context) {
         get() = prefs.getLong(KEY_SENTENCE_PAUSE_MS, 2000L)
         set(v) = prefs.edit().putLong(KEY_SENTENCE_PAUSE_MS, v).apply()
 
+    var isInferenceGpuEnabled: Boolean
+        get() = prefs.getBoolean(KEY_INFERENCE_GPU_ENABLED, true)
+        set(v) = prefs.edit().putBoolean(KEY_INFERENCE_GPU_ENABLED, v).apply()
+
     fun resetToDefault() {
         prefs.edit()
             .putInt(KEY_VOLUME, 80)
@@ -165,6 +170,7 @@ class AppSettings(context: Context) {
             .putBoolean(KEY_FACIAL_ANALYSIS_ENABLED, true)
             .putFloat(KEY_SIGNER_HAND_SCALE, 1.0f)
             .putFloat(KEY_SIGNER_SPEED_FACTOR, 1.0f)
+            .putBoolean(KEY_INFERENCE_GPU_ENABLED, true)
             .apply()
     }
 }

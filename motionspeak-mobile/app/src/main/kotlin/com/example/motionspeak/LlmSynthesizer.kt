@@ -84,7 +84,16 @@ class LlmSynthesizer(
             return@withContext fallbackSynthesizer.compose(tokens, tone, language)
         }
 
-        val prompt = LlmPromptBuilder.buildPrompt(tokens, tone, language)
+        // Merge consecutive duplicated words before prompt generation & token validation
+        val mergedTokens = mutableListOf<String>()
+        for (token in tokens) {
+            val norm = token.trim().lowercase(java.util.Locale.ROOT)
+            if (mergedTokens.isEmpty() || !mergedTokens.last().trim().lowercase(java.util.Locale.ROOT).equals(norm)) {
+                mergedTokens.add(token)
+            }
+        }
+
+        val prompt = LlmPromptBuilder.buildPrompt(mergedTokens, tone, language)
         val startTime = SystemClock.elapsedRealtime()
 
         try {
@@ -98,7 +107,7 @@ class LlmSynthesizer(
             }
 
             // Verify that NO signed tokens were dropped by the LLM
-            val missingTokens = WordTokenMatcher.getMissingTokens(tokens, sanitized)
+            val missingTokens = WordTokenMatcher.getMissingTokens(mergedTokens, sanitized)
 
             if (missingTokens.isEmpty()) {
                 Log.i(TAG, "LLM generated sentence with complete 100% token coverage in ${duration}ms: \"$sanitized\"")

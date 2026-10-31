@@ -31,6 +31,10 @@ class TranslationHistoryActivity : BaseActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.setFlags(
+            android.view.WindowManager.LayoutParams.FLAG_SECURE,
+            android.view.WindowManager.LayoutParams.FLAG_SECURE
+        )
         setContentView(R.layout.activity_translation_history)
 
         historyManager = TranslationHistoryManager.getInstance(this)

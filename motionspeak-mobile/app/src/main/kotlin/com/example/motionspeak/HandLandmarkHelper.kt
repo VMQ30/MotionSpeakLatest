@@ -20,6 +20,9 @@ private const val LEFT_FLAG = 171
 private const val RIGHT_FLAG = 172
 private const val MOTION_SCALE = 5.0f
 
+const val POSE_DETECT_INTERVAL = 2
+val POSE_KEYPOINTS = intArrayOf(0, 11, 12, 13, 14, 15, 16)
+
 private val POSE_IDX = intArrayOf(0, 2, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 23, 24)
 
 data class LandmarkResult(
@@ -71,9 +74,11 @@ class HandLandmarkHelper(
     private var hasSmoothedRight = false
 
     init {
+        val allowGpu = AppSettings.getInstance(context).isInferenceGpuEnabled
+        val primaryDelegate = if (allowGpu) Delegate.GPU else Delegate.CPU
         try {
             val handOptions = HandLandmarker.HandLandmarkerOptions.builder()
-                .setBaseOptions(BaseOptions.builder().setModelAssetPath("hand_landmarker.task").setDelegate(Delegate.GPU).build())
+                .setBaseOptions(BaseOptions.builder().setModelAssetPath("hand_landmarker.task").setDelegate(primaryDelegate).build())
                 .setRunningMode(RunningMode.LIVE_STREAM)
                 .setNumHands(2)
                 .setMinHandDetectionConfidence(0.50f)
@@ -102,7 +107,7 @@ class HandLandmarkHelper(
 
         try {
             val poseOptions = PoseLandmarker.PoseLandmarkerOptions.builder()
-                .setBaseOptions(BaseOptions.builder().setModelAssetPath("pose_landmarker_lite.task").setDelegate(Delegate.GPU).build())
+                .setBaseOptions(BaseOptions.builder().setModelAssetPath("pose_landmarker_lite.task").setDelegate(primaryDelegate).build())
                 .setRunningMode(RunningMode.LIVE_STREAM)
                 .setNumPoses(1)
                 .setMinPoseDetectionConfidence(0.35f)
@@ -191,6 +196,42 @@ class HandLandmarkHelper(
         return pts
     }
 
+    private fun isLandmarkQualityAcceptable(lms: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>): Boolean {
+        if (lms.size < 21) return false
+        val wrist = lms[0]
+        val middleMcp = lms[9]
+
+        if (wrist.x() < 0.015f || wrist.x() > 0.985f || wrist.y() < 0.015f || wrist.y() > 0.985f) {
+            return false
+        }
+
+        var edgeCount = 0
+        var minX = 1f; var maxX = 0f; var minY = 1f; var maxY = 0f
+        for (i in 0 until 21) {
+            val x = lms[i].x()
+            val y = lms[i].y()
+            if (x < 0.015f || x > 0.985f || y < 0.015f || y > 0.985f) {
+                edgeCount++
+            }
+            if (x < minX) minX = x
+            if (x > maxX) maxX = x
+            if (y < minY) minY = y
+            if (y > maxY) maxY = y
+        }
+        if (edgeCount > 3) return false
+
+        val handWidth = maxX - minX
+        val handHeight = maxY - minY
+        if (handWidth < 0.02f || handHeight < 0.02f) return false
+
+        val dx = middleMcp.x() - wrist.x()
+        val dy = middleMcp.y() - wrist.y()
+        val span = sqrt(dx * dx + dy * dy)
+        if (span < 0.025f || span > 0.65f) return false
+
+        return true
+    }
+
     private fun parseResult(
         result: HandLandmarkerResult,
         pose: PoseLandmarkerResult?
@@ -247,6 +288,7 @@ class HandLandmarkHelper(
             val score = cat?.score() ?: 0f
             // Filter out low-confidence hallucinations (< 0.45 confidence)
             if (score < 0.45f) continue
+            if (!isLandmarkQualityAcceptable(lms)) continue
             val isLeft = cat?.categoryName() == "Left"
             validHands.add(DetectedHand(lms, isLeft, score))
         }

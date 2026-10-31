@@ -55,7 +55,7 @@ class SiriGradientBorderView @JvmOverloads constructor(
     private var rotationAngle = 0f
 
     private val rotateAnimator = ValueAnimator.ofFloat(0f, 360f).apply {
-        duration = 2800L
+        duration = 6500L
         repeatCount = ValueAnimator.INFINITE
         interpolator = LinearInterpolator()
         addUpdateListener {
