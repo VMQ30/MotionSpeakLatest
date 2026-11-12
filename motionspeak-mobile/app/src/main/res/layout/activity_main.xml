@@ -113,6 +113,19 @@
                     tools:text="[1/25]" />
 
                 <ImageView
+                    android:id="@+id/btnDeleteTestLogs"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:layout_marginStart="@dimen/ms_space_8"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Delete test logs"
+                    android:padding="3dp"
+                    android:src="@drawable/ic_delete"
+                    android:visibility="gone"
+                    app:tint="@color/ms_danger"
+                    tools:visibility="visible" />
+
+                <ImageView
                     android:id="@+id/btnMinimizeTestMenu"
                     android:layout_width="26dp"
                     android:layout_height="26dp"

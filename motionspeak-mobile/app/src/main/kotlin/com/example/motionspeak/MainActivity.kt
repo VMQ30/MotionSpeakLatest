@@ -36,6 +36,7 @@ import android.widget.LinearLayout
 import com.google.android.material.button.MaterialButton
 import android.view.View
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -1201,15 +1202,22 @@ class MainActivity : AppCompatActivity() {
                 binding.ivFloatingTestIcon.setImageResource(R.drawable.ic_close_line)
                 updateTestModePhaseChips()
                 updateTestModeDisplay()
+                updateDeleteLogsButtonVisibility()
                 Toast.makeText(this, "Test mode activated!", Toast.LENGTH_SHORT).show()
             } else {
                 TestModeManager.clearLogs(this)
                 TestModeManager.stopSensor()
                 binding.cardFloatingTestToggle.visibility = View.GONE
                 binding.layoutTestPromptBox.visibility = View.GONE
+                updateDeleteLogsButtonVisibility()
                 Toast.makeText(this, "Test mode deactivated. All logs deleted.", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    private fun updateDeleteLogsButtonVisibility() {
+        val hasLogs = appSettings.isTestModeEnabled && TestModeManager.hasLogs(this)
+        binding.btnDeleteTestLogs.visibility = if (hasLogs) View.VISIBLE else View.GONE
     }
 
     private fun toggleTestMenuVisibility() {
@@ -1289,6 +1297,25 @@ class MainActivity : AppCompatActivity() {
     private fun setupTestModeUi() {
         binding.statusLayout.setOnClickListener { handleSecretTestModeTap() }
         setupDraggableFloatingTestToggle()
+
+        binding.btnDeleteTestLogs.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Delete test logs?")
+                .setMessage("Are you sure you want to permanently delete all recorded test telemetry logs? This cannot be undone.")
+                .setPositiveButton("Delete") { _, _ ->
+                    TestModeManager.clearLogs(this)
+                    updateTestModeDisplay()
+                    updateTestModeTelemetryHud()
+                    updateDeleteLogsButtonVisibility()
+                    Toast.makeText(this, "Test logs deleted.", Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+                .apply {
+                    getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(getColor(R.color.ms_danger))
+                }
+        }
+        updateDeleteLogsButtonVisibility()
 
         binding.chipTest1.setOnClickListener {
             TestModeManager.activePhase = TestPhase.TEST_1_SINGLE_SIGNS
@@ -1597,6 +1624,7 @@ class MainActivity : AppCompatActivity() {
 
         runOnUiThread {
             updateTestModeTelemetryHud()
+            updateDeleteLogsButtonVisibility()
         }
     }
 
@@ -1632,10 +1660,12 @@ class MainActivity : AppCompatActivity() {
             binding.ivFloatingTestIcon.setImageResource(R.drawable.ic_close_line)
             updateTestModePhaseChips()
             updateTestModeDisplay()
+            updateDeleteLogsButtonVisibility()
         } else {
             TestModeManager.stopSensor()
             binding.cardFloatingTestToggle.visibility = View.GONE
             binding.layoutTestPromptBox.visibility = View.GONE
+            updateDeleteLogsButtonVisibility()
         }
     }
 

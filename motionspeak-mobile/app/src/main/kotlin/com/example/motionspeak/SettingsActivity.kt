@@ -583,6 +583,28 @@ class SettingsActivity : BaseActivity() {
 
         btnDownloadLogs?.setOnClickListener(downloadAction)
         rowDownloadLogs?.setOnClickListener(downloadAction)
+
+        val btnDeleteLogs = findViewById<View>(R.id.btnDeleteLogs)
+        val rowDeleteLogs = findViewById<View>(R.id.rowDeleteLogs)
+
+        val deleteAction = View.OnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Delete test logs?")
+                .setMessage("Are you sure you want to permanently delete all recorded test telemetry logs? This cannot be undone.")
+                .setPositiveButton("Delete") { _, _ ->
+                    TestModeManager.clearLogs(this)
+                    Toast.makeText(this, "Test logs deleted.", Toast.LENGTH_SHORT).show()
+                    refreshDownloadLogsVisibility()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+                .apply {
+                    getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(getColor(R.color.ms_danger))
+                }
+        }
+
+        btnDeleteLogs?.setOnClickListener(deleteAction)
+        rowDeleteLogs?.setOnClickListener(deleteAction)
     }
 
     private fun refreshDownloadLogsVisibility() {
