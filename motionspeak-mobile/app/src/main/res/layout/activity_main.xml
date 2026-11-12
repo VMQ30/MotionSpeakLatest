@@ -44,7 +44,389 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Environment and hand warnings floating under the back button -->
+    <!-- ════════════════════ TEST MODE PROMPT OVERLAY ════════════════════ -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/layoutTestPromptBox"
+        style="@style/Widget.Sigla.Card.Outlined"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/ms_screen_padding"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="@dimen/ms_screen_padding"
+        android:elevation="10dp"
+        android:visibility="gone"
+        app:cardBackgroundColor="@color/ms_bg"
+        app:cardCornerRadius="@dimen/ms_radius_md"
+        app:strokeColor="@color/ms_cat_violet_accent"
+        app:strokeWidth="2dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/btnBack"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="@dimen/ms_space_12">
+
+            <!-- Test Mode Phase Chips & Step indicator -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/badgeTestMode"
+                    style="@style/Sigla.Text.Caption"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_ms_pill"
+                    android:backgroundTint="@color/ms_cat_violet_accent"
+                    android:paddingStart="@dimen/ms_space_8"
+                    android:paddingTop="2dp"
+                    android:paddingEnd="@dimen/ms_space_8"
+                    android:paddingBottom="2dp"
+                    android:text="TEST MODE"
+                    android:textColor="@color/ms_on_brand" />
+
+                <TextView
+                    android:id="@+id/tvTestPhaseTitle"
+                    style="@style/Sigla.Text.Caption"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/ms_space_8"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="@color/ms_cat_violet_accent"
+                    android:textStyle="bold"
+                    tools:text="1: Single Signs &amp; Expressions" />
+
+                <TextView
+                    android:id="@+id/tvTestStepIndicator"
+                    style="@style/Sigla.Text.Caption"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/ms_text_secondary"
+                    tools:text="[1/25]" />
+
+                <ImageView
+                    android:id="@+id/btnMinimizeTestMenu"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:layout_marginStart="@dimen/ms_space_8"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Minimize test menu"
+                    android:padding="3dp"
+                    android:src="@drawable/ic_close_line"
+                    app:tint="@color/ms_text_secondary" />
+            </LinearLayout>
+
+            <!-- Horizontal Tab Chips to switch between the 4 Tests -->
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/chipTest1"
+                        style="@style/Sigla.Text.Caption"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="6dp"
+                        android:background="@drawable/bg_ms_pill"
+                        android:backgroundTint="@color/ms_cat_violet_bg"
+                        android:paddingStart="10dp"
+                        android:paddingTop="3dp"
+                        android:paddingEnd="10dp"
+                        android:paddingBottom="3dp"
+                        android:text="1: Single Signs"
+                        android:textColor="@color/ms_cat_violet_text" />
+
+                    <TextView
+                        android:id="@+id/chipTest2"
+                        style="@style/Sigla.Text.Caption"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="6dp"
+                        android:background="@drawable/bg_ms_pill"
+                        android:backgroundTint="@color/ms_cat_violet_tint"
+                        android:paddingStart="10dp"
+                        android:paddingTop="3dp"
+                        android:paddingEnd="10dp"
+                        android:paddingBottom="3dp"
+                        android:text="2: Sentences (BLEU)"
+                        android:textColor="@color/ms_cat_violet_accent" />
+
+                    <TextView
+                        android:id="@+id/chipTest3"
+                        style="@style/Sigla.Text.Caption"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="6dp"
+                        android:background="@drawable/bg_ms_pill"
+                        android:backgroundTint="@color/ms_cat_violet_tint"
+                        android:paddingStart="10dp"
+                        android:paddingTop="3dp"
+                        android:paddingEnd="10dp"
+                        android:paddingBottom="3dp"
+                        android:text="3: Speed &amp; Latency"
+                        android:textColor="@color/ms_cat_violet_accent" />
+
+                    <TextView
+                        android:id="@+id/chipTest4"
+                        style="@style/Sigla.Text.Caption"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_ms_pill"
+                        android:backgroundTint="@color/ms_cat_violet_tint"
+                        android:paddingStart="10dp"
+                        android:paddingTop="3dp"
+                        android:paddingEnd="10dp"
+                        android:paddingBottom="3dp"
+                        android:text="4: Breaking Points"
+                        android:textColor="@color/ms_cat_violet_accent" />
+                </LinearLayout>
+            </HorizontalScrollView>
+
+            <!-- Main Prompt display -->
+            <TextView
+                android:id="@+id/tvTestPromptHeading"
+                style="@style/Sigla.Text.Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Please sign:"
+                android:textColor="@color/ms_text_secondary" />
+
+            <TextView
+                android:id="@+id/tvTestPromptText"
+                style="@style/Sigla.Text.Title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="@color/ms_cat_violet_accent"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                tools:text="SALAMAT" />
+
+            <TextView
+                android:id="@+id/tvTestPromptSub"
+                style="@style/Sigla.Text.Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="@color/ms_text"
+                tools:text='Target: "Thank You" • Facial expression: Happy / Smile' />
+
+            <!-- Boundary selectors for Test 4 (Distance / Angle / Background) -->
+            <LinearLayout
+                android:id="@+id/layoutTestBoundarySelectors"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="vertical"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <TextView
+                    style="@style/Sigla.Text.Caption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Boundary test variables (tap to cycle):"
+                    android:textColor="@color/ms_text_secondary" />
+
+                <HorizontalScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:scrollbars="none">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/chipDistance"
+                            style="@style/Sigla.Text.Caption"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="6dp"
+                            android:background="@drawable/bg_ms_pill"
+                            android:backgroundTint="@color/ms_cat_teal_bg"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:paddingStart="8dp"
+                            android:paddingTop="2dp"
+                            android:paddingEnd="8dp"
+                            android:paddingBottom="2dp"
+                            android:text="Dist: 1.0m"
+                            android:textColor="@color/ms_on_brand" />
+
+                        <TextView
+                            android:id="@+id/chipAngle"
+                            style="@style/Sigla.Text.Caption"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="6dp"
+                            android:background="@drawable/bg_ms_pill"
+                            android:backgroundTint="@color/ms_cat_sky_bg"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:paddingStart="8dp"
+                            android:paddingTop="2dp"
+                            android:paddingEnd="8dp"
+                            android:paddingBottom="2dp"
+                            android:text="Angle: 0°"
+                            android:textColor="@color/ms_on_brand" />
+
+                        <TextView
+                            android:id="@+id/chipBackground"
+                            style="@style/Sigla.Text.Caption"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="6dp"
+                            android:background="@drawable/bg_ms_pill"
+                            android:backgroundTint="@color/ms_cat_indigo_bg"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:paddingStart="8dp"
+                            android:paddingTop="2dp"
+                            android:paddingEnd="8dp"
+                            android:paddingBottom="2dp"
+                            android:text="Wall: Plain"
+                            android:textColor="@color/ms_on_brand" />
+
+                        <TextView
+                            android:id="@+id/chipElevation"
+                            style="@style/Sigla.Text.Caption"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="6dp"
+                            android:background="@drawable/bg_ms_pill"
+                            android:backgroundTint="@color/ms_cat_purple_bg"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:paddingStart="8dp"
+                            android:paddingTop="2dp"
+                            android:paddingEnd="8dp"
+                            android:paddingBottom="2dp"
+                            android:text="Elev: 0°"
+                            android:textColor="@color/ms_on_brand" />
+
+                        <TextView
+                            android:id="@+id/chipSigner"
+                            style="@style/Sigla.Text.Caption"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="6dp"
+                            android:background="@drawable/bg_ms_pill"
+                            android:backgroundTint="@color/ms_cat_teal_bg"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:paddingStart="8dp"
+                            android:paddingTop="2dp"
+                            android:paddingEnd="8dp"
+                            android:paddingBottom="2dp"
+                            android:text="Signer: 01"
+                            android:textColor="@color/ms_on_brand" />
+
+                        <TextView
+                            android:id="@+id/chipIteration"
+                            style="@style/Sigla.Text.Caption"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_ms_pill"
+                            android:backgroundTint="@color/ms_cat_cyan_bg"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:paddingStart="8dp"
+                            android:paddingTop="2dp"
+                            android:paddingEnd="8dp"
+                            android:paddingBottom="2dp"
+                            android:text="Iter: 1/10"
+                            android:textColor="@color/ms_on_brand" />
+                    </LinearLayout>
+                </HorizontalScrollView>
+            </LinearLayout>
+
+            <!-- Real-time Telemetry & Live Prediction Feedback -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_ms_search"
+                android:orientation="vertical"
+                android:padding="8dp">
+
+                <TextView
+                    android:id="@+id/tvTestTelemetryMetrics"
+                    style="@style/Sigla.Text.Caption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/ms_brand_text"
+                    android:textStyle="bold"
+                    tools:text="Lux: 350 lx • FPS: 28.5 • Latency: 142ms (MP: 28ms, CNN: 19ms)" />
+
+                <TextView
+                    android:id="@+id/tvTestLastPrediction"
+                    style="@style/Sigla.Text.Caption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textColor="@color/ms_text"
+                    tools:text="Latest: SALAMAT (92% Conf) • MATCH ✓" />
+            </LinearLayout>
+
+            <!-- Action Controls: Prev, Next, and Sentence Synthesize trigger -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnTestPrev"
+                    style="@style/Widget.Sigla.Chip"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:text="◀ Prev" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnTestSynthesize"
+                    style="@style/Widget.Sigla.Chip"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1.2"
+                    android:text="Eval BLEU"
+                    android:visibility="gone"
+                    tools:visibility="visible" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnTestNext"
+                    style="@style/Widget.Sigla.Button"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1.2"
+                    android:text="Next ▶"
+                    app:backgroundTint="@color/ms_cat_violet_bg"
+                    android:textColor="@color/ms_cat_violet_text"
+                    app:cornerRadius="18dp" />
+            </LinearLayout>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
     <!-- Result card, floating under the top controls -->
     <com.google.android.material.card.MaterialCardView
@@ -59,7 +441,7 @@
         app:cardCornerRadius="@dimen/ms_radius_md"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/btnBack"
+        app:layout_constraintTop_toBottomOf="@id/layoutTestPromptBox"
         tools:visibility="visible">
 
         <LinearLayout
@@ -615,6 +997,63 @@
                 android:textColor="@color/ms_on_dark"
                 android:textSize="12sp"
                 android:text="1 low conf" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- ════════════════════ FLOATING TEST MENU TOGGLE (DRAGGABLE & ACCESSIBLE) ════════════════════ -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardFloatingTestToggle"
+        style="@style/Widget.Sigla.Card.Outlined"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/ms_space_16"
+        android:layout_marginEnd="@dimen/ms_space_16"
+        android:clickable="true"
+        android:focusable="true"
+        android:elevation="35dp"
+        android:visibility="gone"
+        app:cardBackgroundColor="@color/ms_bg"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="28dp"
+        app:strokeColor="@color/ms_cat_violet_accent"
+        app:strokeWidth="2dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="10dp"
+            android:paddingEnd="14dp">
+
+            <FrameLayout
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:background="@drawable/bg_ms_circle_tint"
+                android:backgroundTint="@color/ms_cat_violet_bg">
+
+                <ImageView
+                    android:id="@+id/ivFloatingTestIcon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Toggle test menu"
+                    android:src="@drawable/ic_tag_line"
+                    app:tint="@color/ms_cat_violet_text" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tvFloatingTestLabel"
+                style="@style/Sigla.Text.BodyStrong"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Test Menu"
+                android:textColor="@color/ms_cat_violet_text"
+                android:textSize="13sp" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 

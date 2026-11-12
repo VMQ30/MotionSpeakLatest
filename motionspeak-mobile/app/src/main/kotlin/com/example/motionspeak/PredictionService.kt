@@ -1,6 +1,7 @@
 package com.example.motionspeak
 
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import org.tensorflow.lite.Interpreter
 import java.io.FileInputStream
@@ -36,7 +37,9 @@ data class PredictionDecision(
     val confidence: Float,
     val tier: ConfidenceTier,
     val alternatives: List<PredictionAlternative>,
-    val uncertaintyReason: String? = null
+    val uncertaintyReason: String? = null,
+    val tfliteLatencyMs: Double = 0.0,
+    val finalFrameTimestampMs: Long = 0L
 )
 
 internal data class ModelMeta(
@@ -58,7 +61,8 @@ class PredictionService(private val context: Context) {
     companion object {
         /** Intent extra key: desired starting Vocabulary for the translator screen. */
         const val EXTRA_START_VOCABULARY = "extra_start_vocabulary"
-        const val NO_HAND_TIMEOUT = 6
+        const val NO_HAND_TIMEOUT = 16
+        const val HOLD_THRESHOLD = 18
         const val MIN_POSE_FRAMES = 24
         const val SEQUENCE_LENGTH = 30
         const val MIN_SEQUENCE_MOTION = 0.50f
@@ -68,9 +72,10 @@ class PredictionService(private val context: Context) {
 
     private var interpreter: Interpreter? = null
     private var labels: List<String> = emptyList()
-    private val frameBuffer = ArrayDeque<FloatArray>()
+    private val frameBuffer = ArrayDeque<Pair<Long, FloatArray>>()
     private var inactiveStreak = 0
     private var holdFrames = 0
+    private var cumulativeMotion = 0f
 
     private var sequenceLength = DEFAULT_SEQUENCE_LENGTH
     private var numFeatures = MotionPreprocessor.RAW_FEATURES
@@ -131,27 +136,29 @@ class PredictionService(private val context: Context) {
         }
     }
 
-    fun processFrame(features: FloatArray) {
+    fun processFrame(features: FloatArray, frameCaptureTimestampMs: Long = SystemClock.elapsedRealtime()) {
         if (!isReady) return
 
         val hasHands = features.size > RIGHT_FLAG && (features[LEFT_FLAG] > 0f || features[RIGHT_FLAG] > 0f)
 
         if (hasHands) {
             inactiveStreak = 0
-            // Buffer the raw 173-dimensional features for sequence processing
-            frameBuffer.addLast(features.copyOf(MotionPreprocessor.RAW_FEATURES))
-            if (frameBuffer.size > 60) frameBuffer.removeFirst()
+            // Buffer timestamp and raw 173-dimensional features for temporal sequence processing
+            frameBuffer.addLast(frameCaptureTimestampMs to features.copyOf(MotionPreprocessor.RAW_FEATURES))
+            if (frameBuffer.size > 90) frameBuffer.removeFirst()
 
             val progress = (frameBuffer.size / 30f).coerceIn(0f, 1f)
             onCollecting?.invoke(progress)
 
             // Measure hand movement to detect terminal hold vs active motion
             val motionMag = if (frameBuffer.size >= 2) {
-                val prev = frameBuffer[frameBuffer.size - 2]
-                val curr = frameBuffer[frameBuffer.size - 1]
+                val prev = frameBuffer[frameBuffer.size - 2].second
+                val curr = frameBuffer[frameBuffer.size - 1].second
                 kotlin.math.abs(curr[0] - prev[0]) + kotlin.math.abs(curr[1] - prev[1]) +
                 kotlin.math.abs(curr[63] - prev[63]) + kotlin.math.abs(curr[64] - prev[64])
             } else 1.0f
+
+            cumulativeMotion += motionMag
 
             // A hold is detected when motion decelerates to near zero at the end of a gesture
             if (motionMag < 0.05f && frameBuffer.size >= 20) {
@@ -160,22 +167,25 @@ class PredictionService(private val context: Context) {
                 holdFrames = 0
             }
 
-            // Fire on terminal hold (hand held still for ~260ms after executing the sign)
-            if (holdFrames >= 8 && frameBuffer.size >= 22) {
-                val success = runInference()
+            // Fire on terminal hold (hand held still for ~500ms after executing the sign with sufficient motion)
+            // Increased threshold to HOLD_THRESHOLD (18 frames) prevents multi-phase signs like GOOD_MORNING from premature truncation!
+            if (holdFrames >= HOLD_THRESHOLD && frameBuffer.size >= MIN_POSE_FRAMES && cumulativeMotion >= MIN_SEQUENCE_MOTION) {
+                val success = runInference(frameCaptureTimestampMs)
                 if (success) {
                     frameBuffer.clear()
                     holdFrames = 0
                     inactiveStreak = 0
+                    cumulativeMotion = 0f
                     onCollecting?.invoke(0f)
                 }
-            } else if (frameBuffer.size >= 58 && holdFrames >= 4) {
+            } else if (frameBuffer.size >= 85 && holdFrames >= 8 && cumulativeMotion >= MIN_SEQUENCE_MOTION) {
                 // Buffer capacity reached and motion has slowed
-                val success = runInference()
+                val success = runInference(frameCaptureTimestampMs)
                 if (success) {
                     frameBuffer.clear()
                     holdFrames = 0
                     inactiveStreak = 0
+                    cumulativeMotion = 0f
                     onCollecting?.invoke(0f)
                 }
             }
@@ -184,14 +194,23 @@ class PredictionService(private val context: Context) {
         } else {
             holdFrames = 0
             inactiveStreak++
+
+            // If a gesture was in progress, buffer empty frames during brief tracking glitches (< NO_HAND_TIMEOUT)
+            // so MotionPreprocessor.fillGapsTimed can interpolate intermediate dropouts instead of dropping temporal sequence!
+            if (frameBuffer.isNotEmpty() && inactiveStreak <= NO_HAND_TIMEOUT) {
+                frameBuffer.addLast(frameCaptureTimestampMs to features.copyOf(MotionPreprocessor.RAW_FEATURES))
+                if (frameBuffer.size > 90) frameBuffer.removeFirst()
+            }
+
             // Hands were lowered or left the frame: natural end of gesture
-            if (inactiveStreak >= 5) {
-                if (frameBuffer.size >= 12) {
+            if (inactiveStreak >= NO_HAND_TIMEOUT) {
+                if (frameBuffer.size >= 12 && cumulativeMotion >= 0.35f) {
                     // Complete sign captured: run inference now!
-                    runInference()
+                    runInference(frameCaptureTimestampMs)
                 }
                 frameBuffer.clear()
                 inactiveStreak = 0
+                cumulativeMotion = 0f
                 onCollecting?.invoke(0f)
             } else if (frameBuffer.isEmpty()) {
                 onCollecting?.invoke(0f)
@@ -199,17 +218,17 @@ class PredictionService(private val context: Context) {
         }
     }
 
-    internal fun runInference(): Boolean {
+    internal fun runInference(finalFrameTimestampMs: Long = SystemClock.elapsedRealtime()): Boolean {
         if (frameBuffer.size < 8) return false
 
-        // 1. Fill short tracking gaps (up to 6 frames)
-        val filled = MotionPreprocessor.fillGaps(frameBuffer.toList())
+        // 1. Fill short tracking gaps with temporal alignment
+        val filledTimed = MotionPreprocessor.fillGapsTimed(frameBuffer.toList())
 
         // 2. Trim active frames (between first and last hand detection +/- 3 pad)
-        val active = MotionPreprocessor.trimActive(filled) ?: return false
+        val activeTimed = MotionPreprocessor.trimActiveTimed(filledTimed) ?: return false
 
-        // 3. Resample to target sequence length
-        val resampled = MotionPreprocessor.resample(active, sequenceLength)
+        // 3. Resample to target sequence length using physical time continuous linear interpolation (∆t)
+        val resampled = MotionPreprocessor.resampleTimed(activeTimed, sequenceLength)
 
         // 4. Construct input tensor dynamically based on model specification
         val settings = AppSettings.getInstance(context)
@@ -225,13 +244,15 @@ class PredictionService(private val context: Context) {
             signerSpeedFactor = settings.signerSpeedFactor
         )
 
-        // 5. Run TFLite inference safely inside try-catch
+        // 5. Run TFLite inference safely inside try-catch with nanosecond profiling
+        val tfliteStartNs = SystemClock.elapsedRealtimeNanos()
         try {
             interpreter?.run(inputBuffer, outputBuffer)
         } catch (e: Exception) {
             Log.e(TAG, "TFLite inference failed: ${e.message}", e)
             return false
         }
+        val tfliteDurationMs = (SystemClock.elapsedRealtimeNanos() - tfliteStartNs) / 1e6
 
         val candidates = ArrayList<Pair<Int, Float>>(numClasses)
         for (i in 0 until numClasses) {
@@ -274,7 +295,9 @@ class PredictionService(private val context: Context) {
             confidence = topConf,
             tier = tier,
             alternatives = topAlternatives,
-            uncertaintyReason = uncertaintyReason
+            uncertaintyReason = uncertaintyReason,
+            tfliteLatencyMs = tfliteDurationMs,
+            finalFrameTimestampMs = finalFrameTimestampMs
         )
 
         onDecision?.invoke(decision)
@@ -329,6 +352,7 @@ class PredictionService(private val context: Context) {
         frameBuffer.clear()
         inactiveStreak = 0
         holdFrames = 0
+        cumulativeMotion = 0f
         onCollecting?.invoke(0f)
     }
 
@@ -362,5 +386,6 @@ class PredictionService(private val context: Context) {
         frameBuffer.clear()
         inactiveStreak = 0
         holdFrames = 0
+        cumulativeMotion = 0f
     }
 }

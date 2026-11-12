@@ -154,10 +154,18 @@ class SentenceComposer(
 
             onComposingStateChanged?.invoke(true)
 
+            val startNs = SystemClock.elapsedRealtimeNanos()
             try {
-                val result = synthesizer.compose(tokensToCompose, toneSnapshot, langSnapshot, markersSnapshot)
+                val rawResult = synthesizer.compose(tokensToCompose, toneSnapshot, langSnapshot, markersSnapshot)
+                val durationMs = maxOf(1L, (SystemClock.elapsedRealtimeNanos() - startNs) / 1_000_000L)
+                val result = if (rawResult.latencyMs <= 0L) {
+                    rawResult.copy(latencyMs = durationMs)
+                } else {
+                    rawResult
+                }
                 onSentenceComposed?.invoke(result)
             } catch (e: Exception) {
+                val durationMs = maxOf(1L, (SystemClock.elapsedRealtimeNanos() - startNs) / 1_000_000L)
                 // If anything unexpected occurs, fall back to safe pass-through text
                 val fallbackText = tokensToCompose.joinToString(" ")
                     .replace('_', ' ')
@@ -168,7 +176,7 @@ class SentenceComposer(
                     language = langSnapshot,
                     tone = toneSnapshot,
                     isLlmGenerated = false,
-                    latencyMs = 0L
+                    latencyMs = durationMs
                 )
                 onSentenceComposed?.invoke(fallbackResult)
             } finally {

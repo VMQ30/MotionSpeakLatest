@@ -1,5 +1,6 @@
 package com.example.motionspeak
 
+import android.annotation.SuppressLint
 import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -20,6 +21,7 @@ import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.util.Log
 import android.view.MotionEvent
+import android.view.ViewConfiguration
 import android.view.animation.LinearInterpolator
 import android.animation.ValueAnimator
 import android.app.Dialog
@@ -48,6 +50,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -130,6 +133,7 @@ class MainActivity : AppCompatActivity() {
 
     private val executor        = Executors.newSingleThreadExecutor()
     private val emotionExecutor = Executors.newSingleThreadExecutor { Thread(it, "motionspeak-emotion").apply { isDaemon = true } }
+    private val inferenceExecutor = Executors.newSingleThreadExecutor { Thread(it, "motionspeak-tflite-inference").apply { isDaemon = true } }
     private val emotionInFlight = AtomicBoolean(false)
     private var isFrontCamera = false
     private var cameraSessionManager: CameraSessionManager? = null
@@ -142,6 +146,9 @@ class MainActivity : AppCompatActivity() {
 
     @Volatile private var pendingCollectPct    = -1
     @Volatile private var pendingOverlayResult: LandmarkResult? = null
+    @Volatile private var latestEmotion: String = "neutral"
+    @Volatile private var latestEmotionConfidence: Float = 0.5f
+    @Volatile private var latestFacialAffect: String = "[STABLE]"
     private var overlayShown = true
     private val overlayPostPending = AtomicBoolean(false)
     private var lastShownPct    = -1
@@ -188,6 +195,7 @@ class MainActivity : AppCompatActivity() {
         initSentenceComposer()
         startVision()
         setupButtons()
+        setupTestModeUi()
         binding.btnBack.setOnClickListener { finish() }
     }
 
@@ -230,7 +238,10 @@ class MainActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) { setStatus("Loading hand tracking…", StatusKind.LOADING) }
 
                 val sink: (LandmarkResult) -> Unit = { result ->
-                    predictor?.processFrame(result.features)
+                    cameraSessionManager?.onFrameCompleted()
+                    inferenceExecutor.execute {
+                        predictor?.processFrame(result.features, result.frameCaptureTimestampMs)
+                    }
                     enqueueOverlayUpdate(result)
                 }
                 landmarkSink = sink
@@ -295,7 +306,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initTts() { speech = SpeechPlayer(this, appSettings, lifecycleScope) }
-    private fun speak(text: String) { speech?.speak(text) }
+    private fun speak(
+        text: String,
+        t0CaptureMs: Long = 0L,
+        onAudioStart: ((e2eLatencyMs: Long, ttsDurationMs: Double) -> Unit)? = null
+    ) {
+        speech?.speak(
+            text = text,
+            queueUntilReady = false,
+            t0CaptureMs = t0CaptureMs,
+            onAudioStart = onAudioStart
+        )
+    }
 
     private fun startStatusDotBlink() {
         if (statusDotAnimator != null && statusDotAnimator!!.isRunning) return
@@ -360,7 +382,14 @@ class MainActivity : AppCompatActivity() {
             if (isSentenceState) {
                 return@onDecision
             }
-            val latencyMs = if (inferenceStartMs > 0L) (SystemClock.elapsedRealtime() - inferenceStartMs) else 20L
+            val nowMs = SystemClock.elapsedRealtime()
+            val latencyMs = if (decision.finalFrameTimestampMs > 0L) {
+                (nowMs - decision.finalFrameTimestampMs).coerceAtLeast(1L)
+            } else if (inferenceStartMs > 0L) {
+                (nowMs - inferenceStartMs)
+            } else {
+                20L
+            }
             AnalyticsManager.getInstance(applicationContext).recordPrediction(decision, latencyMs)
 
             runOnUiThread {
@@ -382,6 +411,9 @@ class MainActivity : AppCompatActivity() {
                         val htmlReason = decision.uncertaintyReason
                             ?: "<b>Gesture confidence low</b> ($pct%). Please repeat the gesture."
                         setUncertaintyBannerHtml(htmlReason)
+                        if (appSettings.isTestModeEnabled) {
+                            recordTestModePrediction(decision, latencyMs)
+                        }
                     }
                 }
             }
@@ -634,8 +666,16 @@ class MainActivity : AppCompatActivity() {
 
         renderSignedWords()
 
+        val t0 = decision?.finalFrameTimestampMs ?: 0L
         Haptics.confirm(binding.root)
-        speak(word)
+        speak(
+            text = word,
+            t0CaptureMs = t0
+        ) { e2eLatencyMs, ttsLatencyMs ->
+            if (appSettings.isTestModeEnabled && decision != null) {
+                recordTestModePrediction(decision, e2eLatencyMs, ttsLatencyMs)
+            }
+        }
         lifecycleScope.launch(Dispatchers.IO) { historyManager.add(label, (conf * 100).toInt(), "motion") }
     }
 
@@ -656,6 +696,35 @@ class MainActivity : AppCompatActivity() {
 
     private fun onSentenceGenerated(result: SentenceResult) {
         if (result.text.isBlank()) return
+
+        if (appSettings.isTestModeEnabled) {
+            val currentPrompt = if (TestModeManager.activePhase == TestPhase.TEST_2_FULL_SENTENCES) {
+                TestModeManager.FULL_SENTENCE_PROMPTS.getOrNull(TestModeManager.sentenceIndex)
+            } else {
+                SentencePrompt(
+                    promptText = result.originalTokens.joinToString(" "),
+                    glosses = result.originalTokens,
+                    referenceTranslations = listOf(result.text),
+                    expectedAffect = latestFacialAffect
+                )
+            }
+            if (currentPrompt != null) {
+                val ttsLatency = speech?.latestTtsLatencyMs ?: 0.0
+                TestModeManager.logSentence(
+                    context = applicationContext,
+                    prompt = currentPrompt,
+                    result = result,
+                    fps = CaptureRateMonitor.currentFps,
+                    detectedEmotion = latestEmotion,
+                    facialAffect = latestFacialAffect,
+                    facialConfidence = latestEmotionConfidence,
+                    tTtsMs = ttsLatency
+                )
+                val bleu = TestModeManager.latestBleuScore
+                val bStr = if (bleu != null) String.format(Locale.US, "BLEU-4: %.2f (B1: %.2f)", bleu.bleu4, bleu.bleu1) else ""
+                binding.tvTestLastPrediction.text = "Synthesized: \"${result.text}\" • $bStr"
+            }
+        }
         setSentenceState(true)
         isRenderingWords = true
         try {
@@ -934,7 +1003,7 @@ class MainActivity : AppCompatActivity() {
                 context = this,
                 lifecycleOwner = this,
                 previewView = binding.cameraPreview,
-                onFramePrepared = { prepared -> processFrame(prepared) }
+                onFramePrepared = { prepared, timestampMs -> processFrame(prepared, timestampMs) }
             ).apply {
                 isFrontCamera = this@MainActivity.isFrontCamera
             }
@@ -942,7 +1011,7 @@ class MainActivity : AppCompatActivity() {
         cameraSessionManager?.start()
     }
 
-    private fun processFrame(prepared: Bitmap) {
+    private fun processFrame(prepared: Bitmap, captureTimestampMs: Long = SystemClock.elapsedRealtime()) {
         val lm = landmarker ?: return
 
         if (appSettings.isFacialAnalysisEnabled) {
@@ -955,7 +1024,12 @@ class MainActivity : AppCompatActivity() {
                         try {
                             val result = classifier.predictTone(prepared)
                             if (result != null) {
-                                val emotionLabel = result.first.replaceFirstChar { it.uppercase() }
+                                val rawLabel = result.first.lowercase(Locale.ROOT)
+                                val conf = result.second
+                                latestEmotion = rawLabel
+                                latestEmotionConfidence = conf
+                                latestFacialAffect = ToneMapper.toTriageAffect(rawLabel)
+                                val emotionLabel = rawLabel.replaceFirstChar { it.uppercase() }
                                 val tone = ToneMapper.fromEmotion(emotionLabel)
                                 sentenceComposer?.currentTone = SentenceTone.fromToneString(tone)
                                 val (isQ, isNeg) = classifier.latestLinguisticMarkers
@@ -964,6 +1038,9 @@ class MainActivity : AppCompatActivity() {
                                     binding.overlayView.setDetectedEmotion(emotionLabel)
                                 }
                             } else {
+                                latestEmotion = "neutral"
+                                latestEmotionConfidence = 0.5f
+                                latestFacialAffect = "[STABLE]"
                                 sentenceComposer?.currentTone = SentenceTone.NEUTRAL
                                 runOnUiThread {
                                     binding.overlayView.setDetectedEmotion(null)
@@ -980,7 +1057,7 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread { binding.overlayView.setDetectedEmotion(null) }
         }
 
-        lm.detectAsync(prepared, SystemClock.elapsedRealtime())
+        lm.detectAsync(prepared, captureTimestampMs)
     }
 
     private fun showAlternativesPickerForWord(targetWord: DialogueWord) {
@@ -1100,6 +1177,429 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
+    // ── Test Mode UI & Telemetry Coordination ──────────────────────────────
+
+    private var secretTapCount = 0
+    private var lastSecretTapTime = 0L
+
+    private fun handleSecretTestModeTap() {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastSecretTapTime > 2000L) {
+            secretTapCount = 0
+        }
+        lastSecretTapTime = now
+        secretTapCount++
+        if (secretTapCount >= 5) {
+            secretTapCount = 0
+            val newState = !appSettings.isTestModeEnabled
+            appSettings.isTestModeEnabled = newState
+            if (newState) {
+                TestModeManager.startSensor(this)
+                binding.cardFloatingTestToggle.visibility = View.VISIBLE
+                binding.layoutTestPromptBox.visibility = View.VISIBLE
+                binding.tvFloatingTestLabel.text = "Hide Test"
+                binding.ivFloatingTestIcon.setImageResource(R.drawable.ic_close_line)
+                updateTestModePhaseChips()
+                updateTestModeDisplay()
+                Toast.makeText(this, "Test mode activated!", Toast.LENGTH_SHORT).show()
+            } else {
+                TestModeManager.clearLogs(this)
+                TestModeManager.stopSensor()
+                binding.cardFloatingTestToggle.visibility = View.GONE
+                binding.layoutTestPromptBox.visibility = View.GONE
+                Toast.makeText(this, "Test mode deactivated. All logs deleted.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun toggleTestMenuVisibility() {
+        val isCurrentlyVisible = binding.layoutTestPromptBox.visibility == View.VISIBLE
+        if (isCurrentlyVisible) {
+            binding.layoutTestPromptBox.visibility = View.GONE
+            binding.tvFloatingTestLabel.text = "Test Menu"
+            binding.ivFloatingTestIcon.setImageResource(R.drawable.ic_tag_line)
+            Haptics.tick(binding.cardFloatingTestToggle)
+        } else {
+            binding.layoutTestPromptBox.visibility = View.VISIBLE
+            binding.layoutTestPromptBox.bringToFront()
+            binding.cardFloatingTestToggle.bringToFront()
+            binding.tvFloatingTestLabel.text = "Hide Test"
+            binding.ivFloatingTestIcon.setImageResource(R.drawable.ic_close_line)
+            Haptics.confirm(binding.cardFloatingTestToggle)
+        }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupDraggableFloatingTestToggle() {
+        val card = binding.cardFloatingTestToggle
+        val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
+        var dX = 0f
+        var dY = 0f
+        var startRawX = 0f
+        var startRawY = 0f
+        var isDragging = false
+
+        card.setOnTouchListener { view, event ->
+            val parent = view.parent as? View ?: return@setOnTouchListener false
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    dX = view.x - event.rawX
+                    dY = view.y - event.rawY
+                    startRawX = event.rawX
+                    startRawY = event.rawY
+                    isDragging = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val deltaX = event.rawX - startRawX
+                    val deltaY = event.rawY - startRawY
+                    val distance = kotlin.math.hypot(deltaX.toDouble(), deltaY.toDouble()).toFloat()
+                    if (distance > touchSlop) {
+                        isDragging = true
+                    }
+                    if (isDragging) {
+                        val maxAvailableX = (parent.width - view.width).coerceAtLeast(0).toFloat()
+                        val maxAvailableY = (parent.height - view.height).coerceAtLeast(0).toFloat()
+                        val newX = (event.rawX + dX).coerceIn(0f, maxAvailableX)
+                        val newY = (event.rawY + dY).coerceIn(0f, maxAvailableY)
+                        view.animate().x(newX).y(newY).setDuration(0).start()
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!isDragging) {
+                        view.performClick()
+                        toggleTestMenuVisibility()
+                    }
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    isDragging = false
+                    true
+                }
+                else -> false
+            }
+        }
+
+        binding.btnMinimizeTestMenu.setOnClickListener {
+            toggleTestMenuVisibility()
+        }
+    }
+
+    private fun setupTestModeUi() {
+        binding.statusLayout.setOnClickListener { handleSecretTestModeTap() }
+        setupDraggableFloatingTestToggle()
+
+        binding.chipTest1.setOnClickListener {
+            TestModeManager.activePhase = TestPhase.TEST_1_SINGLE_SIGNS
+            updateTestModePhaseChips()
+            updateTestModeDisplay()
+        }
+        binding.chipTest2.setOnClickListener {
+            TestModeManager.activePhase = TestPhase.TEST_2_FULL_SENTENCES
+            updateTestModePhaseChips()
+            updateTestModeDisplay()
+        }
+        binding.chipTest3.setOnClickListener {
+            TestModeManager.activePhase = TestPhase.TEST_3_SPEED_CHECK
+            updateTestModePhaseChips()
+            updateTestModeDisplay()
+        }
+        binding.chipTest4.setOnClickListener {
+            TestModeManager.activePhase = TestPhase.TEST_4_BREAKING_POINTS
+            updateTestModePhaseChips()
+            updateTestModeDisplay()
+        }
+
+        binding.btnTestNext.setOnClickListener {
+            when (TestModeManager.activePhase) {
+                TestPhase.TEST_1_SINGLE_SIGNS -> {
+                    TestModeManager.singleSignIndex++
+                    if (TestModeManager.singleSignIndex >= TestModeManager.SINGLE_SIGN_PROMPTS.size) {
+                        TestModeManager.singleSignIndex = 0
+                        if (TestModeManager.currentIteration < TestModeManager.maxIterations) {
+                            TestModeManager.currentIteration++
+                            Toast.makeText(this, "Completed vocabulary! Starting Iteration ${TestModeManager.currentIteration}/${TestModeManager.maxIterations}", Toast.LENGTH_LONG).show()
+                        } else {
+                            Toast.makeText(this, "Completed all 10 baseline iterations (600+ trials logged)!", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+                TestPhase.TEST_2_FULL_SENTENCES -> {
+                    val prompt = TestModeManager.FULL_SENTENCE_PROMPTS.getOrNull(TestModeManager.sentenceIndex)
+                    if (prompt != null) {
+                        val tokens = if (signedWords.isNotEmpty()) signedWords.toList() else prompt.glosses
+                        sentenceComposer?.triggerComposition(tokens)
+                    }
+                    TestModeManager.sentenceIndex = (TestModeManager.sentenceIndex + 1) % TestModeManager.FULL_SENTENCE_PROMPTS.size
+                    signedWords.clear()
+                    dialogueWords.clear()
+                    rawTokens.clear()
+                }
+                TestPhase.TEST_3_SPEED_CHECK -> {
+                    Toast.makeText(this, "Speed session checkpoint saved", Toast.LENGTH_SHORT).show()
+                }
+                TestPhase.TEST_4_BREAKING_POINTS -> {
+                    TestModeManager.stressConditionIndex = (TestModeManager.stressConditionIndex + 1) % TestModeManager.STRESS_CONDITIONS.size
+                    TestModeManager.applyStressCondition(TestModeManager.stressConditionIndex)
+                }
+            }
+            Haptics.tick(it)
+            updateTestModeDisplay()
+        }
+
+        binding.btnTestPrev.setOnClickListener {
+            when (TestModeManager.activePhase) {
+                TestPhase.TEST_1_SINGLE_SIGNS -> {
+                    if (TestModeManager.singleSignIndex > 0) TestModeManager.singleSignIndex--
+                    else TestModeManager.singleSignIndex = TestModeManager.SINGLE_SIGN_PROMPTS.size - 1
+                }
+                TestPhase.TEST_2_FULL_SENTENCES -> {
+                    if (TestModeManager.sentenceIndex > 0) TestModeManager.sentenceIndex--
+                    else TestModeManager.sentenceIndex = TestModeManager.FULL_SENTENCE_PROMPTS.size - 1
+                    signedWords.clear()
+                    dialogueWords.clear()
+                    rawTokens.clear()
+                }
+                TestPhase.TEST_3_SPEED_CHECK -> {}
+                TestPhase.TEST_4_BREAKING_POINTS -> {
+                    if (TestModeManager.stressConditionIndex > 0) TestModeManager.stressConditionIndex--
+                    else TestModeManager.stressConditionIndex = TestModeManager.STRESS_CONDITIONS.size - 1
+                    TestModeManager.applyStressCondition(TestModeManager.stressConditionIndex)
+                }
+            }
+            Haptics.tick(it)
+            updateTestModeDisplay()
+        }
+
+        binding.btnTestSynthesize.setOnClickListener {
+            val prompt = TestModeManager.FULL_SENTENCE_PROMPTS.getOrNull(TestModeManager.sentenceIndex)
+            val tokens = if (signedWords.isNotEmpty()) signedWords.toList() else prompt?.glosses ?: listOf("HELLO")
+            sentenceComposer?.triggerComposition(tokens)
+            Haptics.confirm(it)
+        }
+
+        val distances = listOf(0.5f, 1.0f, 1.5f, 2.0f, 3.0f)
+        binding.chipDistance.setOnClickListener {
+            val currIdx = distances.indexOfFirst { kotlin.math.abs(it - TestModeManager.distanceMeters) < 0.1f }
+            val nextDist = distances[(if (currIdx >= 0) currIdx + 1 else 0) % distances.size]
+            TestModeManager.distanceMeters = nextDist
+            binding.chipDistance.text = "Dist: ${nextDist}m"
+            Haptics.tick(it)
+            updateTestModeTelemetryHud()
+        }
+
+        val angles = listOf(0, 15, 30, 45, -15, -30, -45)
+        binding.chipAngle.setOnClickListener {
+            val currIdx = angles.indexOf(TestModeManager.azimuthAngleDeg)
+            val nextAngle = angles[(if (currIdx >= 0) currIdx + 1 else 0) % angles.size]
+            TestModeManager.azimuthAngleDeg = nextAngle
+            binding.chipAngle.text = "Angle: ${if (nextAngle > 0) "+" else ""}${nextAngle}°"
+            Haptics.tick(it)
+            updateTestModeTelemetryHud()
+        }
+
+        val backgrounds = listOf("Plain wall", "Cluttered room", "High motion", "Skin-tone match")
+        binding.chipBackground.setOnClickListener {
+            val currIdx = backgrounds.indexOf(TestModeManager.backgroundComplexity)
+            val nextBg = backgrounds[(if (currIdx >= 0) currIdx + 1 else 0) % backgrounds.size]
+            TestModeManager.backgroundComplexity = nextBg
+            binding.chipBackground.text = "Wall: $nextBg"
+            Haptics.tick(it)
+            updateTestModeTelemetryHud()
+        }
+
+        val elevations = listOf(0, 20, -20)
+        binding.chipElevation.setOnClickListener {
+            val currIdx = elevations.indexOf(TestModeManager.elevationAngleDeg)
+            val nextElev = elevations[(if (currIdx >= 0) currIdx + 1 else 0) % elevations.size]
+            TestModeManager.elevationAngleDeg = nextElev
+            binding.chipElevation.text = "Elev: ${if (nextElev > 0) "+" else ""}${nextElev}°"
+            Haptics.tick(it)
+            updateTestModeTelemetryHud()
+        }
+
+        val signers = (1..15).map { "Signer_%02d".format(Locale.US, it) }
+        binding.chipSigner.setOnClickListener {
+            val currIdx = signers.indexOf(TestModeManager.signerId)
+            val nextSigner = signers[(if (currIdx >= 0) currIdx + 1 else 0) % signers.size]
+            TestModeManager.signerId = nextSigner
+            val num = nextSigner.substringAfter("Signer_")
+            binding.chipSigner.text = "Signer: $num"
+            Haptics.tick(it)
+            updateTestModeTelemetryHud()
+        }
+
+        binding.chipIteration.setOnClickListener {
+            TestModeManager.currentIteration = (TestModeManager.currentIteration % TestModeManager.maxIterations) + 1
+            binding.chipIteration.text = "Iter: ${TestModeManager.currentIteration}/${TestModeManager.maxIterations}"
+            Haptics.tick(it)
+            updateTestModeDisplay()
+            updateTestModeTelemetryHud()
+        }
+
+        updateTestModePhaseChips()
+        updateTestModeDisplay()
+    }
+
+    private fun updateTestModePhaseChips() {
+        val activePhase = TestModeManager.activePhase
+        val onColor = getColor(R.color.ms_cat_violet_text)
+        val offColor = getColor(R.color.ms_cat_violet_accent)
+        val onTint = getColorStateList(R.color.ms_cat_violet_bg)
+        val offTint = getColorStateList(R.color.ms_cat_violet_tint)
+
+        fun style(view: TextView, active: Boolean) {
+            view.backgroundTintList = if (active) onTint else offTint
+            view.setTextColor(if (active) onColor else offColor)
+        }
+
+        style(binding.chipTest1, activePhase == TestPhase.TEST_1_SINGLE_SIGNS)
+        style(binding.chipTest2, activePhase == TestPhase.TEST_2_FULL_SENTENCES)
+        style(binding.chipTest3, activePhase == TestPhase.TEST_3_SPEED_CHECK)
+        style(binding.chipTest4, activePhase == TestPhase.TEST_4_BREAKING_POINTS)
+
+        binding.tvTestPhaseTitle.text = activePhase.title
+        binding.btnTestSynthesize.visibility = if (activePhase == TestPhase.TEST_2_FULL_SENTENCES) View.VISIBLE else View.GONE
+        binding.layoutTestBoundarySelectors.visibility = View.VISIBLE
+    }
+
+    private fun updateTestModeDisplay() {
+        binding.chipIteration.text = "Iter: ${TestModeManager.currentIteration}/${TestModeManager.maxIterations}"
+        when (TestModeManager.activePhase) {
+            TestPhase.TEST_1_SINGLE_SIGNS -> {
+                val list = TestModeManager.SINGLE_SIGN_PROMPTS
+                val idx = TestModeManager.singleSignIndex.coerceIn(0, list.size - 1)
+                val prompt = list[idx]
+                binding.tvTestStepIndicator.text = "[Iter ${TestModeManager.currentIteration}/${TestModeManager.maxIterations} • ${idx + 1}/${list.size}]"
+                binding.tvTestPromptHeading.text = "Please sign (Single Sign):"
+                binding.tvTestPromptText.text = prompt.gloss
+                binding.tvTestPromptSub.text = "Target: \"${prompt.translation}\" • Affect: ${prompt.expectedAffect}"
+            }
+            TestPhase.TEST_2_FULL_SENTENCES -> {
+                val list = TestModeManager.FULL_SENTENCE_PROMPTS
+                val idx = TestModeManager.sentenceIndex.coerceIn(0, list.size - 1)
+                val prompt = list[idx]
+                binding.tvTestStepIndicator.text = "[Iter ${TestModeManager.currentIteration}/${TestModeManager.maxIterations} • ${idx + 1}/${list.size}]"
+                binding.tvTestPromptHeading.text = "Please sign full sentence:"
+                binding.tvTestPromptText.text = prompt.promptText
+                binding.tvTestPromptSub.text = "Affect: ${prompt.expectedAffect} • Refs: " + prompt.referenceTranslations.joinToString(" | ")
+            }
+            TestPhase.TEST_3_SPEED_CHECK -> {
+                binding.tvTestStepIndicator.text = "[Continuous]"
+                binding.tvTestPromptHeading.text = "Speed & Latency Stress Check:"
+                binding.tvTestPromptText.text = "Sign continuously for 5–10 min"
+                binding.tvTestPromptSub.text = "Monitoring sustained FPS, thermal behavior, and camera-to-UI response latencies"
+            }
+            TestPhase.TEST_4_BREAKING_POINTS -> {
+                val cond = TestModeManager.applyStressCondition(TestModeManager.stressConditionIndex)
+                val sign = cond.targetSign
+                val fullPrompt = TestModeManager.SINGLE_SIGN_PROMPTS.firstOrNull { it.gloss.equals(sign, ignoreCase = true) }
+                binding.tvTestStepIndicator.text = "[Cond ${TestModeManager.stressConditionIndex + 1}/${TestModeManager.STRESS_CONDITIONS.size}]"
+                binding.tvTestPromptHeading.text = "Operational Stress: ${cond.name}"
+                binding.tvTestPromptText.text = sign
+                binding.tvTestPromptSub.text = "${cond.instruction} • Affect: ${fullPrompt?.expectedAffect ?: "[STABLE]"} • Dist: ${cond.distanceMeters}m | Az: ${cond.azimuthAngleDeg}° | El: ${cond.elevationAngleDeg}° | ${cond.backgroundComplexity}"
+
+                binding.chipDistance.text = "Dist: ${cond.distanceMeters}m"
+                binding.chipAngle.text = "Angle: ${if (cond.azimuthAngleDeg > 0) "+" else ""}${cond.azimuthAngleDeg}°"
+                binding.chipElevation.text = "Elev: ${if (cond.elevationAngleDeg > 0) "+" else ""}${cond.elevationAngleDeg}°"
+                binding.chipBackground.text = "Wall: ${cond.backgroundComplexity}"
+            }
+        }
+        updateTestModeTelemetryHud()
+    }
+
+    private fun updateTestModeTelemetryHud() {
+        val luxStr = if (TestModeManager.currentLux >= 0f) "${TestModeManager.currentLux.toInt()} lx" else "No sensor"
+        val fps = CaptureRateMonitor.currentFps
+        val e2e = TestModeManager.latestE2eLatencyMs
+        val mpMs = TestModeManager.latestMediaPipeMs
+        val tfliteMs = TestModeManager.latestTfliteMs
+        val ttsMs = speech?.latestTtsLatencyMs ?: 0.0
+
+        binding.tvTestTelemetryMetrics.text = String.format(
+            Locale.US,
+            "Lux: %s • FPS: %.1f • E2E: %dms (MP: %.0fms, CNN: %.0fms, TTS: %.0fms) • Dist: %.1fm • Az: %d° • El: %d° • %s",
+            luxStr, fps, e2e, mpMs, tfliteMs, ttsMs, TestModeManager.distanceMeters, TestModeManager.azimuthAngleDeg, TestModeManager.elevationAngleDeg, latestFacialAffect
+        )
+
+        if (TestModeManager.latestPredictionLabel.isNotEmpty()) {
+            val confPct = (TestModeManager.latestConfidence * 100).toInt()
+            val matchStr = if (TestModeManager.latestIsMatch) "MATCH ✓" else "MISMATCH ✗"
+            val bleuStr = TestModeManager.latestBleuScore?.let { " • BLEU-4: %.2f".format(Locale.US, it.bleu4) } ?: ""
+            binding.tvTestLastPrediction.text = "Latest: ${TestModeManager.latestPredictionLabel} ($confPct%) • Affect: $latestFacialAffect • $matchStr$bleuStr"
+        } else {
+            binding.tvTestLastPrediction.text = "Awaiting sign gesture..."
+        }
+    }
+
+    private fun recordTestModePrediction(
+        decision: PredictionDecision,
+        e2eLatencyMs: Long,
+        ttsLatencyMs: Double = 0.0
+    ) {
+        val phase = TestModeManager.activePhase
+        val mpLatency = pendingOverlayResult?.landmarkLatencyMs ?: 28.0
+        val mpConfidence = pendingOverlayResult?.detectionConfidence ?: 0.5f
+        val currentFps = CaptureRateMonitor.currentFps
+
+        val singlePrompt = when (phase) {
+            TestPhase.TEST_1_SINGLE_SIGNS -> {
+                TestModeManager.SINGLE_SIGN_PROMPTS.getOrNull(TestModeManager.singleSignIndex)
+            }
+            TestPhase.TEST_4_BREAKING_POINTS -> {
+                val cond = TestModeManager.STRESS_CONDITIONS.getOrNull(TestModeManager.stressConditionIndex)
+                val sign = cond?.targetSign ?: "EMERGENCY"
+                TestModeManager.SINGLE_SIGN_PROMPTS.firstOrNull { it.gloss.equals(sign, ignoreCase = true) }
+                    ?: SingleSignPrompt(sign, sign, "Stress Test", "[STABLE]")
+            }
+            else -> null
+        }
+
+        val promptStr = singlePrompt?.gloss ?: (if (phase == TestPhase.TEST_3_SPEED_CHECK) "SPEED_CHECK_STREAM" else "UNKNOWN")
+        val expectedAffect = singlePrompt?.expectedAffect ?: "[STABLE]"
+
+        if (phase == TestPhase.TEST_2_FULL_SENTENCES) {
+            val sentencePrompt = TestModeManager.FULL_SENTENCE_PROMPTS.getOrNull(TestModeManager.sentenceIndex)
+            if (sentencePrompt != null) {
+                val targetGlosses = sentencePrompt.glosses.map { it.uppercase(Locale.ROOT) }
+                val currentSigned = signedWords.map { it.uppercase(Locale.ROOT) }
+                val hasAllGlosses = targetGlosses.all { g -> currentSigned.contains(g) }
+                if (hasAllGlosses || currentSigned.size >= targetGlosses.size) {
+                    sentenceComposer?.triggerComposition(signedWords.toList())
+                }
+            }
+            runOnUiThread {
+                updateTestModeTelemetryHud()
+            }
+            return
+        }
+
+        val cameraToBitmap = cameraSessionManager?.latestCameraToBitmapMs ?: 0.0
+        val ttsLatency = if (ttsLatencyMs > 0.0) ttsLatencyMs else (speech?.latestTtsLatencyMs ?: 0.0)
+
+        TestModeManager.logSingleSign(
+            context = applicationContext,
+            promptStr = promptStr,
+            expectedAffect = expectedAffect,
+            decision = decision,
+            mediapipeLatencyMs = mpLatency,
+            e2eLatencyMs = e2eLatencyMs,
+            fps = currentFps,
+            mediapipeConfidence = mpConfidence,
+            cameraToBitmapMs = cameraToBitmap,
+            detectedEmotion = latestEmotion,
+            facialAffect = latestFacialAffect,
+            facialConfidence = latestEmotionConfidence,
+            tLlmMs = 0.0,
+            tTtsMs = ttsLatency
+        )
+
+        runOnUiThread {
+            updateTestModeTelemetryHud()
+        }
+    }
+
     private fun hasCameraPermission() = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
     private fun requestCameraPermission() = ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), CAMERA_PERMISSION)
 
@@ -1123,10 +1623,25 @@ class MainActivity : AppCompatActivity() {
         }
         binding.btnMakeSentence.visibility = if (appSettings.isLlmSynthesisEnabled) View.VISIBLE else View.GONE
         binding.btnMakeSentence.alpha = 1.0f
+
+        if (appSettings.isTestModeEnabled) {
+            TestModeManager.startSensor(this)
+            binding.cardFloatingTestToggle.visibility = View.VISIBLE
+            binding.layoutTestPromptBox.visibility = View.VISIBLE
+            binding.tvFloatingTestLabel.text = "Hide Test"
+            binding.ivFloatingTestIcon.setImageResource(R.drawable.ic_close_line)
+            updateTestModePhaseChips()
+            updateTestModeDisplay()
+        } else {
+            TestModeManager.stopSensor()
+            binding.cardFloatingTestToggle.visibility = View.GONE
+            binding.layoutTestPromptBox.visibility = View.GONE
+        }
     }
 
     override fun onPause() {
         stopVision()
+        TestModeManager.stopSensor()
         backspaceHandler.removeCallbacks(backspaceRepeatRunnable)
         choicesDialog?.dismiss()
         reviewDialog?.dismiss()
@@ -1137,10 +1652,12 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() { super.onStart(); startVision() }
     override fun onStop() { stopVision(); super.onStop() }
     override fun onDestroy() {
+        TestModeManager.stopSensor()
         cameraSessionManager?.release()
         cameraSessionManager = null
         executor.shutdown()
         emotionExecutor.shutdown()
+        inferenceExecutor.shutdown()
         stopVision()
         val doomedComposer = sentenceComposer
         sentenceComposer = null

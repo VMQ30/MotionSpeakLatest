@@ -32,7 +32,10 @@ data class LandmarkResult(
     val faceLandmarks: List<FloatArray> = emptyList(),
     val sourceWidth: Int = 1,
     val sourceHeight: Int = 1,
-    val handSlots: List<Int> = emptyList() // 0 = Left (green), 1 = Right (orange)
+    val handSlots: List<Int> = emptyList(), // 0 = Left (green), 1 = Right (orange)
+    val landmarkLatencyMs: Double = 0.0,
+    val detectionConfidence: Float = 0.5f,
+    val frameCaptureTimestampMs: Long = 0L
 )
 
 class HandLandmarkHelper(
@@ -48,6 +51,7 @@ class HandLandmarkHelper(
     @Volatile private var lastSourceWidth = 1
     @Volatile private var lastSourceHeight = 1
     @Volatile private var lastFrameTimeMs = 0L
+    @Volatile private var latestFrameCaptureMs = 0L
     private var frameCounter = 0L
 
     // EMA shoulder reference for position- and scale-invariant normalization matching collect_data.py / train.py
@@ -84,7 +88,7 @@ class HandLandmarkHelper(
                 .setMinHandDetectionConfidence(0.50f)
                 .setMinHandPresenceConfidence(0.50f)
                 .setMinTrackingConfidence(0.45f)
-                .setResultListener { result, _ -> resultSink?.invoke(parseResult(result, lastPoseResult)) }
+                .setResultListener { result, _ -> resultSink?.invoke(parseResult(result, lastPoseResult, latestFrameCaptureMs)) }
                 .build()
             landmarker = HandLandmarker.createFromOptions(context, handOptions)
         } catch (e: Exception) {
@@ -97,7 +101,7 @@ class HandLandmarkHelper(
                     .setMinHandDetectionConfidence(0.50f)
                     .setMinHandPresenceConfidence(0.50f)
                     .setMinTrackingConfidence(0.45f)
-                    .setResultListener { result, _ -> resultSink?.invoke(parseResult(result, lastPoseResult)) }
+                    .setResultListener { result, _ -> resultSink?.invoke(parseResult(result, lastPoseResult, latestFrameCaptureMs)) }
                     .build()
                 landmarker = HandLandmarker.createFromOptions(context, handOptionsCpu)
             } catch (e2: Exception) {
@@ -135,11 +139,12 @@ class HandLandmarkHelper(
         }
     }
 
-    fun detectAsync(bitmap: Bitmap, frameTimestampMs: Long) {
+    fun detectAsync(bitmap: Bitmap, frameTimestampMs: Long, frameCaptureTimestampMs: Long = frameTimestampMs) {
         val mpImage = BitmapImageBuilder(bitmap).build()
         lastSourceWidth = bitmap.width
         lastSourceHeight = bitmap.height
         lastSubmitNs = System.nanoTime()
+        latestFrameCaptureMs = frameCaptureTimestampMs
 
         val ts = maxOf(frameTimestampMs, lastFrameTimeMs + 1)
         lastFrameTimeMs = ts
@@ -234,7 +239,8 @@ class HandLandmarkHelper(
 
     private fun parseResult(
         result: HandLandmarkerResult,
-        pose: PoseLandmarkerResult?
+        pose: PoseLandmarkerResult?,
+        frameCaptureTimestampMs: Long = 0L
     ): LandmarkResult {
         val poseLms = pose?.landmarks()?.firstOrNull()
         val poseCoords: List<FloatArray>? = poseLms?.map {
@@ -483,6 +489,8 @@ class HandLandmarkHelper(
         }
 
         val totalHands = (if (leftOn > 0f) 1 else 0) + (if (rightOn > 0f) 1 else 0)
+        val sinceSubmitMs = if (lastSubmitNs > 0L) (System.nanoTime() - lastSubmitNs) / 1e6 else 0.0
+        val avgScore = if (validHands.isNotEmpty()) validHands.map { it.score }.average().toFloat() else 0.5f
 
         return LandmarkResult(
             handsDetected = totalHands,
@@ -491,7 +499,10 @@ class HandLandmarkHelper(
             faceLandmarks = overlayFaceLandmarks,
             sourceWidth = lastSourceWidth,
             sourceHeight = lastSourceHeight,
-            handSlots = overlaySlots
+            handSlots = overlaySlots,
+            landmarkLatencyMs = sinceSubmitMs,
+            detectionConfidence = avgScore,
+            frameCaptureTimestampMs = frameCaptureTimestampMs
         )
     }
 

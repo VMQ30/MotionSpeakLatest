@@ -954,6 +954,7 @@
                 android:layout_marginBottom="@dimen/ms_space_8"
                 android:text="App" />
 
+            <!-- Replay tutorial card -->
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.Sigla.Card.Tint"
                 android:layout_width="match_parent"
@@ -1001,6 +1002,144 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="@dimen/ms_space_4"
                             android:text="Review the app guide from the beginning" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- ════════════════════ TEST MODE BUTTON SECTION ════════════════════ -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardTestMode"
+                style="@style/Widget.Sigla.Card.Tint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/ms_space_12">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- Test mode toggle button row -->
+                    <LinearLayout
+                        android:id="@+id/rowTestMode"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:padding="@dimen/ms_space_16">
+
+                        <FrameLayout
+                            android:layout_width="@dimen/ms_badge_size"
+                            android:layout_height="@dimen/ms_badge_size"
+                            android:background="@drawable/bg_ms_circle_tint"
+                            android:backgroundTint="@color/ms_cat_violet_tint">
+                            <ImageView
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_gravity="center"
+                                android:importantForAccessibility="no"
+                                android:src="@drawable/ic_tag_line"
+                                android:tint="@color/ms_cat_violet_accent" />
+                        </FrameLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="@dimen/ms_space_12"
+                            android:orientation="vertical">
+                            <TextView
+                                style="@style/Sigla.Text.BodyStrong"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Test mode" />
+                            <TextView
+                                android:id="@+id/tvTestModeSubtitle"
+                                style="@style/Sigla.Text.Caption"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="@dimen/ms_space_4"
+                                android:text="Turn on live test prompts, telemetry logging, and stress tests" />
+                        </LinearLayout>
+
+                        <com.google.android.material.switchmaterial.SwitchMaterial
+                            android:id="@+id/switchTestMode"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            app:useMaterialThemeColors="true" />
+                    </LinearLayout>
+
+                    <!-- Download logs row: Only visible when test mode is ON and logs exist -->
+                    <LinearLayout
+                        android:id="@+id/layoutDownloadLogs"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone"
+                        tools:visibility="visible">
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/ms_divider" />
+
+                        <LinearLayout
+                            android:id="@+id/rowDownloadLogs"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:foreground="?attr/selectableItemBackground"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:padding="@dimen/ms_space_16">
+
+                            <FrameLayout
+                                android:layout_width="@dimen/ms_badge_size"
+                                android:layout_height="@dimen/ms_badge_size"
+                                android:background="@drawable/bg_ms_circle_tint"
+                                android:backgroundTint="@color/ms_cat_teal_bg">
+                                <ImageView
+                                    android:layout_width="18dp"
+                                    android:layout_height="18dp"
+                                    android:layout_gravity="center"
+                                    android:importantForAccessibility="no"
+                                    android:src="@drawable/ic_download"
+                                    android:tint="@color/ms_cat_teal_text" />
+                            </FrameLayout>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:layout_marginStart="@dimen/ms_space_12"
+                                android:orientation="vertical">
+                                <TextView
+                                    style="@style/Sigla.Text.BodyStrong"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="Download logs" />
+                                <TextView
+                                    android:id="@+id/tvDownloadLogsSubtitle"
+                                    style="@style/Sigla.Text.Caption"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="@dimen/ms_space_4"
+                                    android:text="Save telemetry spreadsheet (.csv) to Downloads folder" />
+                            </LinearLayout>
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnDownloadLogs"
+                                style="@style/Widget.Sigla.Chip"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Download"
+                                app:icon="@drawable/ic_download"
+                                app:iconGravity="textStart" />
+                        </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

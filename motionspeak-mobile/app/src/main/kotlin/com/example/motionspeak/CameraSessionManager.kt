@@ -23,7 +23,7 @@ class CameraSessionManager(
     private val context: Context,
     private val lifecycleOwner: LifecycleOwner,
     private val previewView: PreviewView,
-    private val onFramePrepared: (Bitmap) -> Unit
+    private val onFramePrepared: (Bitmap, Long) -> Unit
 ) {
     private var cameraProvider: ProcessCameraProvider? = null
     private val executor = Executors.newSingleThreadExecutor { Thread(it, "motionspeak-camera-analysis").apply { isDaemon = true } }
@@ -31,6 +31,17 @@ class CameraSessionManager(
 
     var isFrontCamera: Boolean = false
     private var isActive = false
+
+    @Volatile var latestCameraToBitmapMs: Double = 0.0
+        private set
+
+    /**
+     * Kept for backwards compatibility with vision pipeline listeners.
+     * Backpressure is managed directly by CameraX STRATEGY_KEEP_ONLY_LATEST.
+     */
+    fun onFrameCompleted() {
+        // No-op: CameraX STRATEGY_KEEP_ONLY_LATEST manages frame flow natively
+    }
 
     fun start() {
         isActive = true
@@ -61,8 +72,7 @@ class CameraSessionManager(
             .setOutputImageRotationEnabled(true)
             .build()
 
-        var lastFrameTimeMs = 0L
-        var dropAlternateFrame = false
+        var frameCounter = 0L
 
         analysis.setAnalyzer(executor) { imageProxy ->
             if (!isActive) {
@@ -70,26 +80,33 @@ class CameraSessionManager(
                 return@setAnalyzer
             }
 
-            val nowRealtime = SystemClock.elapsedRealtime()
-            if (lastFrameTimeMs > 0L && (nowRealtime - lastFrameTimeMs) > 40L) {
-                dropAlternateFrame = !dropAlternateFrame
-                if (dropAlternateFrame) {
-                    imageProxy.close()
-                    return@setAnalyzer
-                }
-            }
-            lastFrameTimeMs = nowRealtime
-
             CaptureRateMonitor.onFrame()
-            val bitmap = imageProxy.toBitmap()
-            val rotationDegrees = imageProxy.imageInfo.rotationDegrees
-            val prepared = prepareBitmap(bitmap, rotationDegrees, isFrontCamera)
-            if (prepared != bitmap) {
-                bitmap.recycle()
-            }
+            val captureTimestampMs = SystemClock.elapsedRealtime()
 
-            onFramePrepared(prepared)
-            imageProxy.close()
+            try {
+                val startConversionNs = SystemClock.elapsedRealtimeNanos()
+                val bitmap = imageProxy.toBitmap()
+                val rotationDegrees = imageProxy.imageInfo.rotationDegrees
+                val prepared = prepareBitmap(bitmap, rotationDegrees, isFrontCamera)
+                if (prepared != bitmap) {
+                    bitmap.recycle()
+                }
+
+                val conversionMs = (SystemClock.elapsedRealtimeNanos() - startConversionNs) / 1e6
+                latestCameraToBitmapMs = conversionMs
+
+                frameCounter++
+                // Sample photometric illuminance every 6 frames without blocking analysis
+                if (frameCounter % 6L == 0L) {
+                    PhotometricLuxEstimator.estimatePhotometricLux(prepared)
+                }
+
+                onFramePrepared(prepared, captureTimestampMs)
+            } catch (e: Exception) {
+                Log.e("CameraSessionManager", "Frame analysis failed: ${e.message}", e)
+            } finally {
+                imageProxy.close()
+            }
         }
 
         val selector = if (isFrontCamera) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA

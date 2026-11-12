@@ -30,6 +30,7 @@ class DeterministicSentenceSynthesizer(
         tone: SentenceTone,
         language: SentenceLanguage
     ): SentenceResult {
+        val startNs = android.os.SystemClock.elapsedRealtimeNanos()
         if (tokens.isEmpty()) {
             return SentenceResult(
                 text = "",
@@ -49,6 +50,7 @@ class DeterministicSentenceSynthesizer(
             SentenceLanguage.ENGLISH -> composeEnglish(deduplicatedTokens, tone)
             SentenceLanguage.FILIPINO -> composeFilipino(deduplicatedTokens, tone)
         }
+        val durationMs = maxOf(1L, (android.os.SystemClock.elapsedRealtimeNanos() - startNs) / 1_000_000)
 
         return SentenceResult(
             text = text,
@@ -56,7 +58,7 @@ class DeterministicSentenceSynthesizer(
             language = language,
             tone = tone,
             isLlmGenerated = false,
-            latencyMs = 0L
+            latencyMs = durationMs
         )
     }
 

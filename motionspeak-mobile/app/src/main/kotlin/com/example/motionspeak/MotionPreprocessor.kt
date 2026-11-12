@@ -95,6 +95,13 @@ object MotionPreprocessor {
         return out
     }
 
+    fun fillGapsTimed(frames: List<Pair<Long, FloatArray>>, maxGap: Int = MAX_GAP): List<Pair<Long, FloatArray>> {
+        if (frames.size < 2) return frames.map { it.first to it.second.clone() }
+        val featureArrays = frames.map { it.second }
+        val filledFeatures = fillGaps(featureArrays, maxGap)
+        return frames.indices.map { i -> frames[i].first to filledFeatures[i] }
+    }
+
     fun trimActive(frames: List<FloatArray>, minActive: Int = MIN_ACTIVE, pad: Int = PAD): List<FloatArray>? {
         var firstActive = -1
         var lastActive = -1
@@ -116,12 +123,118 @@ object MotionPreprocessor {
         return frames.subList(start, end + 1)
     }
 
-    fun resample(frames: List<FloatArray>, targetLength: Int = SEQUENCE_LENGTH): Array<FloatArray> {
+    fun trimActiveTimed(frames: List<Pair<Long, FloatArray>>, minActive: Int = MIN_ACTIVE, pad: Int = PAD): List<Pair<Long, FloatArray>>? {
+        var firstActive = -1
+        var lastActive = -1
+        var activeCount = 0
+
+        for (i in frames.indices) {
+            val f = frames[i].second
+            if (f[LEFT_FLAG] > 0f || f[RIGHT_FLAG] > 0f) {
+                if (firstActive == -1) firstActive = i
+                lastActive = i
+                activeCount++
+            }
+        }
+
+        if (activeCount < minActive || firstActive == -1) return null
+
+        val start = maxOf(0, firstActive - pad)
+        val end = minOf(frames.size - 1, lastActive + pad)
+        return frames.subList(start, end + 1)
+    }
+
+    /**
+     * Resamples a sequence of frames with explicit timestamps into a fixed [targetLength] sequence
+     * using physical time (∆t) continuous linear interpolation.
+     * Prevents velocity squashing caused by index-based upsampling when frame rates vary or drop.
+     */
+    fun resampleTimed(
+        timedFrames: List<Pair<Long, FloatArray>>,
+        targetLength: Int = SEQUENCE_LENGTH
+    ): Array<FloatArray> {
+        val n = timedFrames.size
+        val out = Array(targetLength) { FloatArray(RAW_FEATURES) }
+        if (n == 0) return out
+        if (n == 1) {
+            val f0 = timedFrames[0].second
+            for (i in 0 until targetLength) {
+                System.arraycopy(f0, 0, out[i], 0, RAW_FEATURES)
+            }
+            return out
+        }
+
+        val tStart = timedFrames.first().first
+        val tEnd = timedFrames.last().first
+        val totalDurationMs = maxOf(1L, tEnd - tStart)
+
+        for (i in 0 until targetLength) {
+            val targetTimeMs = tStart + (i.toDouble() / (targetLength - 1).toDouble() * totalDurationMs.toDouble()).toLong()
+
+            var k = 0
+            while (k < n - 2 && timedFrames[k + 1].first < targetTimeMs) {
+                k++
+            }
+            val kNext = minOf(k + 1, n - 1)
+
+            val tk0 = timedFrames[k].first
+            val tk1 = timedFrames[kNext].first
+            val dt = tk1 - tk0
+
+            val alpha = if (dt > 0L) {
+                ((targetTimeMs - tk0).toDouble() / dt.toDouble()).toFloat().coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+
+            val f0 = timedFrames[k].second
+            val f1 = timedFrames[kNext].second
+            val dest = out[i]
+
+            for (c in 0 until 171) {
+                dest[c] = (1f - alpha) * f0[c] + alpha * f1[c]
+            }
+            dest[LEFT_FLAG] = if ((1f - alpha) * f0[LEFT_FLAG] + alpha * f1[LEFT_FLAG] >= 0.5f) 1.0f else 0.0f
+            dest[RIGHT_FLAG] = if ((1f - alpha) * f0[RIGHT_FLAG] + alpha * f1[RIGHT_FLAG] >= 0.5f) 1.0f else 0.0f
+        }
+        return out
+    }
+
+    fun resample(
+        frames: List<FloatArray>,
+        timestamps: List<Long>? = null,
+        targetLength: Int = SEQUENCE_LENGTH
+    ): Array<FloatArray> {
+        if (timestamps != null && timestamps.size == frames.size && frames.isNotEmpty()) {
+            return resampleTimed(timestamps.zip(frames), targetLength)
+        }
         val n = frames.size
         val out = Array(targetLength) { FloatArray(RAW_FEATURES) }
+        if (n == 0) return out
+        if (n == 1) {
+            for (i in 0 until targetLength) {
+                System.arraycopy(frames[0], 0, out[i], 0, RAW_FEATURES)
+            }
+            return out
+        }
+
         for (i in 0 until targetLength) {
-            val idx = (i.toFloat() / (targetLength - 1).toFloat() * (n - 1).toFloat()).roundToInt().coerceIn(0, n - 1)
-            System.arraycopy(frames[idx], 0, out[i], 0, RAW_FEATURES)
+            val t = (i.toFloat() / (targetLength - 1).toFloat()) * (n - 1).toFloat()
+            val i0 = t.toInt().coerceIn(0, n - 1)
+            val i1 = (i0 + 1).coerceIn(0, n - 1)
+            val alpha = (t - i0).coerceIn(0f, 1f)
+
+            val f0 = frames[i0]
+            val f1 = frames[i1]
+            val dest = out[i]
+
+            // Linearly interpolate continuous spatial coordinates (0..170)
+            for (c in 0 until 171) {
+                dest[c] = (1f - alpha) * f0[c] + alpha * f1[c]
+            }
+            // Hand presence flags (LEFT_FLAG = 171, RIGHT_FLAG = 172)
+            dest[LEFT_FLAG] = if ((1f - alpha) * f0[LEFT_FLAG] + alpha * f1[LEFT_FLAG] >= 0.5f) 1.0f else 0.0f
+            dest[RIGHT_FLAG] = if ((1f - alpha) * f0[RIGHT_FLAG] + alpha * f1[RIGHT_FLAG] >= 0.5f) 1.0f else 0.0f
         }
         return out
     }
@@ -196,8 +309,15 @@ object MotionPreprocessor {
                 val prev = resampled[i - 1]
 
                 // 15 body/face points movement (45 features at 299..343)
+                // Guard against uninitialized landmark spikes
                 for (k in 0 until 45) {
-                    target[i][299 + k] = (curr[126 + k] - prev[126 + k]) * motionScale
+                    val currVal = curr[126 + k]
+                    val prevVal = prev[126 + k]
+                    if (currVal != 0f && prevVal != 0f) {
+                        target[i][299 + k] = (currVal - prevVal) * motionScale
+                    } else {
+                        target[i][299 + k] = 0f
+                    }
                 }
 
                 // Left wrist movement (3 features at 344..346)

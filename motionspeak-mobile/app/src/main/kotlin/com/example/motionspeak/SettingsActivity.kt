@@ -79,6 +79,7 @@ class SettingsActivity : BaseActivity() {
         bindAdvancedTools()
         bindResetButton()
         bindReplayTutorial()
+        bindTestModeControls()
     }
 
     override fun onResume() {
@@ -87,6 +88,8 @@ class SettingsActivity : BaseActivity() {
         // returns here without recreating this Activity.
         refreshProfileCard()
         refreshLlmModelStatus()
+        findViewById<SwitchMaterial>(R.id.switchTestMode)?.isChecked = appSettings.isTestModeEnabled
+        refreshDownloadLogsVisibility()
     }
 
     // ── Load saved preferences ────────────────────────────────────────────────
@@ -453,6 +456,7 @@ class SettingsActivity : BaseActivity() {
             view.findViewById<MaterialButton>(R.id.btnConfirmCancel).setOnClickListener { dialog.dismiss() }
             view.findViewById<MaterialButton>(R.id.btnConfirmAction).setOnClickListener {
                 appSettings.resetToDefault()
+                TestModeManager.clearLogs(this)
                 MotionSpeakApplication.applyFontScale(applicationContext, AppSettings.FONT_SIZE_NORMAL)
                 TtsVoiceHelper.invalidate()   // resets voiceType as well
                 loadPreferences()
@@ -538,6 +542,54 @@ class SettingsActivity : BaseActivity() {
             })
             finish()
         }
+    }
+
+    // ── Test Mode & Telemetry Logs ──────────────────────────────────────────
+
+    private fun bindTestModeControls() {
+        val switchTestMode = findViewById<SwitchMaterial>(R.id.switchTestMode)
+        val rowTestMode = findViewById<View>(R.id.rowTestMode)
+        val btnDownloadLogs = findViewById<View>(R.id.btnDownloadLogs)
+        val rowDownloadLogs = findViewById<View>(R.id.rowDownloadLogs)
+
+        switchTestMode?.isChecked = appSettings.isTestModeEnabled
+        refreshDownloadLogsVisibility()
+
+        rowTestMode?.setOnClickListener {
+            switchTestMode?.toggle()
+        }
+
+        switchTestMode?.setOnCheckedChangeListener { _, isChecked ->
+            appSettings.isTestModeEnabled = isChecked
+            if (!isChecked) {
+                // When test mode is off, all preexisting logs must be deleted / logs shouldn't generate
+                TestModeManager.clearLogs(this)
+                Toast.makeText(this, "Test mode disabled. All test logs deleted.", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Test mode enabled.", Toast.LENGTH_SHORT).show()
+            }
+            refreshDownloadLogsVisibility()
+        }
+
+        val downloadAction = View.OnClickListener {
+            val fileName = TestModeManager.exportLogsToDownloads(this)
+            if (fileName != null) {
+                Toast.makeText(this, "Logs downloaded to Downloads: $fileName", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "No test logs to download or export failed", Toast.LENGTH_SHORT).show()
+            }
+            refreshDownloadLogsVisibility()
+        }
+
+        btnDownloadLogs?.setOnClickListener(downloadAction)
+        rowDownloadLogs?.setOnClickListener(downloadAction)
+    }
+
+    private fun refreshDownloadLogsVisibility() {
+        val layoutDownloadLogs = findViewById<View>(R.id.layoutDownloadLogs)
+        val isTestMode = appSettings.isTestModeEnabled
+        val hasLogs = isTestMode && TestModeManager.hasLogs(this)
+        layoutDownloadLogs?.visibility = if (hasLogs) View.VISIBLE else View.GONE
     }
 
     override fun onDestroy() {
