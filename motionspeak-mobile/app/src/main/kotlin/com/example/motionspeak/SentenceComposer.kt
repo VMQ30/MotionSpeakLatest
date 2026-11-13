@@ -53,6 +53,10 @@ class SentenceComposer(
     @Volatile var currentLanguage: SentenceLanguage = SentenceLanguage.ENGLISH
     @Volatile var currentMarkers: LinguisticMarkers = LinguisticMarkers()
 
+    // Latency & timing tracking
+    @Volatile var latestT0CaptureMs: Long = 0L
+    @Volatile var latestLlmLatencyMs: Double = 0.0
+
     // Listeners
     var onSentenceComposed: ((SentenceResult) -> Unit)? = null
     var onTokenAdded: ((token: String, bufferSnapshot: List<String>) -> Unit)? = null
@@ -69,8 +73,12 @@ class SentenceComposer(
      * Ingest a recognized gesture label.
      * Applies duplicate suppression.
      * If [autoComposeEnabled] is true, restarts the pause detection timer.
+     * [t0CaptureMs] tracks the frame capture timestamp for true E2E latency.
      */
-    fun addToken(label: String) {
+    fun addToken(label: String, t0CaptureMs: Long = 0L) {
+        if (t0CaptureMs > 0L) {
+            latestT0CaptureMs = t0CaptureMs
+        }
         val now = clock()
         if (label == lastEmittedLabel && (now - lastEmittedTime) < dedupeWindowMs) {
             // Rapid duplicate suppressed
@@ -121,8 +129,19 @@ class SentenceComposer(
      * Explicitly trigger composition (e.g. from UI button) or called on pause timeout.
      * When [fallbackTokens] is provided (e.g. from the UI message box), it takes precedence
      * to guarantee all signed tokens are passed to synthesis.
+     * [t0CaptureMs], [detectedEmotion], and [targetPrompt] support full Phase 2 sentence telemetry.
      */
-    fun triggerComposition(fallbackTokens: List<String>? = null) {
+    fun triggerComposition(
+        fallbackTokens: List<String>? = null,
+        t0CaptureMs: Long = 0L,
+        detectedEmotion: String? = null,
+        targetPrompt: SentencePrompt? = null
+    ) {
+        val effectiveT0 = if (t0CaptureMs > 0L) t0CaptureMs else latestT0CaptureMs
+        if (detectedEmotion != null) {
+            currentTone = SentenceTone.fromToneString(ToneMapper.fromEmotion(detectedEmotion))
+        }
+
         scope.launch(dispatcher) {
             val tokensToCompose: List<String>
             val toneSnapshot = currentTone
@@ -154,18 +173,22 @@ class SentenceComposer(
 
             onComposingStateChanged?.invoke(true)
 
-            val startNs = SystemClock.elapsedRealtimeNanos()
+            val startRealtimeMs = SystemClock.elapsedRealtime()
             try {
                 val rawResult = synthesizer.compose(tokensToCompose, toneSnapshot, langSnapshot, markersSnapshot)
-                val durationMs = maxOf(1L, (SystemClock.elapsedRealtimeNanos() - startNs) / 1_000_000L)
-                val result = if (rawResult.latencyMs <= 0L) {
-                    rawResult.copy(latencyMs = durationMs)
-                } else {
-                    rawResult
-                }
+                val durationMs = maxOf(1L, SystemClock.elapsedRealtime() - startRealtimeMs)
+                latestLlmLatencyMs = durationMs.toDouble()
+                TestModeManager.latestLlmMs = durationMs.toDouble()
+                val result = rawResult.copy(
+                    latencyMs = durationMs,
+                    t0CaptureMs = effectiveT0,
+                    targetPrompt = targetPrompt
+                )
                 onSentenceComposed?.invoke(result)
             } catch (e: Exception) {
-                val durationMs = maxOf(1L, (SystemClock.elapsedRealtimeNanos() - startNs) / 1_000_000L)
+                val durationMs = maxOf(1L, SystemClock.elapsedRealtime() - startRealtimeMs)
+                latestLlmLatencyMs = durationMs.toDouble()
+                TestModeManager.latestLlmMs = durationMs.toDouble()
                 // If anything unexpected occurs, fall back to safe pass-through text
                 val fallbackText = tokensToCompose.joinToString(" ")
                     .replace('_', ' ')
@@ -176,7 +199,9 @@ class SentenceComposer(
                     language = langSnapshot,
                     tone = toneSnapshot,
                     isLlmGenerated = false,
-                    latencyMs = durationMs
+                    latencyMs = durationMs,
+                    t0CaptureMs = effectiveT0,
+                    targetPrompt = targetPrompt
                 )
                 onSentenceComposed?.invoke(fallbackResult)
             } finally {

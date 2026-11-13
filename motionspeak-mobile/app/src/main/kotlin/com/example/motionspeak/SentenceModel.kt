@@ -47,5 +47,7 @@ data class SentenceResult(
     val tone: SentenceTone,
     val isLlmGenerated: Boolean,
     val latencyMs: Long = 0L,
-    val linguisticMarkers: LinguisticMarkers = LinguisticMarkers()
+    val linguisticMarkers: LinguisticMarkers = LinguisticMarkers(),
+    val t0CaptureMs: Long = 0L,
+    val targetPrompt: SentencePrompt? = null
 )

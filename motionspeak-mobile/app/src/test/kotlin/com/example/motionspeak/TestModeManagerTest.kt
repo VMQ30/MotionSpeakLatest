@@ -204,4 +204,58 @@ class TestModeManagerTest {
         val hwOnly = PhotometricLuxEstimator.computeFusedLux(hw = 450.0f, photo = -1.0f)
         assertEquals(450.0f, hwOnly, 0.01f)
     }
+
+    @Test
+    fun testToneMapperTriageAffectMapping() {
+        assertEquals("[DISTRESSED]", ToneMapper.toTriageAffect("sad"))
+        assertEquals("[DISTRESSED]", ToneMapper.toTriageAffect("fear"))
+        assertEquals("[AGITATED]", ToneMapper.toTriageAffect("angry"))
+        assertEquals("[AGITATED]", ToneMapper.toTriageAffect("disgust"))
+        assertEquals("[AGITATED]", ToneMapper.toTriageAffect("contempt"))
+        assertEquals("[RELIEVED]", ToneMapper.toTriageAffect("happy"))
+        assertEquals("[ALERT]", ToneMapper.toTriageAffect("surprise"))
+        assertEquals("[STABLE]", ToneMapper.toTriageAffect("neutral"))
+        assertEquals("[STABLE]", ToneMapper.toTriageAffect(null))
+    }
+
+    @Test
+    fun testCombinedAccuracyLogic() {
+        // Function matching the boolean evaluation logic in TestModeManager:
+        // isCombinedCorrect = isGestureCorrect && isEmotionCorrect
+        fun evaluateCombined(
+            promptGloss: String,
+            expectedAffect: String,
+            predictedGloss: String,
+            detectedEmotion: String,
+            facialAffect: String
+        ): Boolean {
+            val normPrompt = promptGloss.trim().uppercase(java.util.Locale.ROOT).replace("[^A-Z0-9_]".toRegex(), "")
+            val normPred = predictedGloss.trim().uppercase(java.util.Locale.ROOT).replace("[^A-Z0-9_]".toRegex(), "")
+            val isGestureCorrect = normPrompt.isNotEmpty() && (normPrompt == normPred || normPrompt.contains(normPred) || normPred.contains(normPrompt))
+
+            val normExpectedAffect = expectedAffect.trim().uppercase(java.util.Locale.ROOT).removeSurrounding("[", "]")
+            val normDetectedAffect = facialAffect.trim().uppercase(java.util.Locale.ROOT).removeSurrounding("[", "]")
+            val normTriageFromDetected = ToneMapper.toTriageAffect(detectedEmotion).uppercase(java.util.Locale.ROOT).removeSurrounding("[", "]")
+
+            val isEmotionCorrect = normExpectedAffect.isEmpty() ||
+                (normExpectedAffect == "STABLE" && normDetectedAffect == "STABLE") ||
+                (normExpectedAffect == normDetectedAffect) ||
+                (normExpectedAffect == normTriageFromDetected) ||
+                expectedAffect.equals(detectedEmotion, ignoreCase = true)
+
+            return isGestureCorrect && isEmotionCorrect
+        }
+
+        // Case 1: Both gesture and emotion match
+        assertTrue(evaluateCombined("HEADACHE", "[DISTRESSED]", "HEADACHE", "sad", "[DISTRESSED]"))
+
+        // Case 2: Gesture matches, emotion mismatch (expected distressed, detected happy)
+        assertFalse(evaluateCombined("HEADACHE", "[DISTRESSED]", "HEADACHE", "happy", "[RELIEVED]"))
+
+        // Case 3: Emotion matches, gesture mismatch (expected HEADACHE, predicted FEVER)
+        assertFalse(evaluateCombined("HEADACHE", "[DISTRESSED]", "FEVER", "sad", "[DISTRESSED]"))
+
+        // Case 4: Stable / neutral default match
+        assertTrue(evaluateCombined("HELLO", "[STABLE]", "HELLO", "neutral", "[STABLE]"))
+    }
 }

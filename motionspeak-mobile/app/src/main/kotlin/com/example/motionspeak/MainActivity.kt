@@ -661,13 +661,13 @@ class MainActivity : AppCompatActivity() {
         rawTokens.add(label)
 
         val composer = sentenceComposer
+        val t0 = decision?.finalFrameTimestampMs ?: 0L
         if (composer != null && appSettings.isLlmSynthesisEnabled) {
-            composer.addToken(label)
+            composer.addToken(label, t0)
         }
 
         renderSignedWords()
 
-        val t0 = decision?.finalFrameTimestampMs ?: 0L
         Haptics.confirm(binding.root)
         speak(
             text = word,
@@ -698,34 +698,12 @@ class MainActivity : AppCompatActivity() {
     private fun onSentenceGenerated(result: SentenceResult) {
         if (result.text.isBlank()) return
 
-        if (appSettings.isTestModeEnabled) {
-            val currentPrompt = if (TestModeManager.activePhase == TestPhase.TEST_2_FULL_SENTENCES) {
-                TestModeManager.FULL_SENTENCE_PROMPTS.getOrNull(TestModeManager.sentenceIndex)
-            } else {
-                SentencePrompt(
-                    promptText = result.originalTokens.joinToString(" "),
-                    glosses = result.originalTokens,
-                    referenceTranslations = listOf(result.text),
-                    expectedAffect = latestFacialAffect
-                )
-            }
-            if (currentPrompt != null) {
-                val ttsLatency = speech?.latestTtsLatencyMs ?: 0.0
-                TestModeManager.logSentence(
-                    context = applicationContext,
-                    prompt = currentPrompt,
-                    result = result,
-                    fps = CaptureRateMonitor.currentFps,
-                    detectedEmotion = latestEmotion,
-                    facialAffect = latestFacialAffect,
-                    facialConfidence = latestEmotionConfidence,
-                    tTtsMs = ttsLatency
-                )
-                val bleu = TestModeManager.latestBleuScore
-                val bStr = if (bleu != null) String.format(Locale.US, "BLEU-4: %.2f (B1: %.2f)", bleu.bleu4, bleu.bleu1) else ""
-                binding.tvTestLastPrediction.text = "Synthesized: \"${result.text}\" • $bStr"
-            }
+        val currentPrompt = if (TestModeManager.activePhase == TestPhase.TEST_2_FULL_SENTENCES) {
+            result.targetPrompt ?: TestModeManager.FULL_SENTENCE_PROMPTS.getOrNull(TestModeManager.sentenceIndex)
+        } else {
+            null
         }
+
         setSentenceState(true)
         isRenderingWords = true
         try {
@@ -748,7 +726,32 @@ class MainActivity : AppCompatActivity() {
         }
         Haptics.confirm(binding.root)
         Toast.makeText(this, "Sentence: ${result.text}", Toast.LENGTH_SHORT).show()
-        speak(result.text)
+
+        val t0 = result.t0CaptureMs
+        speak(
+            text = result.text,
+            t0CaptureMs = t0
+        ) { e2eLatencyMs, ttsLatencyMs ->
+            if (appSettings.isTestModeEnabled && currentPrompt != null) {
+                TestModeManager.logSentence(
+                    context = applicationContext,
+                    prompt = currentPrompt,
+                    result = result,
+                    fps = CaptureRateMonitor.currentFps,
+                    detectedEmotion = latestEmotion,
+                    facialAffect = latestFacialAffect,
+                    facialConfidence = latestEmotionConfidence,
+                    tLlmMs = result.latencyMs.toDouble(),
+                    tTtsMs = ttsLatencyMs,
+                    e2eLatencyMs = e2eLatencyMs
+                )
+                runOnUiThread {
+                    binding.tvTestLastPrediction.text = "Synthesized: \"${result.text}\" • E2E: ${e2eLatencyMs}ms (LLM: ${result.latencyMs}ms, TTS: ${String.format(Locale.US, "%.1f", ttsLatencyMs)}ms)"
+                    updateTestModeTelemetryHud()
+                    updateDeleteLogsButtonVisibility()
+                }
+            }
+        }
         lifecycleScope.launch(Dispatchers.IO) {
             historyManager.add(
                 result.text,
@@ -1353,12 +1356,16 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 TestPhase.TEST_2_FULL_SENTENCES -> {
-                    val prompt = TestModeManager.FULL_SENTENCE_PROMPTS.getOrNull(TestModeManager.sentenceIndex)
-                    if (prompt != null) {
-                        val tokens = if (signedWords.isNotEmpty()) signedWords.toList() else prompt.glosses
-                        sentenceComposer?.triggerComposition(tokens)
+                    TestModeManager.sentenceIndex++
+                    if (TestModeManager.sentenceIndex >= TestModeManager.FULL_SENTENCE_PROMPTS.size) {
+                        TestModeManager.sentenceIndex = 0
+                        if (TestModeManager.currentIteration < TestModeManager.maxIterations) {
+                            TestModeManager.currentIteration++
+                            Toast.makeText(this, "Completed sentence set! Starting Iteration ${TestModeManager.currentIteration}/${TestModeManager.maxIterations}", Toast.LENGTH_LONG).show()
+                        } else {
+                            Toast.makeText(this, "Completed all 10 sentence synthesis iterations!", Toast.LENGTH_LONG).show()
+                        }
                     }
-                    TestModeManager.sentenceIndex = (TestModeManager.sentenceIndex + 1) % TestModeManager.FULL_SENTENCE_PROMPTS.size
                     signedWords.clear()
                     dialogueWords.clear()
                     rawTokens.clear()
@@ -1402,7 +1409,13 @@ class MainActivity : AppCompatActivity() {
         binding.btnTestSynthesize.setOnClickListener {
             val prompt = TestModeManager.FULL_SENTENCE_PROMPTS.getOrNull(TestModeManager.sentenceIndex)
             val tokens = if (signedWords.isNotEmpty()) signedWords.toList() else prompt?.glosses ?: listOf("HELLO")
-            sentenceComposer?.triggerComposition(tokens)
+            val t0 = sentenceComposer?.latestT0CaptureMs ?: 0L
+            sentenceComposer?.triggerComposition(
+                fallbackTokens = tokens,
+                t0CaptureMs = t0,
+                detectedEmotion = latestEmotion,
+                targetPrompt = prompt
+            )
             Haptics.confirm(it)
         }
 
@@ -1509,8 +1522,9 @@ class MainActivity : AppCompatActivity() {
                 val prompt = list[idx]
                 binding.tvTestStepIndicator.text = "[Iter ${TestModeManager.currentIteration}/${TestModeManager.maxIterations} • ${idx + 1}/${list.size}]"
                 binding.tvTestPromptHeading.text = "Please sign full sentence:"
-                binding.tvTestPromptText.text = prompt.promptText
-                binding.tvTestPromptSub.text = "Affect: ${prompt.expectedAffect} • Refs: " + prompt.referenceTranslations.joinToString(" | ")
+                val clinicalSentence = prompt.referenceTranslations.firstOrNull() ?: prompt.promptText
+                binding.tvTestPromptText.text = clinicalSentence
+                binding.tvTestPromptSub.text = "Target Glosses: ${prompt.glosses.joinToString(" ")} • Affect: ${prompt.expectedAffect}"
             }
             TestPhase.TEST_3_SPEED_CHECK -> {
                 binding.tvTestStepIndicator.text = "[Continuous]"
@@ -1542,13 +1556,22 @@ class MainActivity : AppCompatActivity() {
         val e2e = TestModeManager.latestE2eLatencyMs
         val mpMs = TestModeManager.latestMediaPipeMs
         val tfliteMs = TestModeManager.latestTfliteMs
-        val ttsMs = speech?.latestTtsLatencyMs ?: 0.0
+        val llmMs = TestModeManager.latestLlmMs
+        val ttsMs = if (TestModeManager.latestTtsMs > 0.0) TestModeManager.latestTtsMs else (speech?.latestTtsLatencyMs ?: 0.0)
 
-        binding.tvTestTelemetryMetrics.text = String.format(
-            Locale.US,
-            "Lux: %s • FPS: %.1f • E2E: %dms (MP: %.0fms, CNN: %.0fms, TTS: %.0fms) • Dist: %.1fm • Az: %d° • El: %d° • %s",
-            luxStr, fps, e2e, mpMs, tfliteMs, ttsMs, TestModeManager.distanceMeters, TestModeManager.azimuthAngleDeg, TestModeManager.elevationAngleDeg, latestFacialAffect
-        )
+        if (TestModeManager.activePhase == TestPhase.TEST_2_FULL_SENTENCES) {
+            binding.tvTestTelemetryMetrics.text = String.format(
+                Locale.US,
+                "Lux: %s • FPS: %.1f • E2E: %dms (LLM: %.0fms, TTS: %.0fms) • Dist: %.1fm • Az: %d° • %s",
+                luxStr, fps, e2e, llmMs, ttsMs, TestModeManager.distanceMeters, TestModeManager.azimuthAngleDeg, latestFacialAffect
+            )
+        } else {
+            binding.tvTestTelemetryMetrics.text = String.format(
+                Locale.US,
+                "Lux: %s • FPS: %.1f • E2E: %dms (MP: %.0fms, CNN: %.0fms, TTS: %.0fms) • Dist: %.1fm • Az: %d° • El: %d° • %s",
+                luxStr, fps, e2e, mpMs, tfliteMs, ttsMs, TestModeManager.distanceMeters, TestModeManager.azimuthAngleDeg, TestModeManager.elevationAngleDeg, latestFacialAffect
+            )
+        }
 
         if (TestModeManager.latestPredictionLabel.isNotEmpty()) {
             val confPct = (TestModeManager.latestConfidence * 100).toInt()
@@ -1593,7 +1616,13 @@ class MainActivity : AppCompatActivity() {
                 val currentSigned = signedWords.map { it.uppercase(Locale.ROOT) }
                 val hasAllGlosses = targetGlosses.all { g -> currentSigned.contains(g) }
                 if (hasAllGlosses || currentSigned.size >= targetGlosses.size) {
-                    sentenceComposer?.triggerComposition(signedWords.toList())
+                    val t0 = decision.finalFrameTimestampMs
+                    sentenceComposer?.triggerComposition(
+                        fallbackTokens = signedWords.toList(),
+                        t0CaptureMs = t0,
+                        detectedEmotion = latestEmotion,
+                        targetPrompt = sentencePrompt
+                    )
                 }
             }
             runOnUiThread {

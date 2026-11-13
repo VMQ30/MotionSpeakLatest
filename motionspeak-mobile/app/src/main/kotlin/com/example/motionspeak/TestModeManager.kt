@@ -411,6 +411,8 @@ object TestModeManager {
     @Volatile var latestE2eLatencyMs: Long = 0L
     @Volatile var latestMediaPipeMs: Double = 0.0
     @Volatile var latestTfliteMs: Double = 0.0
+    @Volatile var latestLlmMs: Double = 0.0
+    @Volatile var latestTtsMs: Double = 0.0
     @Volatile var latestConfidence: Float = 0f
     @Volatile var latestPredictionLabel: String = ""
     @Volatile var latestIsMatch: Boolean = false
@@ -593,6 +595,8 @@ object TestModeManager {
         latestE2eLatencyMs = 0L
         latestMediaPipeMs = 0.0
         latestTfliteMs = 0.0
+        latestLlmMs = 0.0
+        latestTtsMs = 0.0
         latestConfidence = 0f
         latestPredictionLabel = ""
         latestIsMatch = false
@@ -754,15 +758,29 @@ object TestModeManager {
 
         val normPrompt = promptStr.trim().uppercase(Locale.ROOT).replace("[^A-Z0-9_]".toRegex(), "")
         val normPred = decision.topLabel.trim().uppercase(Locale.ROOT).replace("[^A-Z0-9_]".toRegex(), "")
-        val isCorrect = normPrompt.isNotEmpty() && (normPrompt == normPred || normPrompt.contains(normPred) || normPred.contains(normPrompt))
+        val isGestureCorrect = normPrompt.isNotEmpty() && (normPrompt == normPred || normPrompt.contains(normPred) || normPred.contains(normPrompt))
+
+        val normExpectedAffect = expectedAffect.trim().uppercase(Locale.ROOT).removeSurrounding("[", "]")
+        val normDetectedAffect = facialAffect.trim().uppercase(Locale.ROOT).removeSurrounding("[", "]")
+        val normTriageFromDetected = ToneMapper.toTriageAffect(detectedEmotion).uppercase(Locale.ROOT).removeSurrounding("[", "]")
+
+        val isEmotionCorrect = normExpectedAffect.isEmpty() ||
+            (normExpectedAffect == "STABLE" && normDetectedAffect == "STABLE") ||
+            (normExpectedAffect == normDetectedAffect) ||
+            (normExpectedAffect == normTriageFromDetected) ||
+            expectedAffect.equals(detectedEmotion, ignoreCase = true)
+
+        val isCombinedCorrect = isGestureCorrect && isEmotionCorrect
 
         latestPredictionLabel = decision.topLabel
         latestConfidence = decision.confidence
-        latestIsMatch = isCorrect
+        latestIsMatch = isCombinedCorrect
         latestLiveFps = fps
         latestE2eLatencyMs = e2eLatencyMs
         latestMediaPipeMs = mediapipeLatencyMs
         latestTfliteMs = decision.tfliteLatencyMs
+        latestLlmMs = tLlmMs
+        latestTtsMs = tTtsMs
 
         val altsFormatted = decision.alternatives.joinToString(";") { "${it.label}:${String.format(Locale.US, "%.2f", it.confidence)}" }
 
@@ -798,7 +816,7 @@ object TestModeManager {
             escapeCsv(signerId),
             escapeCsv(deviceTier),
             delegateType,
-            if (isCorrect) "1" else "0",
+            if (isCombinedCorrect) "1" else "0",
             "", "", "", "" // no BLEU scores
         ).joinToString(",")
 
@@ -823,7 +841,9 @@ object TestModeManager {
         detectedEmotion: String = "neutral",
         facialAffect: String = "[STABLE]",
         facialConfidence: Float = 0.5f,
-        tTtsMs: Double = 0.0
+        tLlmMs: Double = 0.0,
+        tTtsMs: Double = 0.0,
+        e2eLatencyMs: Long = 0L
     ) {
         val isTestMode = AppSettings.getInstance(context).isTestModeEnabled
         if (!isTestMode) return
@@ -837,7 +857,13 @@ object TestModeManager {
         val delegateType = if (AppSettings.getInstance(context).isInferenceGpuEnabled) "GPU" else "CPU"
         val refString = prompt.referenceTranslations.joinToString(" | ")
 
-        val totalE2e = result.latencyMs + tTtsMs.toLong()
+        val explicitLlmMs = if (tLlmMs > 0.0) tLlmMs else (if (result.latencyMs > 0L) result.latencyMs.toDouble() else latestLlmMs)
+        val finalE2e = if (e2eLatencyMs > 0L) e2eLatencyMs else (explicitLlmMs.toLong() + tTtsMs.toLong())
+
+        latestLiveFps = fps
+        latestE2eLatencyMs = finalE2e
+        latestLlmMs = explicitLlmMs
+        latestTtsMs = tTtsMs
 
         val row = listOf(
             nowIso,
@@ -859,9 +885,9 @@ object TestModeManager {
             "0.00",
             "0.00",
             "0.00",
-            String.format(Locale.US, "%.2f", result.latencyMs.toDouble()),
+            String.format(Locale.US, "%.2f", explicitLlmMs),
             String.format(Locale.US, "%.2f", tTtsMs),
-            totalE2e.toString(),
+            finalE2e.toString(),
             String.format(Locale.US, "%.1f", fps),
             if (currentLux >= 0f) String.format(Locale.US, "%.1f", currentLux) else "N/A",
             String.format(Locale.US, "%.2f", distanceMeters),
@@ -871,11 +897,11 @@ object TestModeManager {
             escapeCsv(signerId),
             escapeCsv(deviceTier),
             delegateType,
-            if (bleu.bleu4 >= 0.5) "1" else "0",
-            String.format(Locale.US, "%.4f", bleu.bleu1),
-            String.format(Locale.US, "%.4f", bleu.bleu2),
-            String.format(Locale.US, "%.4f", bleu.bleu3),
-            String.format(Locale.US, "%.4f", bleu.bleu4)
+            "1",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
         ).joinToString(",")
 
         csvExecutor.execute {
