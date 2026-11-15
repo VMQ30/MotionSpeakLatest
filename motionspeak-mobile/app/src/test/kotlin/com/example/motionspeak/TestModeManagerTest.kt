@@ -172,9 +172,9 @@ class TestModeManagerTest {
     @Test
     fun testTimeBasedResampleInterpolation() {
         // Create 3 timed frames: t=0ms at x=0.0, t=500ms at x=0.5, t=1000ms at x=1.0
-        val f0 = FloatArray(MotionPreprocessor.RAW_FEATURES) { 0f }.apply { this[0] = 0.0f; this[MotionPreprocessor.LEFT_FLAG] = 1.0f }
-        val f1 = FloatArray(MotionPreprocessor.RAW_FEATURES) { 0f }.apply { this[0] = 0.5f; this[MotionPreprocessor.LEFT_FLAG] = 1.0f }
-        val f2 = FloatArray(MotionPreprocessor.RAW_FEATURES) { 0f }.apply { this[0] = 1.0f; this[MotionPreprocessor.LEFT_FLAG] = 1.0f }
+        val f0 = FloatArray(MotionPreprocessor.LEGACY_RAW_FEATURES) { 0f }.apply { this[0] = 0.0f; this[MotionPreprocessor.LEFT_FLAG] = 1.0f }
+        val f1 = FloatArray(MotionPreprocessor.LEGACY_RAW_FEATURES) { 0f }.apply { this[0] = 0.5f; this[MotionPreprocessor.LEFT_FLAG] = 1.0f }
+        val f2 = FloatArray(MotionPreprocessor.LEGACY_RAW_FEATURES) { 0f }.apply { this[0] = 1.0f; this[MotionPreprocessor.LEFT_FLAG] = 1.0f }
 
         val timedFrames = listOf(
             0L to f0,

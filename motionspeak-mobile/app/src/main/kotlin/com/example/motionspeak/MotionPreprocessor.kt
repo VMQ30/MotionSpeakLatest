@@ -14,8 +14,10 @@ import kotlin.math.sqrt
  */
 object MotionPreprocessor {
     const val SEQUENCE_LENGTH = 30
-    const val RAW_FEATURES = 173
-    const val FEATURE_SIZE = 350
+    const val RAW_FEATURES = 147
+    const val FEATURE_SIZE = 147
+    const val LEGACY_RAW_FEATURES = 173
+    const val LEGACY_FEATURE_SIZE = 350
     const val LEFT_FLAG = 171
     const val RIGHT_FLAG = 172
     const val MAX_GAP = 6
@@ -39,11 +41,22 @@ object MotionPreprocessor {
         for (i in 1 until frames.size) {
             val curr = frames[i]
             val prev = frames[i - 1]
-            if (curr[RIGHT_FLAG] > 0f && prev[RIGHT_FLAG] > 0f) {
+            val hasRight = if (curr.size > RIGHT_FLAG && prev.size > RIGHT_FLAG) {
+                curr[RIGHT_FLAG] > 0f && prev[RIGHT_FLAG] > 0f
+            } else {
+                (63 until minOf(126, curr.size)).any { curr[it] != 0f } && (63 until minOf(126, prev.size)).any { prev[it] != 0f }
+            }
+            val hasLeft = if (curr.size > LEFT_FLAG && prev.size > LEFT_FLAG) {
+                curr[LEFT_FLAG] > 0f && prev[LEFT_FLAG] > 0f
+            } else {
+                (0 until minOf(63, curr.size)).any { curr[it] != 0f } && (0 until minOf(63, prev.size)).any { prev[it] != 0f }
+            }
+
+            if (hasRight && curr.size > 64 && prev.size > 64) {
                 totalDx += (curr[63] - prev[63])
                 totalDy += (curr[64] - prev[64])
                 count++
-            } else if (curr[LEFT_FLAG] > 0f && prev[LEFT_FLAG] > 0f) {
+            } else if (hasLeft && curr.size > 1 && prev.size > 1) {
                 totalDx += (curr[0] - prev[0])
                 totalDy += (curr[1] - prev[1])
                 count++
@@ -71,7 +84,9 @@ object MotionPreprocessor {
 
             val present = mutableListOf<Int>()
             for (i in out.indices) {
-                if (out[i][flag] > 0f) present.add(i)
+                val f = out[i]
+                val isPresent = if (f.size > flag) f[flag] > 0f else (offset until minOf(offset + 63, f.size)).any { f[it] != 0f }
+                if (isPresent) present.add(i)
             }
 
             for (p in 0 until present.size - 1) {
@@ -84,10 +99,10 @@ object MotionPreprocessor {
                         val frame = out[a + k]
                         val frameA = out[a]
                         val frameB = out[b]
-                        for (c in 0 until 63) {
+                        for (c in 0 until minOf(63, frame.size - offset)) {
                             frame[offset + c] = (1f - w) * frameA[offset + c] + w * frameB[offset + c]
                         }
-                        frame[flag] = 1.0f
+                        if (frame.size > flag) frame[flag] = 1.0f
                     }
                 }
             }
@@ -109,7 +124,12 @@ object MotionPreprocessor {
 
         for (i in frames.indices) {
             val f = frames[i]
-            if (f[LEFT_FLAG] > 0f || f[RIGHT_FLAG] > 0f) {
+            val hasHands = if (f.size > RIGHT_FLAG) {
+                f[LEFT_FLAG] > 0f || f[RIGHT_FLAG] > 0f
+            } else {
+                (0 until minOf(126, f.size)).any { f[it] != 0f }
+            }
+            if (hasHands) {
                 if (firstActive == -1) firstActive = i
                 lastActive = i
                 activeCount++
@@ -130,7 +150,12 @@ object MotionPreprocessor {
 
         for (i in frames.indices) {
             val f = frames[i].second
-            if (f[LEFT_FLAG] > 0f || f[RIGHT_FLAG] > 0f) {
+            val hasHands = if (f.size > RIGHT_FLAG) {
+                f[LEFT_FLAG] > 0f || f[RIGHT_FLAG] > 0f
+            } else {
+                (0 until minOf(126, f.size)).any { f[it] != 0f }
+            }
+            if (hasHands) {
                 if (firstActive == -1) firstActive = i
                 lastActive = i
                 activeCount++
@@ -154,12 +179,13 @@ object MotionPreprocessor {
         targetLength: Int = SEQUENCE_LENGTH
     ): Array<FloatArray> {
         val n = timedFrames.size
-        val out = Array(targetLength) { FloatArray(RAW_FEATURES) }
+        val featureDim = if (n > 0) timedFrames[0].second.size else RAW_FEATURES
+        val out = Array(targetLength) { FloatArray(featureDim) }
         if (n == 0) return out
         if (n == 1) {
             val f0 = timedFrames[0].second
             for (i in 0 until targetLength) {
-                System.arraycopy(f0, 0, out[i], 0, RAW_FEATURES)
+                System.arraycopy(f0, 0, out[i], 0, featureDim)
             }
             return out
         }
@@ -191,11 +217,14 @@ object MotionPreprocessor {
             val f1 = timedFrames[kNext].second
             val dest = out[i]
 
-            for (c in 0 until 171) {
-                dest[c] = (1f - alpha) * f0[c] + alpha * f1[c]
+            val copyLimit = minOf(dest.size, f0.size, f1.size)
+            for (c in 0 until copyLimit) {
+                if ((c == LEFT_FLAG || c == RIGHT_FLAG) && c < dest.size) {
+                    dest[c] = if ((1f - alpha) * f0[c] + alpha * f1[c] >= 0.5f) 1.0f else 0.0f
+                } else {
+                    dest[c] = (1f - alpha) * f0[c] + alpha * f1[c]
+                }
             }
-            dest[LEFT_FLAG] = if ((1f - alpha) * f0[LEFT_FLAG] + alpha * f1[LEFT_FLAG] >= 0.5f) 1.0f else 0.0f
-            dest[RIGHT_FLAG] = if ((1f - alpha) * f0[RIGHT_FLAG] + alpha * f1[RIGHT_FLAG] >= 0.5f) 1.0f else 0.0f
         }
         return out
     }
@@ -209,11 +238,12 @@ object MotionPreprocessor {
             return resampleTimed(timestamps.zip(frames), targetLength)
         }
         val n = frames.size
-        val out = Array(targetLength) { FloatArray(RAW_FEATURES) }
+        val featureDim = if (n > 0) frames[0].size else RAW_FEATURES
+        val out = Array(targetLength) { FloatArray(featureDim) }
         if (n == 0) return out
         if (n == 1) {
             for (i in 0 until targetLength) {
-                System.arraycopy(frames[0], 0, out[i], 0, RAW_FEATURES)
+                System.arraycopy(frames[0], 0, out[i], 0, featureDim)
             }
             return out
         }
@@ -228,13 +258,14 @@ object MotionPreprocessor {
             val f1 = frames[i1]
             val dest = out[i]
 
-            // Linearly interpolate continuous spatial coordinates (0..170)
-            for (c in 0 until 171) {
-                dest[c] = (1f - alpha) * f0[c] + alpha * f1[c]
+            val copyLimit = minOf(dest.size, f0.size, f1.size)
+            for (c in 0 until copyLimit) {
+                if ((c == LEFT_FLAG || c == RIGHT_FLAG) && c < dest.size) {
+                    dest[c] = if ((1f - alpha) * f0[c] + alpha * f1[c] >= 0.5f) 1.0f else 0.0f
+                } else {
+                    dest[c] = (1f - alpha) * f0[c] + alpha * f1[c]
+                }
             }
-            // Hand presence flags (LEFT_FLAG = 171, RIGHT_FLAG = 172)
-            dest[LEFT_FLAG] = if ((1f - alpha) * f0[LEFT_FLAG] + alpha * f1[LEFT_FLAG] >= 0.5f) 1.0f else 0.0f
-            dest[RIGHT_FLAG] = if ((1f - alpha) * f0[RIGHT_FLAG] + alpha * f1[RIGHT_FLAG] >= 0.5f) 1.0f else 0.0f
         }
         return out
     }
@@ -245,18 +276,18 @@ object MotionPreprocessor {
         numFeatures: Int = target[0].size,
         handShape: Boolean = (numFeatures >= 299),
         motion: Boolean = (numFeatures >= 350),
-        noZ: Boolean = true,
+        noZ: Boolean = (numFeatures >= 299),
         motionScale: Float = MOTION_SCALE,
         signerHandScale: Float = 1.0f,
         signerSpeedFactor: Float = 1.0f
     ) {
         val m = resampled.size
         // 1. Copy base features
-        val copyCount = minOf(RAW_FEATURES, numFeatures)
+        val copyCount = minOf(resampled[0].size, numFeatures, target[0].size)
         for (i in 0 until m) {
             System.arraycopy(resampled[i], 0, target[i], 0, copyCount)
             if (noZ) {
-                // Zero out depth (Z_COLS = 2, 5, 8, ... 170) -> no_z = true
+                // Zero out depth for legacy 350-feature models
                 for (c in 2 until minOf(171, numFeatures) step 3) {
                     target[i][c] = 0f
                 }

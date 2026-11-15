@@ -114,10 +114,9 @@ dependencies {
     implementation("com.google.mediapipe:tasks-vision:0.10.14")
     implementation("com.google.mediapipe:tasks-genai:0.10.14")
     
-    // TensorFlow Lite
-    implementation("org.tensorflow:tensorflow-lite:2.14.0")
-    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
-    implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.14.0")
+    // Google LiteRT (Supports FULLY_CONNECTED v12 opcode builtins, compatible with Kotlin 1.9)
+    implementation("com.google.ai.edge.litert:litert:1.4.2")
+    implementation("com.google.ai.edge.litert:litert-support:1.4.2")
     
     // Retrofit for API calls
     implementation("com.squareup.retrofit2:retrofit:2.9.0")

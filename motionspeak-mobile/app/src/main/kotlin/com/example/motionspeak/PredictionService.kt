@@ -139,23 +139,36 @@ class PredictionService(private val context: Context) {
     fun processFrame(features: FloatArray, frameCaptureTimestampMs: Long = SystemClock.elapsedRealtime()) {
         if (!isReady) return
 
-        val hasHands = features.size > RIGHT_FLAG && (features[LEFT_FLAG] > 0f || features[RIGHT_FLAG] > 0f)
+        val hasHands = if (features.size > RIGHT_FLAG) {
+            features[LEFT_FLAG] > 0f || features[RIGHT_FLAG] > 0f
+        } else {
+            (0 until minOf(126, features.size)).any { features[it] != 0f }
+        }
 
         if (hasHands) {
+            // Drop collapsed/corrupted landmarks from entering the buffer
+            if (features.size == 147 && !handExtentOk(features)) {
+                return
+            }
+
             inactiveStreak = 0
-            // Buffer timestamp and raw 173-dimensional features for temporal sequence processing
-            frameBuffer.addLast(frameCaptureTimestampMs to features.copyOf(MotionPreprocessor.RAW_FEATURES))
+            // Buffer timestamp and features for temporal sequence processing
+            frameBuffer.addLast(frameCaptureTimestampMs to features.copyOf(numFeatures))
             if (frameBuffer.size > 90) frameBuffer.removeFirst()
 
             val progress = (frameBuffer.size / 30f).coerceIn(0f, 1f)
             onCollecting?.invoke(progress)
 
-            // Measure hand movement to detect terminal hold vs active motion
+            // Measure hand/arm movement to detect terminal hold vs active motion
             val motionMag = if (frameBuffer.size >= 2) {
                 val prev = frameBuffer[frameBuffer.size - 2].second
                 val curr = frameBuffer[frameBuffer.size - 1].second
-                kotlin.math.abs(curr[0] - prev[0]) + kotlin.math.abs(curr[1] - prev[1]) +
-                kotlin.math.abs(curr[63] - prev[63]) + kotlin.math.abs(curr[64] - prev[64])
+                if (curr.size == 147 && prev.size == 147) {
+                    frameVelocity(prev, curr)
+                } else {
+                    kotlin.math.abs(curr[0] - prev[0]) + kotlin.math.abs(curr[1] - prev[1]) +
+                    kotlin.math.abs(curr[63] - prev[63]) + kotlin.math.abs(curr[64] - prev[64])
+                }
             } else 1.0f
 
             cumulativeMotion += motionMag
@@ -198,7 +211,7 @@ class PredictionService(private val context: Context) {
             // If a gesture was in progress, buffer empty frames during brief tracking glitches (< NO_HAND_TIMEOUT)
             // so MotionPreprocessor.fillGapsTimed can interpolate intermediate dropouts instead of dropping temporal sequence!
             if (frameBuffer.isNotEmpty() && inactiveStreak <= NO_HAND_TIMEOUT) {
-                frameBuffer.addLast(frameCaptureTimestampMs to features.copyOf(MotionPreprocessor.RAW_FEATURES))
+                frameBuffer.addLast(frameCaptureTimestampMs to features.copyOf(numFeatures))
                 if (frameBuffer.size > 90) frameBuffer.removeFirst()
             }
 
@@ -389,3 +402,44 @@ class PredictionService(private val context: Context) {
         cumulativeMotion = 0f
     }
 }
+
+internal val POSE_WRIST_XY = intArrayOf(
+    126 + 5 * 3, 126 + 5 * 3 + 1,
+    126 + 6 * 3, 126 + 6 * 3 + 1
+)
+
+private val FALLBACK_LANDMARKS = intArrayOf(4, 8, 12, 16, 20)
+internal val FALLBACK_XY = IntArray(20).apply {
+    var idx = 0
+    for (hand in 0..1) {
+        for (i in FALLBACK_LANDMARKS) {
+            this[idx++] = hand * 63 + i * 3
+            this[idx++] = hand * 63 + i * 3 + 1
+        }
+    }
+}
+
+internal fun posePresent(frame: FloatArray): Boolean {
+    if (frame.size < 147) return false
+    for (k in 126 until 147) {
+        if (frame[k] != 0f) return true
+    }
+    return false
+}
+
+/**
+ * L2 velocity between two consecutive NORMALIZED frames.
+ * MUST match motionspeak-ml preprocessor.frame_velocity byte-for-byte.
+ */
+internal fun frameVelocity(prev: FloatArray, cur: FloatArray): Float {
+    val idxs = if (posePresent(prev) && posePresent(cur)) POSE_WRIST_XY else FALLBACK_XY
+    var total = 0f
+    for (j in idxs) {
+        if (j < prev.size && j < cur.size) {
+            val d = cur[j] - prev[j]
+            total += d * d
+        }
+    }
+    return kotlin.math.sqrt(total)
+}
+

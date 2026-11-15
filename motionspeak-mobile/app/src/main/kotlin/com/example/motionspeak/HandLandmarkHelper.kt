@@ -15,10 +15,7 @@ import kotlin.math.sqrt
 
 private const val TAG = "HandLandmarkHelper"
 
-internal const val FEATURE_SIZE = 350
-private const val LEFT_FLAG = 171
-private const val RIGHT_FLAG = 172
-private const val MOTION_SCALE = 5.0f
+internal const val FEATURE_SIZE = 147
 
 const val POSE_DETECT_INTERVAL = 2
 val POSE_KEYPOINTS = intArrayOf(0, 11, 12, 13, 14, 15, 16)
@@ -61,14 +58,9 @@ class HandLandmarkHelper(
     private var smoothedShoulderWidth = 0.25f
     private var hasShoulderRef = false
 
-    private val baseFeat = FloatArray(173)
-    private val currentRawCoords = FloatArray(171)
-    private val prevRawCoords = FloatArray(171)
     private var hasPrevRawCoords = false
     private var prevLeftActive = false
     private var prevRightActive = false
-    private val handShapeFeat = FloatArray(126)
-    private val motionFeat = FloatArray(51)
     private val finalFeatures = FloatArray(FEATURE_SIZE)
 
     // Temporal landmark smoothing (adaptive low-pass filtering) to eliminate micro-jitter
@@ -302,13 +294,7 @@ class HandLandmarkHelper(
         val overlayLandmarks = ArrayList<FloatArray>(validHands.size)
         val overlaySlots = ArrayList<Int>(validHands.size)
 
-        baseFeat.fill(0f)
-        currentRawCoords.fill(0f)
-        handShapeFeat.fill(0f)
-        motionFeat.fill(0f)
-
-        var leftOn = 0f
-        var rightOn = 0f
+        finalFeatures.fill(0f)
 
         val hasPoseWrists = poseCoords != null && poseCoords.size > 16
         val poseLeftWrist = if (hasPoseWrists) poseCoords!![15] else null
@@ -374,109 +360,32 @@ class HandLandmarkHelper(
             overlaySlots.add(slot)
 
             val offset = if (isLeft) 0 else 63
-            if (isLeft) leftOn = 1.0f else rightOn = 1.0f
-
             for (j in 0 until 21) {
-                val sx = smoothedPts[j * 2]
-                val sy = smoothedPts[j * 2 + 1]
-                val sz = hand.landmarks[j].z()
-                val nx = normX(sx)
-                val ny = normY(sy)
-                val nz = normZ(sz)
-
-                baseFeat[offset + j * 3]     = nx
-                baseFeat[offset + j * 3 + 1] = ny
-                baseFeat[offset + j * 3 + 2] = nz
-                currentRawCoords[offset + j * 3]     = nx
-                currentRawCoords[offset + j * 3 + 1] = ny
-                currentRawCoords[offset + j * 3 + 2] = nz
+                finalFeatures[offset + j * 3]     = hand.landmarks[j].x()
+                finalFeatures[offset + j * 3 + 1] = hand.landmarks[j].y()
+                finalFeatures[offset + j * 3 + 2] = hand.landmarks[j].z()
             }
         }
 
         if (!leftDetected) hasSmoothedLeft = false
         if (!rightDetected) hasSmoothedRight = false
 
-        // Pose reference landmarks matching collect_data.py
+        // Pose reference keypoints: 7 keypoints [0, 11, 12, 13, 14, 15, 16] -> 21 floats at offset 126..146
         if (poseCoords != null) {
-            for (k in POSE_IDX.indices) {
-                val idx = POSE_IDX[k]
-                if (idx < poseCoords.size) {
-                    val p = poseCoords[idx]
-                    val nx = normX(p[0])
-                    val ny = normY(p[1])
-                    val nz = normZ(p[2])
-                    baseFeat[126 + k * 3]     = nx
-                    baseFeat[126 + k * 3 + 1] = ny
-                    baseFeat[126 + k * 3 + 2] = nz
-                    currentRawCoords[126 + k * 3]     = nx
-                    currentRawCoords[126 + k * 3 + 1] = ny
-                    currentRawCoords[126 + k * 3 + 2] = nz
+            for (k in POSE_KEYPOINTS.indices) {
+                val kp = POSE_KEYPOINTS[k]
+                if (kp < poseCoords.size) {
+                    val p = poseCoords[kp]
+                    finalFeatures[POSE_BASE_147 + k * 3]     = p[0]
+                    finalFeatures[POSE_BASE_147 + k * 3 + 1] = p[1]
+                    finalFeatures[POSE_BASE_147 + k * 3 + 2] = p[2]
                 }
             }
         }
 
-        // Hand presence flags (171: left_on, 172: right_on)
-        baseFeat[LEFT_FLAG] = leftOn
-        baseFeat[RIGHT_FLAG] = rightOn
-
-        // Zero out Z coordinates for base features (matching meta.json: no_z = true)
-        for (i in 0 until 171 step 3) {
-            baseFeat[i + 2] = 0f
-        }
-
-        // Hand shape features: 21 relative points normalized by hand span (middle MCP to wrist)
-        if (leftOn > 0f) {
-            val wx = baseFeat[0]; val wy = baseFeat[1]; val wz = baseFeat[2]
-            val mx = baseFeat[9 * 3]; val my = baseFeat[9 * 3 + 1]; val mz = baseFeat[9 * 3 + 2]
-            val dx = mx - wx; val dy = my - wy; val dz = mz - wz
-            var size = sqrt(dx * dx + dy * dy + dz * dz)
-            if (size < 1e-6f) size = 1e-6f
-            for (j in 0 until 21) {
-                handShapeFeat[j * 3]     = (baseFeat[j * 3] - wx) / size
-                handShapeFeat[j * 3 + 1] = (baseFeat[j * 3 + 1] - wy) / size
-                handShapeFeat[j * 3 + 2] = (baseFeat[j * 3 + 2] - wz) / size
-            }
-        }
-
-        if (rightOn > 0f) {
-            val wx = baseFeat[63]; val wy = baseFeat[64]; val wz = baseFeat[65]
-            val mx = baseFeat[63 + 9 * 3]; val my = baseFeat[63 + 9 * 3 + 1]; val mz = baseFeat[63 + 9 * 3 + 2]
-            val dx = mx - wx; val dy = my - wy; val dz = mz - wz
-            var size = sqrt(dx * dx + dy * dy + dz * dz)
-            if (size < 1e-6f) size = 1e-6f
-            for (j in 0 until 21) {
-                handShapeFeat[63 + j * 3]     = (baseFeat[63 + j * 3] - wx) / size
-                handShapeFeat[63 + j * 3 + 1] = (baseFeat[63 + j * 3 + 1] - wy) / size
-                handShapeFeat[63 + j * 3 + 2] = (baseFeat[63 + j * 3 + 2] - wz) / size
-            }
-        }
-
-        // Motion features: deltas across frames scaled by MOTION_SCALE
-        if (hasPrevRawCoords) {
-            for (k in 0 until 15) {
-                motionFeat[k * 3]     = (currentRawCoords[126 + k * 3] - prevRawCoords[126 + k * 3]) * MOTION_SCALE
-                motionFeat[k * 3 + 1] = (currentRawCoords[126 + k * 3 + 1] - prevRawCoords[126 + k * 3 + 1]) * MOTION_SCALE
-                motionFeat[k * 3 + 2] = (currentRawCoords[126 + k * 3 + 2] - prevRawCoords[126 + k * 3 + 2]) * MOTION_SCALE
-            }
-            if (leftOn > 0f && prevLeftActive) {
-                motionFeat[45] = (currentRawCoords[0] - prevRawCoords[0]) * MOTION_SCALE
-                motionFeat[46] = (currentRawCoords[1] - prevRawCoords[1]) * MOTION_SCALE
-                motionFeat[47] = (currentRawCoords[2] - prevRawCoords[2]) * MOTION_SCALE
-            }
-            if (rightOn > 0f && prevRightActive) {
-                motionFeat[48] = (currentRawCoords[63] - prevRawCoords[63]) * MOTION_SCALE
-                motionFeat[49] = (currentRawCoords[64] - prevRawCoords[64]) * MOTION_SCALE
-                motionFeat[50] = (currentRawCoords[65] - prevRawCoords[65]) * MOTION_SCALE
-            }
-        }
-        System.arraycopy(currentRawCoords, 0, prevRawCoords, 0, 171)
-        hasPrevRawCoords = true
-        prevLeftActive = (leftOn > 0f)
-        prevRightActive = (rightOn > 0f)
-
-        System.arraycopy(baseFeat, 0, finalFeatures, 0, 173)
-        System.arraycopy(handShapeFeat, 0, finalFeatures, 173, 126)
-        System.arraycopy(motionFeat, 0, finalFeatures, 299, 51)
+        // Normalize the 147-float vector (wrist-centered hands, shoulder-centered pose)
+        // exactly matching Python preprocessor.normalize_frame
+        normalizeFrame(finalFeatures)
 
         val overlayFaceLandmarks = ArrayList<FloatArray>(1)
         if (poseCoords != null && poseCoords.size > 10) {
@@ -488,13 +397,13 @@ class HandLandmarkHelper(
             overlayFaceLandmarks.add(coords)
         }
 
-        val totalHands = (if (leftOn > 0f) 1 else 0) + (if (rightOn > 0f) 1 else 0)
+        val totalHands = (if (leftDetected) 1 else 0) + (if (rightDetected) 1 else 0)
         val sinceSubmitMs = if (lastSubmitNs > 0L) (System.nanoTime() - lastSubmitNs) / 1e6 else 0.0
         val avgScore = if (validHands.isNotEmpty()) validHands.map { it.score }.average().toFloat() else 0.5f
 
         return LandmarkResult(
             handsDetected = totalHands,
-            features = finalFeatures,
+            features = finalFeatures.copyOf(),
             landmarks = overlayLandmarks,
             faceLandmarks = overlayFaceLandmarks,
             sourceWidth = lastSourceWidth,
@@ -519,11 +428,6 @@ class HandLandmarkHelper(
         smoothedCenterY = 0.45f
         smoothedCenterZ = 0.0f
         smoothedShoulderWidth = 0.25f
-        baseFeat.fill(0f)
-        currentRawCoords.fill(0f)
-        prevRawCoords.fill(0f)
-        handShapeFeat.fill(0f)
-        motionFeat.fill(0f)
         finalFeatures.fill(0f)
     }
 
@@ -593,3 +497,100 @@ class HandLandmarkHelper(
         }
     }
 }
+
+internal const val FEATURE_SIZE_147 = 147
+internal const val POSE_BASE_147    = 126
+internal const val POSE_LSHOULDER_147 = 1
+internal const val POSE_RSHOULDER_147 = 2
+internal const val MAX_HAND_EXTENT = 5.0f
+
+/**
+ * Normalize a full 147-float frame in place: every PRESENT hand block, then the
+ * pose block. Absent (all-zero) blocks are left untouched as the sentinel.
+ *
+ * MUST match motionspeak-ml preprocessor.normalize_frame exactly.
+ */
+internal fun normalizeFrame(features: FloatArray) {
+    for (hand in 0..1) {
+        val base = hand * 63
+        var present = false
+        for (k in base until base + 63) {
+            if (features[k] != 0f) { present = true; break }
+        }
+        if (present) normalizeHandBlock(features, base)
+    }
+    normalizePoseBlock(features)
+}
+
+/**
+ * True when every PRESENT hand in an already-normalized frame is a plausible size.
+ * MUST stay identical to hand_extent_ok in motionspeak-ml preprocessor.py.
+ */
+internal fun handExtentOk(features: FloatArray): Boolean {
+    for (hand in 0..1) {
+        val base = hand * 63
+        var present = false
+        for (k in base until base + 63) {
+            if (features[k] != 0f) { present = true; break }
+        }
+        if (!present) continue
+
+        var minX = Float.MAX_VALUE; var maxX = -Float.MAX_VALUE
+        var minY = Float.MAX_VALUE; var maxY = -Float.MAX_VALUE
+        for (j in 0..20) {
+            val x = features[base + j * 3]
+            val y = features[base + j * 3 + 1]
+            if (x < minX) minX = x
+            if (x > maxX) maxX = x
+            if (y < minY) minY = y
+            if (y > maxY) maxY = y
+        }
+        if (maxX - minX > MAX_HAND_EXTENT || maxY - minY > MAX_HAND_EXTENT) return false
+    }
+    return true
+}
+
+// Normalize one hand's 63-float block in place: wrist-center (landmark 0) + scale
+// by 2D wrist->landmark-9 distance. Must match motionspeak-ml normalize_frame exactly.
+internal fun normalizeHandBlock(features: FloatArray, base: Int) {
+    val wx = features[base]
+    val wy = features[base + 1]
+    val wz = features[base + 2]
+    val mx = features[base + 9 * 3]
+    val my = features[base + 9 * 3 + 1]
+    var d = kotlin.math.sqrt((mx - wx) * (mx - wx) + (my - wy) * (my - wy))
+    if (d < 1e-6f) d = 1e-6f
+    for (j in 0..20) {
+        features[base + j * 3]     = (features[base + j * 3]     - wx) / d
+        features[base + j * 3 + 1] = (features[base + j * 3 + 1] - wy) / d
+        features[base + j * 3 + 2] = (features[base + j * 3 + 2] - wz) / d
+    }
+}
+
+// Normalize the 21-float pose block in place: center on shoulder midpoint
+// (x,y,z), scale by 2D L<->R shoulder distance, epsilon 1e-6. Must match
+// motionspeak-ml preprocessor.normalize_frame pose block exactly.
+internal fun normalizePoseBlock(features: FloatArray) {
+    var present = false
+    for (k in POSE_BASE_147 until POSE_BASE_147 + 21) {
+        if (k < features.size && features[k] != 0f) { present = true; break }
+    }
+    if (!present) return
+    val lsx = features[POSE_BASE_147 + POSE_LSHOULDER_147 * 3]
+    val lsy = features[POSE_BASE_147 + POSE_LSHOULDER_147 * 3 + 1]
+    val lsz = features[POSE_BASE_147 + POSE_LSHOULDER_147 * 3 + 2]
+    val rsx = features[POSE_BASE_147 + POSE_RSHOULDER_147 * 3]
+    val rsy = features[POSE_BASE_147 + POSE_RSHOULDER_147 * 3 + 1]
+    val rsz = features[POSE_BASE_147 + POSE_RSHOULDER_147 * 3 + 2]
+    val cx = (lsx + rsx) / 2f
+    val cy = (lsy + rsy) / 2f
+    val cz = (lsz + rsz) / 2f
+    var sw = kotlin.math.sqrt((rsx - lsx) * (rsx - lsx) + (rsy - lsy) * (rsy - lsy))
+    if (sw < 1e-6f) sw = 1e-6f
+    for (k in 0..6) {
+        features[POSE_BASE_147 + k * 3]     = (features[POSE_BASE_147 + k * 3]     - cx) / sw
+        features[POSE_BASE_147 + k * 3 + 1] = (features[POSE_BASE_147 + k * 3 + 1] - cy) / sw
+        features[POSE_BASE_147 + k * 3 + 2] = (features[POSE_BASE_147 + k * 3 + 2] - cz) / sw
+    }
+}
+

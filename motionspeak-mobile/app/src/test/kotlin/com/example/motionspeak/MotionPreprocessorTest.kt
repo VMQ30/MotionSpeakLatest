@@ -11,7 +11,7 @@ class MotionPreprocessorTest {
     @Test
     fun fillGapsInterpolatesSmallGapAndSetsFlag() {
         // 10 frames: hand present at frame 2 and frame 6 (gap of 3 frames: 3, 4, 5)
-        val frames = List(10) { FloatArray(MotionPreprocessor.RAW_FEATURES) }
+        val frames = List(10) { FloatArray(MotionPreprocessor.LEGACY_RAW_FEATURES) }
         frames[2][0] = 0.20f // Left wrist X
         frames[2][MotionPreprocessor.LEFT_FLAG] = 1.0f
         frames[6][0] = 0.60f
@@ -39,7 +39,7 @@ class MotionPreprocessorTest {
 
     @Test
     fun fillGapsIgnoresLargeGapsExceedingMaxGap() {
-        val frames = List(15) { FloatArray(MotionPreprocessor.RAW_FEATURES) }
+        val frames = List(15) { FloatArray(MotionPreprocessor.LEGACY_RAW_FEATURES) }
         frames[1][0] = 0.10f
         frames[1][MotionPreprocessor.LEFT_FLAG] = 1.0f
         frames[10][0] = 0.90f // Gap is 8 frames (2..9) > MAX_GAP (6)
@@ -56,14 +56,14 @@ class MotionPreprocessorTest {
     @Test
     fun trimActiveKeepsPaddingAndDropsTooShortSequences() {
         // Less than 6 active frames should return null
-        val shortFrames = List(20) { FloatArray(MotionPreprocessor.RAW_FEATURES) }
+        val shortFrames = List(20) { FloatArray(MotionPreprocessor.LEGACY_RAW_FEATURES) }
         for (i in 5..8) { // Only 4 active frames
             shortFrames[i][MotionPreprocessor.RIGHT_FLAG] = 1.0f
         }
         assertNull(MotionPreprocessor.trimActive(shortFrames, minActive = 6))
 
         // 10 active frames (indices 10..19 in 40 frames)
-        val validFrames = List(40) { FloatArray(MotionPreprocessor.RAW_FEATURES) }
+        val validFrames = List(40) { FloatArray(MotionPreprocessor.LEGACY_RAW_FEATURES) }
         for (i in 10..19) {
             validFrames[i][MotionPreprocessor.RIGHT_FLAG] = 1.0f
         }
@@ -91,7 +91,7 @@ class MotionPreprocessorTest {
     @Test
     fun prepareModelInputGeneratesExact350FeatureMatrix() {
         val resampled = Array(30) { i ->
-            val arr = FloatArray(MotionPreprocessor.RAW_FEATURES)
+            val arr = FloatArray(MotionPreprocessor.LEGACY_RAW_FEATURES)
             // Left hand active
             arr[MotionPreprocessor.LEFT_FLAG] = 1.0f
             // Left wrist at (0.2, 0.4, 0.1)
@@ -110,8 +110,8 @@ class MotionPreprocessorTest {
             arr
         }
 
-        val target = Array(30) { FloatArray(MotionPreprocessor.FEATURE_SIZE) }
-        MotionPreprocessor.prepareModelInput(resampled, target)
+        val target = Array(30) { FloatArray(MotionPreprocessor.LEGACY_FEATURE_SIZE) }
+        MotionPreprocessor.prepareModelInput(resampled, target, numFeatures = MotionPreprocessor.LEGACY_FEATURE_SIZE)
 
         for (i in 0 until 30) {
             // 1. Base 173 features
@@ -134,7 +134,7 @@ class MotionPreprocessorTest {
 
         // 3. Motion features (299..349)
         // Step 0 must have zero motion
-        for (c in 299 until MotionPreprocessor.FEATURE_SIZE) {
+        for (c in 299 until MotionPreprocessor.LEGACY_FEATURE_SIZE) {
             assertEquals(0.0f, target[0][c], 0.0001f)
         }
 
@@ -145,25 +145,66 @@ class MotionPreprocessorTest {
     }
 
     @Test
-    fun prepareModelInputGeneratesExact173FeatureMatrixWhenConfigured() {
+    fun prepareModelInputGeneratesExact147FeatureMatrix() {
         val resampled = Array(30) { i ->
-            val arr = FloatArray(MotionPreprocessor.RAW_FEATURES)
-            arr[MotionPreprocessor.RIGHT_FLAG] = 1.0f
-            arr[63] = 0.50f + i * 0.01f
-            arr[64] = 0.40f
-            arr[65] = 0.10f
+            val arr = FloatArray(147)
+            // Hand 0 present
+            arr[0] = 0.1f * i
+            arr[1] = 0.2f
+            arr[2] = 0.3f
+            // Hand 1 present
+            arr[63] = 0.4f
+            arr[64] = 0.5f * i
+            arr[65] = 0.6f
+            // Pose present
+            arr[126] = 0.7f
+            arr[127] = 0.8f
+            arr[128] = 0.9f
             arr
         }
 
-        val target = Array(30) { FloatArray(MotionPreprocessor.RAW_FEATURES) }
-        MotionPreprocessor.prepareModelInput(resampled, target, numFeatures = 173, handShape = false, motion = false, noZ = false)
+        val target = Array(30) { FloatArray(147) }
+        MotionPreprocessor.prepareModelInput(resampled, target, numFeatures = 147)
 
         for (i in 0 until 30) {
-            assertEquals(173, target[i].size)
-            assertEquals(1.0f, target[i][MotionPreprocessor.RIGHT_FLAG], 0.001f)
-            assertEquals(0.50f + i * 0.01f, target[i][63], 0.001f)
-            assertEquals(0.40f, target[i][64], 0.001f)
-            assertEquals(0.10f, target[i][65], 0.001f)
+            assertEquals(147, target[i].size)
+            assertEquals(0.1f * i, target[i][0], 0.001f)
+            assertEquals(0.2f, target[i][1], 0.001f)
+            assertEquals(0.3f, target[i][2], 0.001f) // Z preserved in 147 features
+            assertEquals(0.4f, target[i][63], 0.001f)
+            assertEquals(0.5f * i, target[i][64], 0.001f)
+            assertEquals(0.6f, target[i][65], 0.001f)
+            assertEquals(0.7f, target[i][126], 0.001f)
         }
+    }
+
+    @Test
+    fun fillGapsWorksFor147FeaturesWithoutFlags() {
+        val frames = List(10) { FloatArray(147) }
+        // Hand present at frame 2 and frame 6
+        frames[2][0] = 0.20f
+        frames[2][1] = 0.30f
+        frames[6][0] = 0.60f
+        frames[6][1] = 0.70f
+
+        val filled = MotionPreprocessor.fillGaps(frames, maxGap = 6)
+        assertEquals(10, filled.size)
+        // Midpoint at frame 4: w = 0.5
+        assertEquals(0.40f, filled[4][0], 0.001f)
+        assertEquals(0.50f, filled[4][1], 0.001f)
+        // Empty frame 0 remains empty
+        assertEquals(0.0f, filled[0][0], 0.001f)
+    }
+
+    @Test
+    fun trimActiveWorksFor147FeaturesWithoutFlags() {
+        val frames = List(30) { FloatArray(147) }
+        // Active from frame 10 to 19
+        for (i in 10..19) {
+            frames[i][0] = 0.5f
+        }
+        val trimmed = MotionPreprocessor.trimActive(frames, minActive = 6, pad = 3)
+        assertNotNull(trimmed)
+        assertEquals(16, trimmed!!.size) // 10..19 padded by 3 -> 7..22 -> 16 frames
     }
 }
