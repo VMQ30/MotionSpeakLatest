@@ -3,9 +3,13 @@ package com.example.motionspeak
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Matrix
+import android.hardware.camera2.CaptureRequest
 import android.os.SystemClock
 import android.util.Log
+import android.util.Range
 import android.util.Size
+import androidx.camera.camera2.interop.Camera2Interop
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
@@ -27,6 +31,7 @@ class CameraSessionManager(
 ) {
     private var cameraProvider: ProcessCameraProvider? = null
     private val executor = Executors.newSingleThreadExecutor { Thread(it, "motionspeak-camera-analysis").apply { isDaemon = true } }
+    private val luxExecutor = Executors.newSingleThreadExecutor { Thread(it, "motionspeak-lux").apply { isDaemon = true } }
     private val frameMatrix = Matrix()
 
     var isFrontCamera: Boolean = false
@@ -53,11 +58,15 @@ class CameraSessionManager(
         }, ContextCompat.getMainExecutor(context))
     }
 
+    @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
     fun bindCamera() {
         val provider = cameraProvider ?: return
         CaptureRateMonitor.reset()
 
-        val preview = Preview.Builder().build().also {
+        val previewBuilder = Preview.Builder()
+        Camera2Interop.Extender(previewBuilder)
+            .setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, Range(30, 30))
+        val preview = previewBuilder.build().also {
             it.setSurfaceProvider(previewView.surfaceProvider)
         }
 
@@ -65,12 +74,14 @@ class CameraSessionManager(
         previewView.scaleY = 1f
         previewView.scaleType = PreviewView.ScaleType.FILL_CENTER
 
-        val analysis = ImageAnalysis.Builder()
+        val analysisBuilder = ImageAnalysis.Builder()
             .setTargetResolution(Size(480, 360))
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
             .setOutputImageRotationEnabled(true)
-            .build()
+        Camera2Interop.Extender(analysisBuilder)
+            .setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, Range(30, 30))
+        val analysis = analysisBuilder.build()
 
         var frameCounter = 0L
 
@@ -96,9 +107,15 @@ class CameraSessionManager(
                 latestCameraToBitmapMs = conversionMs
 
                 frameCounter++
-                // Sample photometric illuminance every 6 frames without blocking analysis
+                // Sample photometric illuminance every 6 frames asynchronously without blocking analysis thread
                 if (frameCounter % 6L == 0L) {
-                    PhotometricLuxEstimator.estimatePhotometricLux(prepared)
+                    luxExecutor.execute {
+                        try {
+                            PhotometricLuxEstimator.estimatePhotometricLux(prepared)
+                        } catch (e: Exception) {
+                            Log.w("CameraSessionManager", "Photometric lux sampling error: ${e.message}")
+                        }
+                    }
                 }
 
                 onFramePrepared(prepared, captureTimestampMs)
@@ -140,5 +157,6 @@ class CameraSessionManager(
     fun release() {
         stop()
         executor.shutdown()
+        luxExecutor.shutdown()
     }
 }

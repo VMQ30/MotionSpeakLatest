@@ -76,7 +76,7 @@ class OverlayView @JvmOverloads constructor(
 
     init {
         setWillNotDraw(false)
-        elevation = 20f
+        elevation = 0f
     }
 
     private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -135,6 +135,7 @@ class OverlayView @JvmOverloads constructor(
     private val scratchFaceRect = RectF()
     private val scratchBadgeRect = RectF()
     private val scratchTextBounds = Rect()
+    private val linePtsBuffer = FloatArray(HAND_CONNECTIONS.size * 4)
 
     private val isNightMode: Boolean
         get() = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
@@ -295,6 +296,7 @@ class OverlayView @JvmOverloads constructor(
             lp.strokeWidth = lineStroke
             lineHaloPaint.strokeWidth = lineStroke + 1.6f * scale
 
+            var lineCoordIdx = 0
             for ((startIdx, endIdx) in HAND_CONNECTIONS) {
                 if (startIdx < n && endIdx < n) {
                     val x1 = drawX(hand[startIdx * 2])
@@ -302,10 +304,16 @@ class OverlayView @JvmOverloads constructor(
                     val x2 = drawX(hand[endIdx * 2])
                     val y2 = drawY(hand[endIdx * 2 + 1])
 
-                    // Draw outer subtle shadow line, then translucent colored skeleton line
-                    canvas.drawLine(x1, y1, x2, y2, lineHaloPaint)
-                    canvas.drawLine(x1, y1, x2, y2, lp)
+                    linePtsBuffer[lineCoordIdx++] = x1
+                    linePtsBuffer[lineCoordIdx++] = y1
+                    linePtsBuffer[lineCoordIdx++] = x2
+                    linePtsBuffer[lineCoordIdx++] = y2
                 }
+            }
+            if (lineCoordIdx > 0) {
+                // Batch-draw outer shadow line and skeleton lines with hardware GPU instancing
+                canvas.drawLines(linePtsBuffer, 0, lineCoordIdx, lineHaloPaint)
+                canvas.drawLines(linePtsBuffer, 0, lineCoordIdx, lp)
             }
 
             // 3. Draw refined landmark dots dynamically sized according to user's hand

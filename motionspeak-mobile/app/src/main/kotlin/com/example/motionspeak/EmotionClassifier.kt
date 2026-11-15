@@ -25,6 +25,11 @@ class EmotionClassifier(private val context: Context) {
     private var faceLandmarker: FaceLandmarker? = null
     private var emotionInterpreter: Interpreter? = null
 
+    // Pre-allocated direct ByteBuffers to avoid native heap churn and GC pauses during facial analysis
+    private val inputBuffer = ByteBuffer.allocateDirect(1 * 3 * 224 * 224 * 4).order(ByteOrder.nativeOrder())
+    private val outputBuffer = ByteBuffer.allocateDirect(1 * 8 * 4).order(ByteOrder.nativeOrder())
+    private val pixels = IntArray(224 * 224)
+
     /** Latest face landmark coordinates (x,y pairs) for overlay rendering. */
     @Volatile var lastFaceLandmarks: List<FloatArray> = emptyList()
         private set
@@ -145,9 +150,8 @@ class EmotionClassifier(private val context: Context) {
             // 3. Resize to 224x224 for HSEmotion
             val scaledBmp = Bitmap.createScaledBitmap(croppedBmp, 224, 224, true)
 
-            // 4. Convert to ByteBuffer (NCHW format, normalized)
-            val inputBuffer = ByteBuffer.allocateDirect(1 * 3 * 224 * 224 * 4).order(ByteOrder.nativeOrder())
-            val pixels = IntArray(224 * 224)
+            // 4. Convert to pre-allocated ByteBuffer (NCHW format, normalized)
+            inputBuffer.rewind()
             scaledBmp.getPixels(pixels, 0, 224, 0, 0, 224, 224)
 
             // HSEmotion expects ImageNet normalization: (pixel/255 - mean) / std
@@ -171,8 +175,8 @@ class EmotionClassifier(private val context: Context) {
                 }
             }
 
-            // 5. Run inference
-            val outputBuffer = ByteBuffer.allocateDirect(1 * 8 * 4).order(ByteOrder.nativeOrder())
+            // 5. Run inference with pre-allocated output buffer
+            outputBuffer.rewind()
             interp.run(inputBuffer, outputBuffer)
 
             // 6. Find max probability
