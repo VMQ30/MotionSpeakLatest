@@ -1072,7 +1072,7 @@
                             app:useMaterialThemeColors="true" />
                     </LinearLayout>
 
-                    <!-- Download & Delete logs rows: Only visible when test mode is ON and logs exist -->
+                    <!-- Download & Delete logs rows: Separated by Test Section per Chapter 4 Problem 3 -->
                     <LinearLayout
                         android:id="@+id/layoutDownloadLogs"
                         android:layout_width="match_parent"
@@ -1081,13 +1081,15 @@
                         android:visibility="gone"
                         tools:visibility="visible">
 
+                        <!-- Section 3.1: Table 4.17 Recognition Logs -->
                         <View
+                            android:id="@+id/dividerDownload31"
                             android:layout_width="match_parent"
                             android:layout_height="1dp"
                             android:background="@color/ms_divider" />
 
                         <LinearLayout
-                            android:id="@+id/rowDownloadLogs"
+                            android:id="@+id/rowDownload31"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:clickable="true"
@@ -1108,7 +1110,7 @@
                                     android:layout_gravity="center"
                                     android:importantForAccessibility="no"
                                     android:src="@drawable/ic_download"
-                                    android:tint="@color/ms_cat_teal_text" />
+                                    app:tint="@color/ms_cat_teal_text" />
                             </FrameLayout>
 
                             <LinearLayout
@@ -1121,26 +1123,225 @@
                                     style="@style/Sigla.Text.BodyStrong"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:text="Download logs" />
+                                    android:text="Table 4.17: Recognition Logs" />
                                 <TextView
-                                    android:id="@+id/tvDownloadLogsSubtitle"
+                                    android:id="@+id/tvDownload31Subtitle"
                                     style="@style/Sigla.Text.Caption"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:layout_marginTop="@dimen/ms_space_4"
-                                    android:text="Save telemetry spreadsheet (.csv) to Downloads folder" />
+                                    android:text="Hand gesture, facial expression and combined accuracy (.csv)" />
                             </LinearLayout>
 
                             <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnDownloadLogs"
+                                android:id="@+id/btnDownload31"
                                 style="@style/Widget.Sigla.Chip"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Download"
+                                android:text="Export 3.1"
                                 app:icon="@drawable/ic_download"
                                 app:iconGravity="textStart" />
                         </LinearLayout>
 
+                        <!-- Section 3.2: Table 4.18 Sentence BLEU Logs -->
+                        <View
+                            android:id="@+id/dividerDownload32"
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/ms_divider" />
+
+                        <LinearLayout
+                            android:id="@+id/rowDownload32"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:foreground="?attr/selectableItemBackground"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:padding="@dimen/ms_space_16">
+
+                            <FrameLayout
+                                android:layout_width="@dimen/ms_badge_size"
+                                android:layout_height="@dimen/ms_badge_size"
+                                android:background="@drawable/bg_ms_circle_tint"
+                                android:backgroundTint="@color/ms_cat_violet_bg">
+                                <ImageView
+                                    android:layout_width="18dp"
+                                    android:layout_height="18dp"
+                                    android:layout_gravity="center"
+                                    android:importantForAccessibility="no"
+                                    android:src="@drawable/ic_download"
+                                    app:tint="@color/ms_cat_violet_text" />
+                            </FrameLayout>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:layout_marginStart="@dimen/ms_space_12"
+                                android:orientation="vertical">
+                                <TextView
+                                    style="@style/Sigla.Text.BodyStrong"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="Table 4.18: Sentence BLEU Logs" />
+                                <TextView
+                                    android:id="@+id/tvDownload32Subtitle"
+                                    style="@style/Sigla.Text.Caption"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="@dimen/ms_space_4"
+                                    android:text="BLEU-1 to BLEU-4 scores and clinical translations (.csv)" />
+                            </LinearLayout>
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnDownload32"
+                                style="@style/Widget.Sigla.Chip"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Export 3.2"
+                                app:icon="@drawable/ic_download"
+                                app:iconGravity="textStart" />
+                        </LinearLayout>
+
+                        <!-- Section 3.3: Table 4.19 Efficiency & FPS Logs -->
+                        <View
+                            android:id="@+id/dividerDownload33"
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/ms_divider" />
+
+                        <LinearLayout
+                            android:id="@+id/rowDownload33"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:foreground="?attr/selectableItemBackground"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:padding="@dimen/ms_space_16">
+
+                            <FrameLayout
+                                android:layout_width="@dimen/ms_badge_size"
+                                android:layout_height="@dimen/ms_badge_size"
+                                android:background="@drawable/bg_ms_circle_tint"
+                                android:backgroundTint="@color/ms_cat_sky_bg">
+                                <ImageView
+                                    android:layout_width="18dp"
+                                    android:layout_height="18dp"
+                                    android:layout_gravity="center"
+                                    android:importantForAccessibility="no"
+                                    android:src="@drawable/ic_download"
+                                    app:tint="@color/ms_on_brand" />
+                            </FrameLayout>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:layout_marginStart="@dimen/ms_space_12"
+                                android:orientation="vertical">
+                                <TextView
+                                    style="@style/Sigla.Text.BodyStrong"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="Table 4.19: Processing Efficiency Logs" />
+                                <TextView
+                                    android:id="@+id/tvDownload33Subtitle"
+                                    style="@style/Sigla.Text.Caption"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="@dimen/ms_space_4"
+                                    android:text="FPS, MediaPipe, TFLite and end-to-end latencies (.csv)" />
+                            </LinearLayout>
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnDownload33"
+                                style="@style/Widget.Sigla.Chip"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Export 3.3"
+                                app:icon="@drawable/ic_download"
+                                app:iconGravity="textStart" />
+                        </LinearLayout>
+
+                        <!-- Section 3.4: Table 4.20 Operational Boundaries Logs -->
+                        <View
+                            android:id="@+id/dividerDownload34"
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/ms_divider" />
+
+                        <LinearLayout
+                            android:id="@+id/rowDownload34"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:foreground="?attr/selectableItemBackground"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:padding="@dimen/ms_space_16">
+
+                            <FrameLayout
+                                android:layout_width="@dimen/ms_badge_size"
+                                android:layout_height="@dimen/ms_badge_size"
+                                android:background="@drawable/bg_ms_circle_tint"
+                                android:backgroundTint="@color/ms_cat_indigo_bg">
+                                <ImageView
+                                    android:layout_width="18dp"
+                                    android:layout_height="18dp"
+                                    android:layout_gravity="center"
+                                    android:importantForAccessibility="no"
+                                    android:src="@drawable/ic_download"
+                                    app:tint="@color/ms_on_brand" />
+                            </FrameLayout>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:layout_marginStart="@dimen/ms_space_12"
+                                android:orientation="vertical">
+                                <TextView
+                                    style="@style/Sigla.Text.BodyStrong"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="Table 4.20: Operational Boundaries Logs" />
+                                <TextView
+                                    android:id="@+id/tvDownload34Subtitle"
+                                    style="@style/Sigla.Text.Caption"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="@dimen/ms_space_4"
+                                    android:text="Lux, distance, angle and clutter stress testing (.csv)" />
+                            </LinearLayout>
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnDownload34"
+                                style="@style/Widget.Sigla.Chip"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Export 3.4"
+                                app:icon="@drawable/ic_download"
+                                app:iconGravity="textStart" />
+                        </LinearLayout>
+
+                        <!-- Compatibility / Legacy single download row (invisible placeholder if needed) -->
+                        <LinearLayout
+                            android:id="@+id/rowDownloadLogs"
+                            android:layout_width="0dp"
+                            android:layout_height="0dp"
+                            android:visibility="gone" />
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnDownloadLogs"
+                            android:layout_width="0dp"
+                            android:layout_height="0dp"
+                            android:visibility="gone" />
+
+                        <!-- Delete all test logs row -->
                         <View
                             android:layout_width="match_parent"
                             android:layout_height="1dp"
@@ -1181,7 +1382,7 @@
                                     style="@style/Sigla.Text.BodyStrong"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:text="Delete logs"
+                                    android:text="Delete All Test Logs"
                                     android:textColor="@color/ms_danger" />
                                 <TextView
                                     android:id="@+id/tvDeleteLogsSubtitle"
@@ -1189,7 +1390,7 @@
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:layout_marginTop="@dimen/ms_space_4"
-                                    android:text="Permanently clear test telemetry CSV file" />
+                                    android:text="Permanently clear all 4 test telemetry CSV spreadsheets" />
                             </LinearLayout>
 
                             <com.google.android.material.button.MaterialButton

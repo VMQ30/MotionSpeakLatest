@@ -210,6 +210,66 @@
                 </LinearLayout>
             </HorizontalScrollView>
 
+            <!-- Sub-mode Selector for Test 1 (Table 4.17): Hand Gesture, Facial Expression, Combined -->
+            <LinearLayout
+                android:id="@+id/layoutTest1SubModes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal"
+                android:visibility="visible">
+
+                <TextView
+                    android:id="@+id/chipSubModeGesture"
+                    style="@style/Sigla.Text.Caption"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="6dp"
+                    android:background="@drawable/bg_ms_pill"
+                    android:backgroundTint="@color/ms_cat_teal_bg"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingStart="10dp"
+                    android:paddingTop="3dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="3dp"
+                    android:text="Hand Gesture"
+                    android:textColor="@color/ms_on_brand" />
+
+                <TextView
+                    android:id="@+id/chipSubModeFacial"
+                    style="@style/Sigla.Text.Caption"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="6dp"
+                    android:background="@drawable/bg_ms_pill"
+                    android:backgroundTint="@color/ms_cat_violet_tint"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingStart="10dp"
+                    android:paddingTop="3dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="3dp"
+                    android:text="Facial Expression"
+                    android:textColor="@color/ms_cat_violet_accent" />
+
+                <TextView
+                    android:id="@+id/chipSubModeCombined"
+                    style="@style/Sigla.Text.Caption"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_ms_pill"
+                    android:backgroundTint="@color/ms_cat_violet_tint"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingStart="10dp"
+                    android:paddingTop="3dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="3dp"
+                    android:text="Combined"
+                    android:textColor="@color/ms_cat_violet_accent" />
+            </LinearLayout>
+
             <!-- Main Prompt display -->
             <TextView
                 android:id="@+id/tvTestPromptHeading"

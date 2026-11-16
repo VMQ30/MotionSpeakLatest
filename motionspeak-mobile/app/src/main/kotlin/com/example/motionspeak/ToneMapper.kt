@@ -18,21 +18,27 @@ object ToneMapper {
     }
 
     /**
-     * Maps raw HSEmotion labels to standardized clinical triage facial affect states:
-     * - sad, fear -> [DISTRESSED]
-     * - angry, disgust, contempt -> [AGITATED]
-     * - happy -> [RELIEVED]
-     * - surprise -> [ALERT]
-     * - neutral -> [STABLE]
+     * Standardized emotional state mapping for clinical triage and test evaluation:
+     * - sad -> Sad
+     * - fear -> Fear
+     * - angry -> Angry
+     * - disgust -> Disgust
+     * - contempt -> Contempt
+     * - happy -> Happy
+     * - surprise -> Surprise
+     * - neutral -> Neutral
      */
     fun toTriageAffect(emotion: String?): String {
         return when (emotion?.trim()?.lowercase(java.util.Locale.ROOT)) {
-            "sad", "fear" -> "[DISTRESSED]"
-            "angry", "disgust", "contempt" -> "[AGITATED]"
-            "happy" -> "[RELIEVED]"
-            "surprise" -> "[ALERT]"
-            "neutral" -> "[STABLE]"
-            else -> "[STABLE]"
+            "happy" -> "Happy"
+            "sad" -> "Sad"
+            "surprise" -> "Surprise"
+            "fear" -> "Fear"
+            "angry" -> "Angry"
+            "disgust" -> "Disgust"
+            "contempt" -> "Contempt"
+            "neutral" -> "Neutral"
+            else -> "Neutral"
         }
     }
 }

@@ -448,7 +448,7 @@ class SentenceGenerationTest {
             promptText = "I HAVE HEADACHE AND FEVER",
             glosses = listOf("HEADACHE", "FEVER"),
             referenceTranslations = listOf("I have a headache and fever"),
-            expectedAffect = "[DISTRESSED]"
+            expectedEmotion = "Sad"
         )
 
         composer.addToken("headache", t0CaptureMs = 998877L)

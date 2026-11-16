@@ -1354,17 +1354,40 @@ class MainActivity : AppCompatActivity() {
             updateTestModeDisplay()
         }
 
+        binding.chipSubModeGesture.setOnClickListener {
+            TestModeManager.section31SubMode = Section31SubMode.HAND_GESTURE_ONLY
+            updateTestModePhaseChips()
+            updateTestModeDisplay()
+            Haptics.tick(it)
+        }
+        binding.chipSubModeFacial.setOnClickListener {
+            TestModeManager.section31SubMode = Section31SubMode.FACIAL_EXPRESSION_ONLY
+            updateTestModePhaseChips()
+            updateTestModeDisplay()
+            Haptics.tick(it)
+        }
+        binding.chipSubModeCombined.setOnClickListener {
+            TestModeManager.section31SubMode = Section31SubMode.COMBINED
+            updateTestModePhaseChips()
+            updateTestModeDisplay()
+            Haptics.tick(it)
+        }
+
         binding.btnTestNext.setOnClickListener {
             when (TestModeManager.activePhase) {
                 TestPhase.TEST_1_SINGLE_SIGNS -> {
-                    TestModeManager.singleSignIndex++
-                    if (TestModeManager.singleSignIndex >= TestModeManager.SINGLE_SIGN_PROMPTS.size) {
-                        TestModeManager.singleSignIndex = 0
-                        if (TestModeManager.currentIteration < TestModeManager.maxIterations) {
-                            TestModeManager.currentIteration++
-                            Toast.makeText(this, "Completed vocabulary! Starting Iteration ${TestModeManager.currentIteration}/${TestModeManager.maxIterations}", Toast.LENGTH_LONG).show()
-                        } else {
-                            Toast.makeText(this, "Completed all 10 baseline iterations (600+ trials logged)!", Toast.LENGTH_LONG).show()
+                    if (TestModeManager.section31SubMode == Section31SubMode.FACIAL_EXPRESSION_ONLY) {
+                        TestModeManager.facialEmotionIndex = (TestModeManager.facialEmotionIndex + 1) % TestModeManager.FACIAL_EXPRESSION_PROMPTS.size
+                    } else {
+                        TestModeManager.singleSignIndex++
+                        if (TestModeManager.singleSignIndex >= TestModeManager.SINGLE_SIGN_PROMPTS.size) {
+                            TestModeManager.singleSignIndex = 0
+                            if (TestModeManager.currentIteration < TestModeManager.maxIterations) {
+                                TestModeManager.currentIteration++
+                                Toast.makeText(this, "Completed vocabulary! Starting Iteration ${TestModeManager.currentIteration}/${TestModeManager.maxIterations}", Toast.LENGTH_LONG).show()
+                            } else {
+                                Toast.makeText(this, "Completed all 10 baseline iterations (600+ trials logged)!", Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
                 }
@@ -1398,8 +1421,13 @@ class MainActivity : AppCompatActivity() {
         binding.btnTestPrev.setOnClickListener {
             when (TestModeManager.activePhase) {
                 TestPhase.TEST_1_SINGLE_SIGNS -> {
-                    if (TestModeManager.singleSignIndex > 0) TestModeManager.singleSignIndex--
-                    else TestModeManager.singleSignIndex = TestModeManager.SINGLE_SIGN_PROMPTS.size - 1
+                    if (TestModeManager.section31SubMode == Section31SubMode.FACIAL_EXPRESSION_ONLY) {
+                        if (TestModeManager.facialEmotionIndex > 0) TestModeManager.facialEmotionIndex--
+                        else TestModeManager.facialEmotionIndex = TestModeManager.FACIAL_EXPRESSION_PROMPTS.size - 1
+                    } else {
+                        if (TestModeManager.singleSignIndex > 0) TestModeManager.singleSignIndex--
+                        else TestModeManager.singleSignIndex = TestModeManager.SINGLE_SIGN_PROMPTS.size - 1
+                    }
                 }
                 TestPhase.TEST_2_FULL_SENTENCES -> {
                     if (TestModeManager.sentenceIndex > 0) TestModeManager.sentenceIndex--
@@ -1512,38 +1540,69 @@ class MainActivity : AppCompatActivity() {
         style(binding.chipTest3, activePhase == TestPhase.TEST_3_SPEED_CHECK)
         style(binding.chipTest4, activePhase == TestPhase.TEST_4_BREAKING_POINTS)
 
+        // Sub-mode chip styling for Section 3.1
+        val isGesture = TestModeManager.section31SubMode == Section31SubMode.HAND_GESTURE_ONLY
+        val isFacial = TestModeManager.section31SubMode == Section31SubMode.FACIAL_EXPRESSION_ONLY
+        val isCombined = TestModeManager.section31SubMode == Section31SubMode.COMBINED
+        style(binding.chipSubModeGesture, isGesture)
+        style(binding.chipSubModeFacial, isFacial)
+        style(binding.chipSubModeCombined, isCombined)
+
         binding.tvTestPhaseTitle.text = activePhase.title
+        binding.layoutTest1SubModes.visibility = if (activePhase == TestPhase.TEST_1_SINGLE_SIGNS) View.VISIBLE else View.GONE
         binding.btnTestSynthesize.visibility = if (activePhase == TestPhase.TEST_2_FULL_SENTENCES) View.VISIBLE else View.GONE
-        binding.layoutTestBoundarySelectors.visibility = View.VISIBLE
+        binding.layoutTestBoundarySelectors.visibility = if (activePhase == TestPhase.TEST_4_BREAKING_POINTS) View.VISIBLE else View.GONE
     }
 
     private fun updateTestModeDisplay() {
         binding.chipIteration.text = "Iter: ${TestModeManager.currentIteration}/${TestModeManager.maxIterations}"
         when (TestModeManager.activePhase) {
             TestPhase.TEST_1_SINGLE_SIGNS -> {
-                val list = TestModeManager.SINGLE_SIGN_PROMPTS
-                val idx = TestModeManager.singleSignIndex.coerceIn(0, list.size - 1)
-                val prompt = list[idx]
-                binding.tvTestStepIndicator.text = "[Iter ${TestModeManager.currentIteration}/${TestModeManager.maxIterations} • ${idx + 1}/${list.size}]"
-                binding.tvTestPromptHeading.text = "Please sign (Single Sign):"
-                binding.tvTestPromptText.text = prompt.gloss
-                binding.tvTestPromptSub.text = "Target: \"${prompt.translation}\" • Affect: ${prompt.expectedAffect}"
+                when (TestModeManager.section31SubMode) {
+                    Section31SubMode.HAND_GESTURE_ONLY -> {
+                        val list = TestModeManager.SINGLE_SIGN_PROMPTS
+                        val idx = TestModeManager.singleSignIndex.coerceIn(0, list.size - 1)
+                        val prompt = list[idx]
+                        binding.tvTestStepIndicator.text = "[Iter ${TestModeManager.currentIteration}/${TestModeManager.maxIterations} • ${idx + 1}/${list.size}]"
+                        binding.tvTestPromptHeading.text = "Please sign gesture (3.1 Hand Gesture):"
+                        binding.tvTestPromptText.text = prompt.gloss
+                        binding.tvTestPromptSub.text = "Target: \"${prompt.translation}\""
+                    }
+                    Section31SubMode.FACIAL_EXPRESSION_ONLY -> {
+                        val list = TestModeManager.FACIAL_EXPRESSION_PROMPTS
+                        val idx = TestModeManager.facialEmotionIndex.coerceIn(0, list.size - 1)
+                        val emotion = list[idx]
+                        binding.tvTestStepIndicator.text = "[Emotion ${idx + 1}/${list.size}]"
+                        binding.tvTestPromptHeading.text = "Please express emotion (3.1 Facial Expression):"
+                        binding.tvTestPromptText.text = emotion
+                        binding.tvTestPromptSub.text = "Look at camera and express: $emotion"
+                    }
+                    Section31SubMode.COMBINED -> {
+                        val list = TestModeManager.SINGLE_SIGN_PROMPTS
+                        val idx = TestModeManager.singleSignIndex.coerceIn(0, list.size - 1)
+                        val prompt = list[idx]
+                        binding.tvTestStepIndicator.text = "[Iter ${TestModeManager.currentIteration}/${TestModeManager.maxIterations} • ${idx + 1}/${list.size}]"
+                        binding.tvTestPromptHeading.text = "Please sign and express (3.1 Combined):"
+                        binding.tvTestPromptText.text = "${prompt.gloss} + ${prompt.expectedEmotion}"
+                        binding.tvTestPromptSub.text = "Sign: \"${prompt.translation}\" • Face: ${prompt.expectedEmotion}"
+                    }
+                }
             }
             TestPhase.TEST_2_FULL_SENTENCES -> {
                 val list = TestModeManager.FULL_SENTENCE_PROMPTS
                 val idx = TestModeManager.sentenceIndex.coerceIn(0, list.size - 1)
                 val prompt = list[idx]
                 binding.tvTestStepIndicator.text = "[Iter ${TestModeManager.currentIteration}/${TestModeManager.maxIterations} • ${idx + 1}/${list.size}]"
-                binding.tvTestPromptHeading.text = "Please sign full sentence:"
+                binding.tvTestPromptHeading.text = "Please sign full sentence (3.2 BLEU):"
                 val clinicalSentence = prompt.referenceTranslations.firstOrNull() ?: prompt.promptText
                 binding.tvTestPromptText.text = clinicalSentence
-                binding.tvTestPromptSub.text = "Target Glosses: ${prompt.glosses.joinToString(" ")} • Affect: ${prompt.expectedAffect}"
+                binding.tvTestPromptSub.text = "Target Glosses: ${prompt.glosses.joinToString(" ")} • Affect: ${prompt.expectedEmotion}"
             }
             TestPhase.TEST_3_SPEED_CHECK -> {
-                binding.tvTestStepIndicator.text = "[Continuous]"
-                binding.tvTestPromptHeading.text = "Speed & Latency Stress Check:"
-                binding.tvTestPromptText.text = "Sign continuously for 5–10 min"
-                binding.tvTestPromptSub.text = "Monitoring sustained FPS, thermal behavior, and camera-to-UI response latencies"
+                binding.tvTestStepIndicator.text = "[Continuous Efficiency Check]"
+                binding.tvTestPromptHeading.text = "Processing Efficiency (3.3 Speed & Latency):"
+                binding.tvTestPromptText.text = "Sign continuously to log runtime telemetry"
+                binding.tvTestPromptSub.text = "Streaming MediaPipe, TFLite inference, E2E response time, and frame rates"
             }
             TestPhase.TEST_4_BREAKING_POINTS -> {
                 val cond = TestModeManager.applyStressCondition(TestModeManager.stressConditionIndex)
@@ -1552,7 +1611,7 @@ class MainActivity : AppCompatActivity() {
                 binding.tvTestStepIndicator.text = "[Cond ${TestModeManager.stressConditionIndex + 1}/${TestModeManager.STRESS_CONDITIONS.size}]"
                 binding.tvTestPromptHeading.text = "Operational Stress: ${cond.name}"
                 binding.tvTestPromptText.text = sign
-                binding.tvTestPromptSub.text = "${cond.instruction} • Affect: ${fullPrompt?.expectedAffect ?: "[STABLE]"} • Dist: ${cond.distanceMeters}m | Az: ${cond.azimuthAngleDeg}° | El: ${cond.elevationAngleDeg}° | ${cond.backgroundComplexity}"
+                binding.tvTestPromptSub.text = "${cond.instruction} • Variable: ${cond.stressVariable} (${cond.stressLevel})"
 
                 binding.chipDistance.text = "Dist: ${cond.distanceMeters}m"
                 binding.chipAngle.text = "Angle: ${if (cond.azimuthAngleDeg > 0) "+" else ""}${cond.azimuthAngleDeg}°"
@@ -1570,29 +1629,62 @@ class MainActivity : AppCompatActivity() {
         val mpMs = TestModeManager.latestMediaPipeMs
         val tfliteMs = TestModeManager.latestTfliteMs
         val llmMs = TestModeManager.latestLlmMs
-        val ttsMs = if (TestModeManager.latestTtsMs > 0.0) TestModeManager.latestTtsMs else (speech?.latestTtsLatencyMs ?: 0.0)
 
-        if (TestModeManager.activePhase == TestPhase.TEST_2_FULL_SENTENCES) {
-            binding.tvTestTelemetryMetrics.text = String.format(
-                Locale.US,
-                "Lux: %s • FPS: %.1f • E2E: %dms (LLM: %.0fms, TTS: %.0fms) • Dist: %.1fm • Az: %d° • %s",
-                luxStr, fps, e2e, llmMs, ttsMs, TestModeManager.distanceMeters, TestModeManager.azimuthAngleDeg, latestFacialAffect
-            )
-        } else {
-            binding.tvTestTelemetryMetrics.text = String.format(
-                Locale.US,
-                "Lux: %s • FPS: %.1f • E2E: %dms (MP: %.0fms, CNN: %.0fms, TTS: %.0fms) • Dist: %.1fm • Az: %d° • El: %d° • %s",
-                luxStr, fps, e2e, mpMs, tfliteMs, ttsMs, TestModeManager.distanceMeters, TestModeManager.azimuthAngleDeg, TestModeManager.elevationAngleDeg, latestFacialAffect
-            )
-        }
-
-        if (TestModeManager.latestPredictionLabel.isNotEmpty()) {
-            val confPct = (TestModeManager.latestConfidence * 100).toInt()
-            val matchStr = if (TestModeManager.latestIsMatch) "MATCH ✓" else "MISMATCH ✗"
-            val bleuStr = TestModeManager.latestBleuScore?.let { " • BLEU-4: %.2f".format(Locale.US, it.bleu4) } ?: ""
-            binding.tvTestLastPrediction.text = "Latest: ${TestModeManager.latestPredictionLabel} ($confPct%) • Affect: $latestFacialAffect • $matchStr$bleuStr"
-        } else {
-            binding.tvTestLastPrediction.text = "Awaiting sign gesture..."
+        when (TestModeManager.activePhase) {
+            TestPhase.TEST_1_SINGLE_SIGNS -> {
+                val confPct = (TestModeManager.latestConfidence * 100).toInt()
+                val matchStr = if (TestModeManager.latestIsMatch) "MATCH ✓" else "MISMATCH ✗"
+                binding.tvTestTelemetryMetrics.text = String.format(
+                    Locale.US,
+                    "3.1 Mode: %s • Iteration: %d/%d • Prediction Confidence: %d%%",
+                    TestModeManager.section31SubMode.title,
+                    TestModeManager.currentIteration,
+                    TestModeManager.maxIterations,
+                    confPct
+                )
+                if (TestModeManager.latestPredictionLabel.isNotEmpty()) {
+                    binding.tvTestLastPrediction.text = "Latest: ${TestModeManager.latestPredictionLabel} ($confPct%) • Face: $latestFacialAffect • $matchStr"
+                } else {
+                    binding.tvTestLastPrediction.text = "Awaiting input..."
+                }
+            }
+            TestPhase.TEST_2_FULL_SENTENCES -> {
+                val b4 = TestModeManager.latestBleuScore?.bleu4 ?: 0.0
+                val cumBleu = TestModeManager.latestBleuScore?.cumulativeBleu ?: 0.0
+                binding.tvTestTelemetryMetrics.text = String.format(
+                    Locale.US,
+                    "3.2 BLEU-4: %.2f • Cum BLEU: %.2f • LLM Latency: %.0fms • FPS: %.1f",
+                    b4, cumBleu, llmMs, fps
+                )
+                if (TestModeManager.latestPredictionLabel.isNotEmpty()) {
+                    binding.tvTestLastPrediction.text = "Synthesized: \"${TestModeManager.latestPredictionLabel}\""
+                } else {
+                    binding.tvTestLastPrediction.text = "Awaiting sentence synthesis (press Turn into sentence)..."
+                }
+            }
+            TestPhase.TEST_3_SPEED_CHECK -> {
+                val totalInf = mpMs + tfliteMs
+                binding.tvTestTelemetryMetrics.text = String.format(
+                    Locale.US,
+                    "3.3 FPS: %.1f • MP: %.1fms • CNN: %.1fms • Total Inf: %.1fms • E2E: %dms",
+                    fps, mpMs, tfliteMs, totalInf, e2e
+                )
+                binding.tvTestLastPrediction.text = "Frames logged: ${TestModeManager.frameIndex33} • Active Inference Pipeline"
+            }
+            TestPhase.TEST_4_BREAKING_POINTS -> {
+                val confPct = (TestModeManager.latestConfidence * 100).toInt()
+                val matchStr = if (TestModeManager.latestIsMatch) "OPERATIONAL ✓" else "BREAKING POINT ✗"
+                binding.tvTestTelemetryMetrics.text = String.format(
+                    Locale.US,
+                    "3.4 Lux: %s • Dist: %.1fm • Az: %d° • El: %d° • FPS: %.1f • E2E: %dms",
+                    luxStr, TestModeManager.distanceMeters, TestModeManager.azimuthAngleDeg, TestModeManager.elevationAngleDeg, fps, e2e
+                )
+                if (TestModeManager.latestPredictionLabel.isNotEmpty()) {
+                    binding.tvTestLastPrediction.text = "Latest: ${TestModeManager.latestPredictionLabel} ($confPct%) • $matchStr"
+                } else {
+                    binding.tvTestLastPrediction.text = "Awaiting gesture in stress condition..."
+                }
+            }
         }
     }
 
@@ -1605,50 +1697,80 @@ class MainActivity : AppCompatActivity() {
         val mpLatency = pendingOverlayResult?.landmarkLatencyMs ?: 28.0
         val mpConfidence = pendingOverlayResult?.detectionConfidence ?: 0.5f
         val currentFps = CaptureRateMonitor.currentFps
+        val cameraToBitmap = cameraSessionManager?.latestCameraToBitmapMs ?: 0.0
+        val ttsLatency = if (ttsLatencyMs > 0.0) ttsLatencyMs else (speech?.latestTtsLatencyMs ?: 0.0)
 
-        val singlePrompt = when (phase) {
+        when (phase) {
             TestPhase.TEST_1_SINGLE_SIGNS -> {
-                TestModeManager.SINGLE_SIGN_PROMPTS.getOrNull(TestModeManager.singleSignIndex)
+                val singlePrompt = TestModeManager.SINGLE_SIGN_PROMPTS.getOrNull(TestModeManager.singleSignIndex)
+                val gloss = singlePrompt?.gloss ?: "UNKNOWN"
+                val expEmotion = singlePrompt?.expectedEmotion ?: "Neutral"
+
+                TestModeManager.logSingleSign(
+                    context = applicationContext,
+                    promptStr = gloss,
+                    expectedAffect = expEmotion,
+                    decision = decision,
+                    mediapipeLatencyMs = mpLatency,
+                    e2eLatencyMs = e2eLatencyMs,
+                    fps = currentFps,
+                    mediapipeConfidence = mpConfidence,
+                    cameraToBitmapMs = cameraToBitmap,
+                    detectedEmotion = latestEmotion,
+                    facialAffect = latestFacialAffect,
+                    facialConfidence = latestEmotionConfidence,
+                    tLlmMs = 0.0,
+                    tTtsMs = ttsLatency
+                )
+            }
+            TestPhase.TEST_2_FULL_SENTENCES -> {
+                // Must not auto execute upon 2 signing. It must ONLY execute if the user presses "Turn into sentence"
+                runOnUiThread {
+                    updateTestModeTelemetryHud()
+                }
+                return
+            }
+            TestPhase.TEST_3_SPEED_CHECK -> {
+                TestModeManager.logSingleSign(
+                    context = applicationContext,
+                    promptStr = "SPEED_CHECK",
+                    expectedAffect = "Neutral",
+                    decision = decision,
+                    mediapipeLatencyMs = mpLatency,
+                    e2eLatencyMs = e2eLatencyMs,
+                    fps = currentFps,
+                    mediapipeConfidence = mpConfidence,
+                    cameraToBitmapMs = cameraToBitmap,
+                    detectedEmotion = latestEmotion,
+                    facialAffect = latestFacialAffect,
+                    facialConfidence = latestEmotionConfidence,
+                    tLlmMs = 0.0,
+                    tTtsMs = ttsLatency
+                )
             }
             TestPhase.TEST_4_BREAKING_POINTS -> {
                 val cond = TestModeManager.STRESS_CONDITIONS.getOrNull(TestModeManager.stressConditionIndex)
                 val sign = cond?.targetSign ?: "EMERGENCY"
-                TestModeManager.SINGLE_SIGN_PROMPTS.firstOrNull { it.gloss.equals(sign, ignoreCase = true) }
-                    ?: SingleSignPrompt(sign, sign, "Stress Test", "[STABLE]")
+                val fullPrompt = TestModeManager.SINGLE_SIGN_PROMPTS.firstOrNull { it.gloss.equals(sign, ignoreCase = true) }
+
+                TestModeManager.logSingleSign(
+                    context = applicationContext,
+                    promptStr = sign,
+                    expectedAffect = fullPrompt?.expectedEmotion ?: "Neutral",
+                    decision = decision,
+                    mediapipeLatencyMs = mpLatency,
+                    e2eLatencyMs = e2eLatencyMs,
+                    fps = currentFps,
+                    mediapipeConfidence = mpConfidence,
+                    cameraToBitmapMs = cameraToBitmap,
+                    detectedEmotion = latestEmotion,
+                    facialAffect = latestFacialAffect,
+                    facialConfidence = latestEmotionConfidence,
+                    tLlmMs = 0.0,
+                    tTtsMs = ttsLatency
+                )
             }
-            else -> null
         }
-
-        val promptStr = singlePrompt?.gloss ?: (if (phase == TestPhase.TEST_3_SPEED_CHECK) "SPEED_CHECK_STREAM" else "UNKNOWN")
-        val expectedAffect = singlePrompt?.expectedAffect ?: "[STABLE]"
-
-        if (phase == TestPhase.TEST_2_FULL_SENTENCES) {
-            // Must not auto execute upon 2 signing. It must ONLY execute if the user presses "Turn into sentence"
-            runOnUiThread {
-                updateTestModeTelemetryHud()
-            }
-            return
-        }
-
-        val cameraToBitmap = cameraSessionManager?.latestCameraToBitmapMs ?: 0.0
-        val ttsLatency = if (ttsLatencyMs > 0.0) ttsLatencyMs else (speech?.latestTtsLatencyMs ?: 0.0)
-
-        TestModeManager.logSingleSign(
-            context = applicationContext,
-            promptStr = promptStr,
-            expectedAffect = expectedAffect,
-            decision = decision,
-            mediapipeLatencyMs = mpLatency,
-            e2eLatencyMs = e2eLatencyMs,
-            fps = currentFps,
-            mediapipeConfidence = mpConfidence,
-            cameraToBitmapMs = cameraToBitmap,
-            detectedEmotion = latestEmotion,
-            facialAffect = latestFacialAffect,
-            facialConfidence = latestEmotionConfidence,
-            tLlmMs = 0.0,
-            tTtsMs = ttsLatency
-        )
 
         runOnUiThread {
             updateTestModeTelemetryHud()

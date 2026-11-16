@@ -549,8 +549,15 @@ class SettingsActivity : BaseActivity() {
     private fun bindTestModeControls() {
         val switchTestMode = findViewById<SwitchMaterial>(R.id.switchTestMode)
         val rowTestMode = findViewById<View>(R.id.rowTestMode)
-        val btnDownloadLogs = findViewById<View>(R.id.btnDownloadLogs)
-        val rowDownloadLogs = findViewById<View>(R.id.rowDownloadLogs)
+
+        val btnDownload31 = findViewById<View>(R.id.btnDownload31)
+        val rowDownload31 = findViewById<View>(R.id.rowDownload31)
+        val btnDownload32 = findViewById<View>(R.id.btnDownload32)
+        val rowDownload32 = findViewById<View>(R.id.rowDownload32)
+        val btnDownload33 = findViewById<View>(R.id.btnDownload33)
+        val rowDownload33 = findViewById<View>(R.id.rowDownload33)
+        val btnDownload34 = findViewById<View>(R.id.btnDownload34)
+        val rowDownload34 = findViewById<View>(R.id.rowDownload34)
 
         switchTestMode?.isChecked = appSettings.isTestModeEnabled
         refreshDownloadLogsVisibility()
@@ -571,18 +578,57 @@ class SettingsActivity : BaseActivity() {
             refreshDownloadLogsVisibility()
         }
 
-        val downloadAction = View.OnClickListener {
-            val fileName = TestModeManager.exportLogsToDownloads(this)
+        // Section 3.1: Table 4.17 Recognition Logs
+        val download31Action = View.OnClickListener {
+            val fileName = TestModeManager.exportSection31(this)
             if (fileName != null) {
-                Toast.makeText(this, "Logs downloaded to Downloads: $fileName", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Table 4.17 logs downloaded to Downloads: $fileName", Toast.LENGTH_LONG).show()
             } else {
-                Toast.makeText(this, "No test logs to download or export failed", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "No Table 4.17 logs to export", Toast.LENGTH_SHORT).show()
             }
             refreshDownloadLogsVisibility()
         }
+        btnDownload31?.setOnClickListener(download31Action)
+        rowDownload31?.setOnClickListener(download31Action)
 
-        btnDownloadLogs?.setOnClickListener(downloadAction)
-        rowDownloadLogs?.setOnClickListener(downloadAction)
+        // Section 3.2: Table 4.18 Sentence BLEU Logs
+        val download32Action = View.OnClickListener {
+            val fileName = TestModeManager.exportSection32(this)
+            if (fileName != null) {
+                Toast.makeText(this, "Table 4.18 logs downloaded to Downloads: $fileName", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "No Table 4.18 logs to export", Toast.LENGTH_SHORT).show()
+            }
+            refreshDownloadLogsVisibility()
+        }
+        btnDownload32?.setOnClickListener(download32Action)
+        rowDownload32?.setOnClickListener(download32Action)
+
+        // Section 3.3: Table 4.19 Efficiency Logs
+        val download33Action = View.OnClickListener {
+            val fileName = TestModeManager.exportSection33(this)
+            if (fileName != null) {
+                Toast.makeText(this, "Table 4.19 logs downloaded to Downloads: $fileName", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "No Table 4.19 logs to export", Toast.LENGTH_SHORT).show()
+            }
+            refreshDownloadLogsVisibility()
+        }
+        btnDownload33?.setOnClickListener(download33Action)
+        rowDownload33?.setOnClickListener(download33Action)
+
+        // Section 3.4: Table 4.20 Operational Boundaries Logs
+        val download34Action = View.OnClickListener {
+            val fileName = TestModeManager.exportSection34(this)
+            if (fileName != null) {
+                Toast.makeText(this, "Table 4.20 logs downloaded to Downloads: $fileName", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "No Table 4.20 logs to export", Toast.LENGTH_SHORT).show()
+            }
+            refreshDownloadLogsVisibility()
+        }
+        btnDownload34?.setOnClickListener(download34Action)
+        rowDownload34?.setOnClickListener(download34Action)
 
         val btnDeleteLogs = findViewById<View>(R.id.btnDeleteLogs)
         val rowDeleteLogs = findViewById<View>(R.id.rowDeleteLogs)
@@ -590,10 +636,10 @@ class SettingsActivity : BaseActivity() {
         val deleteAction = View.OnClickListener {
             AlertDialog.Builder(this)
                 .setTitle("Delete test logs?")
-                .setMessage("Are you sure you want to permanently delete all recorded test telemetry logs? This cannot be undone.")
+                .setMessage("Are you sure you want to permanently delete all recorded test telemetry logs across all 4 sections? This cannot be undone.")
                 .setPositiveButton("Delete") { _, _ ->
                     TestModeManager.clearLogs(this)
-                    Toast.makeText(this, "Test logs deleted.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "All test logs deleted.", Toast.LENGTH_SHORT).show()
                     refreshDownloadLogsVisibility()
                 }
                 .setNegativeButton("Cancel", null)
@@ -610,8 +656,26 @@ class SettingsActivity : BaseActivity() {
     private fun refreshDownloadLogsVisibility() {
         val layoutDownloadLogs = findViewById<View>(R.id.layoutDownloadLogs)
         val isTestMode = appSettings.isTestModeEnabled
-        val hasLogs = isTestMode && TestModeManager.hasLogs(this)
-        layoutDownloadLogs?.visibility = if (hasLogs) View.VISIBLE else View.GONE
+
+        val hasLogs31 = isTestMode && TestModeManager.hasLogsForSection(this, 1)
+        val hasLogs32 = isTestMode && TestModeManager.hasLogsForSection(this, 2)
+        val hasLogs33 = isTestMode && TestModeManager.hasLogsForSection(this, 3)
+        val hasLogs34 = isTestMode && TestModeManager.hasLogsForSection(this, 4)
+
+        findViewById<View>(R.id.rowDownload31)?.visibility = if (hasLogs31) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.dividerDownload31)?.visibility = if (hasLogs31) View.VISIBLE else View.GONE
+
+        findViewById<View>(R.id.rowDownload32)?.visibility = if (hasLogs32) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.dividerDownload32)?.visibility = if (hasLogs32) View.VISIBLE else View.GONE
+
+        findViewById<View>(R.id.rowDownload33)?.visibility = if (hasLogs33) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.dividerDownload33)?.visibility = if (hasLogs33) View.VISIBLE else View.GONE
+
+        findViewById<View>(R.id.rowDownload34)?.visibility = if (hasLogs34) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.dividerDownload34)?.visibility = if (hasLogs34) View.VISIBLE else View.GONE
+
+        val anyLogs = hasLogs31 || hasLogs32 || hasLogs33 || hasLogs34
+        layoutDownloadLogs?.visibility = if (anyLogs) View.VISIBLE else View.GONE
     }
 
     override fun onDestroy() {

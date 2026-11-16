@@ -54,8 +54,9 @@ class TestModeManagerTest {
             assertTrue("Gloss should not be blank", p.gloss.isNotBlank())
             assertTrue("Translation should not be blank", p.translation.isNotBlank())
             assertNotNull(p.expression)
-            assertNotNull(p.expectedAffect)
-            assertTrue("Expected affect should follow [STATE] convention", p.expectedAffect.startsWith("[") && p.expectedAffect.endsWith("]"))
+            assertNotNull(p.expectedEmotion)
+            assertTrue("Expected emotion should be one of 8 standardized classes: ${p.expectedEmotion}",
+                TestModeManager.FACIAL_EXPRESSION_PROMPTS.contains(p.expectedEmotion))
         }
     }
 
@@ -85,20 +86,32 @@ class TestModeManagerTest {
 
         // 1. Initially, no logs exist
         assertFalse("Should not have logs initially", TestModeManager.hasLogsInDir(baseDir))
+        for (sec in 1..4) {
+            assertFalse("Section $sec should not have logs", TestModeManager.hasLogsForSectionInDir(baseDir, sec))
+        }
 
-        // 2. Initializing file writes header only
-        val logFile = TestModeManager.getLogFile(baseDir)
-        assertTrue(logFile.exists())
-        assertFalse("Only header exists, hasLogs should still be false", TestModeManager.hasLogsInDir(baseDir))
+        // 2. Initializing files writes headers only
+        for (sec in 1..4) {
+            val file = TestModeManager.getSectionLogFile(baseDir, sec)
+            assertTrue(file.exists())
+            assertFalse("Only header exists, hasLogsForSection should still be false", TestModeManager.hasLogsForSectionInDir(baseDir, sec))
+        }
+        assertFalse("Only headers exist, hasLogsInDir should still be false", TestModeManager.hasLogsInDir(baseDir))
 
-        // 3. Appending a telemetry row creates active logs
-        logFile.appendText("2026-11-12T12:00:00.000Z,1000,test1_single_signs,SALAMAT,,SALAMAT,,0.95,HIGH,SALAMAT:0.95,0.88,15.2,28.4,18.1,140,28.5,350.0,1.00,0,0,Plain wall,Signer_01,Mid-range,GPU,1,,,,\n")
-        assertTrue("HasLogs should be true after logging a trial", TestModeManager.hasLogsInDir(baseDir))
+        // 3. Appending a telemetry row creates active logs for section 1
+        val file1 = TestModeManager.getSectionLogFile(baseDir, 1)
+        file1.appendText("2026-11-12T12:00:00.000Z,hand_gesture_only,1,SALAMAT,SALAMAT,0.9500,1\n")
+        assertTrue("Section 1 hasLogs should be true", TestModeManager.hasLogsForSectionInDir(baseDir, 1))
+        assertFalse("Section 2 hasLogs should still be false", TestModeManager.hasLogsForSectionInDir(baseDir, 2))
+        assertTrue("hasLogsInDir should be true after logging section 1 trial", TestModeManager.hasLogsInDir(baseDir))
 
         // 4. Turning off test mode clears all logs and deletes the folder
         TestModeManager.clearLogsInDir(baseDir)
         assertFalse("HasLogs should be false after clearLogs", TestModeManager.hasLogsInDir(baseDir))
-        assertFalse("Log directory should be deleted", File(baseDir, "test_mode_logs").exists())
+        for (sec in 1..4) {
+            assertFalse("Section $sec hasLogs should be false after clear", TestModeManager.hasLogsForSectionInDir(baseDir, sec))
+        }
+        assertFalse("Log directory should be deleted", File(baseDir, TestModeManager.LOGS_DIR_NAME).exists())
     }
 
     @Test
@@ -118,11 +131,11 @@ class TestModeManagerTest {
         assertEquals("test2_sentences", TestPhase.TEST_2_FULL_SENTENCES.id)
 
         // Test stress condition application
-        val cond = TestModeManager.applyStressCondition(1) // Distance 0.5m
+        val cond = TestModeManager.applyStressCondition(4) // Distance 0.5m
         assertEquals(0.5f, TestModeManager.distanceMeters, 0.01f)
         assertEquals(0, TestModeManager.azimuthAngleDeg)
         assertEquals("Plain wall", TestModeManager.backgroundComplexity)
-        assertEquals("HEADACHE", cond.targetSign)
+        assertEquals("EMERGENCY", cond.targetSign)
     }
 
     @Test
@@ -207,55 +220,46 @@ class TestModeManagerTest {
 
     @Test
     fun testToneMapperTriageAffectMapping() {
-        assertEquals("[DISTRESSED]", ToneMapper.toTriageAffect("sad"))
-        assertEquals("[DISTRESSED]", ToneMapper.toTriageAffect("fear"))
-        assertEquals("[AGITATED]", ToneMapper.toTriageAffect("angry"))
-        assertEquals("[AGITATED]", ToneMapper.toTriageAffect("disgust"))
-        assertEquals("[AGITATED]", ToneMapper.toTriageAffect("contempt"))
-        assertEquals("[RELIEVED]", ToneMapper.toTriageAffect("happy"))
-        assertEquals("[ALERT]", ToneMapper.toTriageAffect("surprise"))
-        assertEquals("[STABLE]", ToneMapper.toTriageAffect("neutral"))
-        assertEquals("[STABLE]", ToneMapper.toTriageAffect(null))
+        assertEquals("Sad", ToneMapper.toTriageAffect("sad"))
+        assertEquals("Fear", ToneMapper.toTriageAffect("fear"))
+        assertEquals("Angry", ToneMapper.toTriageAffect("angry"))
+        assertEquals("Disgust", ToneMapper.toTriageAffect("disgust"))
+        assertEquals("Contempt", ToneMapper.toTriageAffect("contempt"))
+        assertEquals("Happy", ToneMapper.toTriageAffect("happy"))
+        assertEquals("Surprise", ToneMapper.toTriageAffect("surprise"))
+        assertEquals("Neutral", ToneMapper.toTriageAffect("neutral"))
+        assertEquals("Neutral", ToneMapper.toTriageAffect(null))
     }
 
     @Test
     fun testCombinedAccuracyLogic() {
-        // Function matching the boolean evaluation logic in TestModeManager:
-        // isCombinedCorrect = isGestureCorrect && isEmotionCorrect
         fun evaluateCombined(
             promptGloss: String,
-            expectedAffect: String,
+            expectedEmotion: String,
             predictedGloss: String,
-            detectedEmotion: String,
-            facialAffect: String
+            detectedEmotion: String
         ): Boolean {
             val normPrompt = promptGloss.trim().uppercase(java.util.Locale.ROOT).replace("[^A-Z0-9_]".toRegex(), "")
             val normPred = predictedGloss.trim().uppercase(java.util.Locale.ROOT).replace("[^A-Z0-9_]".toRegex(), "")
             val isGestureCorrect = normPrompt.isNotEmpty() && (normPrompt == normPred || normPrompt.contains(normPred) || normPred.contains(normPrompt))
 
-            val normExpectedAffect = expectedAffect.trim().uppercase(java.util.Locale.ROOT).removeSurrounding("[", "]")
-            val normDetectedAffect = facialAffect.trim().uppercase(java.util.Locale.ROOT).removeSurrounding("[", "]")
-            val normTriageFromDetected = ToneMapper.toTriageAffect(detectedEmotion).uppercase(java.util.Locale.ROOT).removeSurrounding("[", "]")
-
-            val isEmotionCorrect = normExpectedAffect.isEmpty() ||
-                (normExpectedAffect == "STABLE" && normDetectedAffect == "STABLE") ||
-                (normExpectedAffect == normDetectedAffect) ||
-                (normExpectedAffect == normTriageFromDetected) ||
-                expectedAffect.equals(detectedEmotion, ignoreCase = true)
+            val normExpected = ToneMapper.toTriageAffect(expectedEmotion).lowercase(java.util.Locale.ROOT)
+            val normDetected = ToneMapper.toTriageAffect(detectedEmotion).lowercase(java.util.Locale.ROOT)
+            val isEmotionCorrect = normExpected == normDetected
 
             return isGestureCorrect && isEmotionCorrect
         }
 
         // Case 1: Both gesture and emotion match
-        assertTrue(evaluateCombined("HEADACHE", "[DISTRESSED]", "HEADACHE", "sad", "[DISTRESSED]"))
+        assertTrue(evaluateCombined("HEADACHE", "Sad", "HEADACHE", "sad"))
 
-        // Case 2: Gesture matches, emotion mismatch (expected distressed, detected happy)
-        assertFalse(evaluateCombined("HEADACHE", "[DISTRESSED]", "HEADACHE", "happy", "[RELIEVED]"))
+        // Case 2: Gesture matches, emotion mismatch (expected sad, detected happy)
+        assertFalse(evaluateCombined("HEADACHE", "Sad", "HEADACHE", "happy"))
 
         // Case 3: Emotion matches, gesture mismatch (expected HEADACHE, predicted FEVER)
-        assertFalse(evaluateCombined("HEADACHE", "[DISTRESSED]", "FEVER", "sad", "[DISTRESSED]"))
+        assertFalse(evaluateCombined("HEADACHE", "Sad", "FEVER", "sad"))
 
-        // Case 4: Stable / neutral default match
-        assertTrue(evaluateCombined("HELLO", "[STABLE]", "HELLO", "neutral", "[STABLE]"))
+        // Case 4: Neutral default match
+        assertTrue(evaluateCombined("HELLO", "Neutral", "HELLO", "neutral"))
     }
 }
