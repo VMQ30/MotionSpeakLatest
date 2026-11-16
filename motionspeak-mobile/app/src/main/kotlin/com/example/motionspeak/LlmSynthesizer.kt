@@ -53,6 +53,8 @@ class LlmSynthesizer(
             val options = LlmInference.LlmInferenceOptions.builder()
                 .setModelPath(modelFile.absolutePath)
                 .setMaxTokens(MAX_TOKENS)
+                .setTopK(1)
+                .setTemperature(0.0f)
                 .build()
 
             llmInference = LlmInference.createFromOptions(context, options)

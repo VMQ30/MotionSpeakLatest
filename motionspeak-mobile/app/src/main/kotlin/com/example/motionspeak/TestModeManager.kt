@@ -217,19 +217,19 @@ object TestModeManager {
         SentencePrompt(
             promptText = "I HAVE HEADACHE AND FEVER",
             glosses = listOf("HEADACHE", "FEVER", "SICK"),
-            referenceTranslations = listOf("I have a headache and fever", "My head hurts and I have a fever", "Masakit ang ulo ko at may lagnat ako"),
+            referenceTranslations = listOf("I have a headache and fever", "I have a headache and a fever and feel sick", "Masakit ang ulo ko at may lagnat ako"),
             expectedAffect = "[DISTRESSED]"
         ),
         SentencePrompt(
             promptText = "DIFFICULTY BREATHING NEED MEDICINES FOR ASTHMA",
             glosses = listOf("BREATHING", "MEDICINES", "ASTHMA"),
-            referenceTranslations = listOf("Difficulty breathing need medicine for asthma", "Having trouble breathing need asthma medication", "Hindi makahinga kailangan ng gamot sa hika"),
+            referenceTranslations = listOf("I have difficulty breathing and need medicine for asthma", "Difficulty breathing need medicine for asthma", "Hindi makahinga kailangan ng gamot sa hika"),
             expectedAffect = "[DISTRESSED]"
         ),
         SentencePrompt(
             promptText = "ACCIDENT BROKEN BONE VERY HURT",
             glosses = listOf("ACCIDENT", "BROKEN_BONE", "HURT"),
-            referenceTranslations = listOf("Accident broken bone very hurt", "I had an accident with a broken bone it hurts", "Aksidente may bali sa buto sobrang sakit"),
+            referenceTranslations = listOf("I had an accident with a broken bone it hurts", "Accident broken bone very hurt", "Aksidente may bali sa buto sobrang sakit"),
             expectedAffect = "[DISTRESSED]"
         ),
         SentencePrompt(
@@ -241,13 +241,13 @@ object TestModeManager {
         SentencePrompt(
             promptText = "NEED DOCTOR CONSULTATION AND HOSPITALIZED",
             glosses = listOf("CONSULT", "HOSPITALIZED"),
-            referenceTranslations = listOf("Need doctor consultation and hospitalization", "Need to consult a doctor and be hospitalized", "Kailangan ng konsulta sa doktor at maospital"),
+            referenceTranslations = listOf("I need to consult a doctor and be hospitalized", "Need doctor consultation and hospitalization", "Kailangan ng konsulta sa doktor at maospital"),
             expectedAffect = "[DISTRESSED]"
         ),
         SentencePrompt(
             promptText = "CHEST PAIN EMERGENCY POSSIBLE HEART ATTACK",
             glosses = listOf("EMERGENCY", "HURT", "HEART_ATTACK"),
-            referenceTranslations = listOf("Chest pain emergency possible heart attack", "Emergency severe chest pain heart attack", "Saklolo masakit ang dibdib inaatake sa puso"),
+            referenceTranslations = listOf("Emergency I am hurt possible heart attack", "Chest pain emergency possible heart attack", "Saklolo masakit ang dibdib inaatake sa puso"),
             expectedAffect = "[DISTRESSED]"
         ),
         SentencePrompt(
@@ -257,27 +257,27 @@ object TestModeManager {
             expectedAffect = "[RELIEVED]"
         ),
         SentencePrompt(
-            promptText = "PATIENT HAS SORE THROAT COUGH AND FLU",
+            promptText = "I HAVE SORE THROAT COUGH AND FLU",
             glosses = listOf("SORE_THROAT", "COUGH", "FLU"),
-            referenceTranslations = listOf("Patient has sore throat cough and flu", "I have a sore throat cough and the flu", "May masakit na lalamunan ubo at trangkaso"),
+            referenceTranslations = listOf("I have a sore throat cough and the flu", "Patient has sore throat cough and flu", "May masakit na lalamunan ubo at trangkaso"),
             expectedAffect = "[DISTRESSED]"
         ),
         SentencePrompt(
             promptText = "NEED LABORATORY BLOOD TEST AND XRAY",
             glosses = listOf("LABORATORY", "XRAY"),
-            referenceTranslations = listOf("Need laboratory test and X-ray", "Requires laboratory and X-ray examination", "Kailangan ng laboratoryo at eksrey"),
+            referenceTranslations = listOf("I need a laboratory test and an X-ray", "Need laboratory test and X-ray", "Kailangan ng laboratoryo at eksrey"),
             expectedAffect = "[STABLE]"
         ),
         SentencePrompt(
             promptText = "PREGNANT GIVING BIRTH NEED SURGERY",
             glosses = listOf("PREGNANT", "GIVING_BIRTH", "SURGERY"),
-            referenceTranslations = listOf("Pregnant giving birth needs surgery", "Pregnant woman in labor needs surgery", "Buntis manganganak kailangan ng operasyon"),
+            referenceTranslations = listOf("I am pregnant and giving birth and need surgery", "Pregnant giving birth needs surgery", "Buntis manganganak kailangan ng operasyon"),
             expectedAffect = "[DISTRESSED]"
         ),
         SentencePrompt(
             promptText = "DIZZINESS AND BLURRED VISION HYPERTENSION",
             glosses = listOf("DIZZINESS", "BLURRED_VISION", "HYPERTENSION"),
-            referenceTranslations = listOf("Dizziness and blurred vision from hypertension", "Feeling dizzy with blurred vision high blood pressure", "Nahihilo malabo ang paningin alta presyon"),
+            referenceTranslations = listOf("I have dizziness and blurred vision from hypertension", "Dizziness and blurred vision from hypertension", "Nahihilo malabo ang paningin alta presyon"),
             expectedAffect = "[ALERT]"
         ),
         SentencePrompt(
@@ -287,15 +287,15 @@ object TestModeManager {
             expectedAffect = "[STABLE]"
         ),
         SentencePrompt(
-            promptText = "PATIENT NEEDS INJECTION AND IV DRIP",
+            promptText = "NEED INJECTION AND IV DRIP",
             glosses = listOf("INJECTION", "IV"),
-            referenceTranslations = listOf("Patient needs injection and IV drip", "Requires an injection and intravenous fluid", "Kailangan ng turok at swero"),
+            referenceTranslations = listOf("I need an injection and an IV drip", "Patient needs injection and IV drip", "Kailangan ng turok at swero"),
             expectedAffect = "[STABLE]"
         ),
         SentencePrompt(
             promptText = "SEVERE DIARRHEA AND CONSTIPATION",
             glosses = listOf("DIARRHEA", "CONSTIPATION"),
-            referenceTranslations = listOf("Severe diarrhea and constipation", "Suffering from diarrhea and constipation", "Matinding pagtatae at hindi makadumi"),
+            referenceTranslations = listOf("I have severe diarrhea and constipation", "Severe diarrhea and constipation", "Matinding pagtatae at hindi makadumi"),
             expectedAffect = "[DISTRESSED]"
         ),
         SentencePrompt(
@@ -313,13 +313,13 @@ object TestModeManager {
         SentencePrompt(
             promptText = "DRY MOUTH AND ALLERGIES NO FEVER",
             glosses = listOf("DRY_MOUTH", "ALLERGIES", "NO", "FEVER"),
-            referenceTranslations = listOf("Dry mouth and allergies no fever", "Experiencing dry mouth and allergies without fever", "Tuyong bibig at alerhiya walang lagnat"),
+            referenceTranslations = listOf("I have dry mouth and allergies but no fever", "Dry mouth and allergies no fever", "Tuyong bibig at alerhiya walang lagnat"),
             expectedAffect = "[STABLE]"
         ),
         SentencePrompt(
             promptText = "DEPRESSION AND NECK PAIN NEED HELP",
             glosses = listOf("DEPRESSION", "NECK_PAIN", "CONSULT"),
-            referenceTranslations = listOf("Depression and neck pain need consultation", "Suffering from depression and neck pain seeking help", "Depresyon at pananakit ng leeg kailangan ng tulong"),
+            referenceTranslations = listOf("I have depression and neck pain and need to consult", "Depression and neck pain need consultation", "Depresyon at pananakit ng leeg kailangan ng tulong"),
             expectedAffect = "[DISTRESSED]"
         )
     )
@@ -898,10 +898,10 @@ object TestModeManager {
             escapeCsv(deviceTier),
             delegateType,
             "1",
-            "0.0",
-            "0.0",
-            "0.0",
-            "0.0"
+            String.format(Locale.US, "%.4f", bleu.bleu1),
+            String.format(Locale.US, "%.4f", bleu.bleu2),
+            String.format(Locale.US, "%.4f", bleu.bleu3),
+            String.format(Locale.US, "%.4f", bleu.bleu4)
         ).joinToString(",")
 
         csvExecutor.execute {

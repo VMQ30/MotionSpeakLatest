@@ -964,7 +964,20 @@ class MainActivity : AppCompatActivity() {
                     .filter { it.isNotBlank() }
             }
 
-            composer.triggerComposition(tokensToCompose)
+            // In sentence test phase, attach targetPrompt and sensor metadata to trigger test logging and BLEU scoring
+            val currentPrompt = if (TestModeManager.activePhase == TestPhase.TEST_2_FULL_SENTENCES) {
+                TestModeManager.FULL_SENTENCE_PROMPTS.getOrNull(TestModeManager.sentenceIndex)
+            } else {
+                null
+            }
+            val t0 = composer.latestT0CaptureMs
+
+            composer.triggerComposition(
+                fallbackTokens = tokensToCompose,
+                t0CaptureMs = t0,
+                detectedEmotion = latestEmotion,
+                targetPrompt = currentPrompt
+            )
         }
 
         binding.btnClearMessage.setOnClickListener {
@@ -1610,21 +1623,7 @@ class MainActivity : AppCompatActivity() {
         val expectedAffect = singlePrompt?.expectedAffect ?: "[STABLE]"
 
         if (phase == TestPhase.TEST_2_FULL_SENTENCES) {
-            val sentencePrompt = TestModeManager.FULL_SENTENCE_PROMPTS.getOrNull(TestModeManager.sentenceIndex)
-            if (sentencePrompt != null) {
-                val targetGlosses = sentencePrompt.glosses.map { it.uppercase(Locale.ROOT) }
-                val currentSigned = signedWords.map { it.uppercase(Locale.ROOT) }
-                val hasAllGlosses = targetGlosses.all { g -> currentSigned.contains(g) }
-                if (hasAllGlosses || currentSigned.size >= targetGlosses.size) {
-                    val t0 = decision.finalFrameTimestampMs
-                    sentenceComposer?.triggerComposition(
-                        fallbackTokens = signedWords.toList(),
-                        t0CaptureMs = t0,
-                        detectedEmotion = latestEmotion,
-                        targetPrompt = sentencePrompt
-                    )
-                }
-            }
+            // Must not auto execute upon 2 signing. It must ONLY execute if the user presses "Turn into sentence"
             runOnUiThread {
                 updateTestModeTelemetryHud()
             }
