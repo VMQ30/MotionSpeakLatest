@@ -15,7 +15,8 @@ object LlmPromptBuilder {
     fun buildPrompt(
         tokens: List<String>,
         tone: SentenceTone,
-        language: SentenceLanguage
+        language: SentenceLanguage,
+        markers: LinguisticMarkers = LinguisticMarkers()
     ): String {
         val normalizedLabels = tokens.map { it.trim().replace('_', ' ') }
         val inputString = normalizedLabels.joinToString(", ")
@@ -34,7 +35,17 @@ object LlmPromptBuilder {
             append("4. STRICT NEGATION: When 'no' precedes a symptom or condition (e.g. 'no, fever'), clearly express that the user does not have it (e.g. 'I have no fever'). Preserve negation strictly (\"no\", \"i don't understand\").\n")
             append("5. MEDICAL ACCURACY: Use ONLY the meanings supported by the input labels. Never invent symptoms, medications, or details not signed.\n")
             append("6. OUTPUT FORMAT: Return ONLY the final sentence. No quotes, no markdown, no commentary, no explanations, no prefix.\n")
-            append("7. DEDUPLICATION: When input words are duplicated or repeated (e.g. 'hello, hello' or 'water, water, please'), merge the duplicated words as one single concept. Never repeat words back-to-back in the sentence.\n\n")
+            append("7. DEDUPLICATION: When input words are duplicated or repeated (e.g. 'hello, hello' or 'water, water, please'), merge the duplicated words as one single concept. Never repeat words back-to-back in the sentence.\n")
+            append("8. EMOTION & TONE CONTEXT: Adapt sentence tone and urgency to match the specified Context tone:\n")
+            append("   - If 'concerned' or 'negative': Reflect medical distress, severe discomfort, or clinical urgency using words like 'please', 'immediately', or exclamation punctuation ('!').\n")
+            append("   - If 'positive': Use polite, relieved, and grateful phrasing.\n")
+            append("   - If 'neutral': State facts clearly and objectively without exclamation.\n")
+            if (markers.isQuestion) {
+                append("9. LINGUISTIC MARKERS: Frame the output sentence as an inquiry/question ending with '?'.\n")
+            } else if (markers.isNegation) {
+                append("9. LINGUISTIC MARKERS: Strictly preserve negation for the signed condition or symptom.\n")
+            }
+            append("\n")
 
             // Few-shot guidance based on language
             if (language == SentenceLanguage.ENGLISH) {
@@ -65,6 +76,8 @@ object LlmPromptBuilder {
                 append("Sentence: There has been an accident. This is an emergency, please call an ambulance!\n\n")
                 append("Input: dizziness, xray, laboratory, please\n")
                 append("Sentence: I feel dizzy. Please arrange an X-ray and laboratory tests.\n\n")
+                append("Input: headache, fever, medicines\n")
+                append("Sentence: I have a severe headache and high fever. Please help me, I need medicine!\n\n")
             } else {
                 append("Halimbawa:\n")
                 append("Input: hello, hello\n")
@@ -93,6 +106,8 @@ object LlmPromptBuilder {
                 append("Sentence: May naganap na aksidente. Tumawag ng ambulansya, ito ay emerhensya.\n\n")
                 append("Input: dizziness, xray, laboratory, please\n")
                 append("Sentence: Nahihilo ako. Pakiusap, kailangan ko ng X-ray at pagsusuri sa laboratoryo.\n\n")
+                append("Input: headache, fever, medicines\n")
+                append("Sentence: May sakit ako sa ulo at lagnat. Pakiusap tulungan ninyo ako, kailangan ko ng gamot!\n\n")
             }
 
             append("Input: $inputString\n")

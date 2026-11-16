@@ -49,9 +49,20 @@ class SentenceComposer(
     private var isSynthesizing = false
 
     // Current state inputs
+    val toneAggregator = TemporalToneAggregator()
     @Volatile var currentTone: SentenceTone = SentenceTone.NEUTRAL
     @Volatile var currentLanguage: SentenceLanguage = SentenceLanguage.ENGLISH
     @Volatile var currentMarkers: LinguisticMarkers = LinguisticMarkers()
+
+    /**
+     * Registers an observed tone from real-time facial analysis into the temporal aggregator.
+     * Latches the highest triage urgency seen during active signing so pause relaxation
+     * does not lose the signer's emotional state.
+     */
+    fun registerObservedTone(tone: SentenceTone) {
+        currentTone = tone
+        toneAggregator.registerTone(tone)
+    }
 
     // Latency & timing tracking
     @Volatile var latestT0CaptureMs: Long = 0L
@@ -139,12 +150,16 @@ class SentenceComposer(
     ) {
         val effectiveT0 = if (t0CaptureMs > 0L) t0CaptureMs else latestT0CaptureMs
         if (detectedEmotion != null) {
-            currentTone = SentenceTone.fromToneString(ToneMapper.fromEmotion(detectedEmotion))
+            val toneFromEmotion = SentenceTone.fromToneString(ToneMapper.fromEmotion(detectedEmotion))
+            currentTone = toneFromEmotion
+            toneAggregator.registerTone(toneFromEmotion)
         }
 
         scope.launch(dispatcher) {
             val tokensToCompose: List<String>
-            val toneSnapshot = currentTone
+            val aggregatedTone = toneAggregator.getAndReset()
+            val toneSnapshot = if (aggregatedTone != SentenceTone.NEUTRAL) aggregatedTone else currentTone
+            currentTone = SentenceTone.NEUTRAL
             val langSnapshot = currentLanguage
             val markersSnapshot = currentMarkers
 
@@ -264,6 +279,8 @@ class SentenceComposer(
                 pendingBuffer.clear()
                 lastEmittedLabel = null
                 lastEmittedTime = 0L
+                currentTone = SentenceTone.NEUTRAL
+                toneAggregator.reset()
             }
         }
     }
@@ -275,5 +292,44 @@ class SentenceComposer(
         pauseTimerJob?.cancel()
         synthesisJob?.cancel()
         scope.cancel()
+    }
+}
+
+/**
+ * Tracks and latches the highest-priority triage tone across an active signing thought.
+ * Prevents resting facial expressions during the 2-second timeout pause from discarding emotional affect.
+ */
+class TemporalToneAggregator {
+    private var latchedTone: SentenceTone = SentenceTone.NEUTRAL
+    private var latchedWeight: Int = 1
+
+    @Synchronized
+    fun registerTone(tone: SentenceTone) {
+        val weight = when (tone) {
+            SentenceTone.CONCERNED, SentenceTone.NEGATIVE -> 3
+            SentenceTone.POSITIVE -> 2
+            SentenceTone.NEUTRAL -> 1
+        }
+        if (weight >= latchedWeight) {
+            latchedTone = tone
+            latchedWeight = weight
+        }
+    }
+
+    @Synchronized
+    fun getAndReset(): SentenceTone {
+        val result = latchedTone
+        latchedTone = SentenceTone.NEUTRAL
+        latchedWeight = 1
+        return result
+    }
+
+    @Synchronized
+    fun peek(): SentenceTone = latchedTone
+
+    @Synchronized
+    fun reset() {
+        latchedTone = SentenceTone.NEUTRAL
+        latchedWeight = 1
     }
 }

@@ -328,7 +328,8 @@ class DeterministicSentenceSynthesizer(
             sentences.add(clause)
         }
 
-        return sentences.joinToString(" ")
+        val rawSentence = sentences.joinToString(" ")
+        return applyToneModulationEnglish(rawSentence, tone, rawTokens)
     }
 
     private fun composeFilipino(tokens: List<String>, tone: SentenceTone): String {
@@ -573,7 +574,8 @@ class DeterministicSentenceSynthesizer(
             sentences.add(clause)
         }
 
-        return sentences.joinToString(" ")
+        val rawSentence = sentences.joinToString(" ")
+        return applyToneModulationFilipino(rawSentence, tone, rawTokens)
     }
 
     private fun normalizeEnglishToken(raw: String): String {
@@ -626,8 +628,8 @@ class DeterministicSentenceSynthesizer(
             lower == "no" -> "No."
             lower == "maybe" -> "Maybe."
             lower == "please" -> "Please."
-            lower == "sick" -> "I am sick."
-            lower == "hurt" -> "I am hurt."
+            lower == "sick" -> if (tone == SentenceTone.CONCERNED || tone == SentenceTone.NEGATIVE) "I am sick!" else "I am sick."
+            lower == "hurt" -> if (tone == SentenceTone.CONCERNED || tone == SentenceTone.NEGATIVE) "I am hurt!" else "I am hurt."
             lower == "pregnant" -> "I am pregnant."
             lower == "giving birth" -> "I am giving birth."
             lower == "dizziness" -> "I feel dizzy."
@@ -667,8 +669,8 @@ class DeterministicSentenceSynthesizer(
             lower == "hindi" -> "Hindi."
             lower.contains("baka") || lower.contains("marahil") -> "Baka."
             lower.contains("pakiusap") -> "Pakiusap."
-            lower.contains("may sakit") -> "May sakit ako."
-            lower.contains("nasasaktan") || lower == "masakit" -> "Nasasaktan ako."
+            lower.contains("may sakit") -> if (tone == SentenceTone.CONCERNED || tone == SentenceTone.NEGATIVE) "May sakit ako!" else "May sakit ako."
+            lower.contains("nasasaktan") || lower == "masakit" -> if (tone == SentenceTone.CONCERNED || tone == SentenceTone.NEGATIVE) "Nasasaktan ako!" else "Nasasaktan ako."
             lower.contains("buntis") -> "Buntis ako."
             lower.contains("panganganak") -> "Manganganak na ako."
             lower.contains("nahihilo") || lower.contains("pagkahilo") -> "Nahihilo ako."
@@ -910,5 +912,84 @@ class DeterministicSentenceSynthesizer(
 
     private fun normalizeLabelKey(label: String): String {
         return label.trim().lowercase(Locale.ROOT).replace('_', ' ')
+    }
+
+    private fun applyToneModulationEnglish(baseText: String, tone: SentenceTone, tokens: List<String>): String {
+        var text = baseText.trim()
+        if (text.isEmpty()) return text
+
+        val hasEmergency = tokens.any { 
+            it.equals("emergency", ignoreCase = true) || 
+            it.equals("accident", ignoreCase = true) || 
+            it.equals("heart_attack", ignoreCase = true) 
+        }
+        val hasSeverePain = tokens.any { 
+            it.equals("hurt", ignoreCase = true) || 
+            it.equals("broken_bone", ignoreCase = true) 
+        }
+
+        when (tone) {
+            SentenceTone.CONCERNED, SentenceTone.NEGATIVE -> {
+                if (hasEmergency || hasSeverePain) {
+                    if (text.endsWith(".")) text = text.dropLast(1) + "!"
+                    if (!text.contains("Please", ignoreCase = true) && !text.contains("Emergency", ignoreCase = true)) {
+                        text = "$text Please attend immediately."
+                    }
+                } else {
+                    if (text.endsWith(".")) text = text.dropLast(1) + "!"
+                }
+            }
+            SentenceTone.POSITIVE -> {
+                if (tokens.any { it.contains("thank", ignoreCase = true) || it.contains("understand", ignoreCase = true) }) {
+                    if (!text.contains("very much", ignoreCase = true) && text.contains("Thank you")) {
+                        text = text.replace("Thank you.", "Thank you very much.")
+                    }
+                }
+            }
+            SentenceTone.NEUTRAL -> {
+                // Baseline declarative behavior preserved
+            }
+        }
+        return text
+    }
+
+    private fun applyToneModulationFilipino(baseText: String, tone: SentenceTone, tokens: List<String>): String {
+        var text = baseText.trim()
+        if (text.isEmpty()) return text
+
+        val hasEmergency = tokens.any { 
+            it.contains("emerhensya", ignoreCase = true) || 
+            it.contains("aksidente", ignoreCase = true) || 
+            it.contains("atake sa puso", ignoreCase = true) 
+        }
+        val hasSeverePain = tokens.any { 
+            it.contains("nasasaktan", ignoreCase = true) || 
+            it.contains("masakit", ignoreCase = true) || 
+            it.contains("bali sa buto", ignoreCase = true) 
+        }
+
+        when (tone) {
+            SentenceTone.CONCERNED, SentenceTone.NEGATIVE -> {
+                if (hasEmergency || hasSeverePain) {
+                    if (text.endsWith(".")) text = text.dropLast(1) + "!"
+                    if (!text.contains("pakiusap", ignoreCase = true) && !text.contains("emerhensya", ignoreCase = true)) {
+                        text = "$text Pakiusap tulungan ninyo ako agad!"
+                    }
+                } else {
+                    if (text.endsWith(".")) text = text.dropLast(1) + "!"
+                }
+            }
+            SentenceTone.POSITIVE -> {
+                if (tokens.any { it.contains("salamat", ignoreCase = true) }) {
+                    if (!text.contains("Maraming salamat", ignoreCase = true) && text.contains("Salamat")) {
+                        text = text.replace("Salamat.", "Maraming salamat po.")
+                    }
+                }
+            }
+            SentenceTone.NEUTRAL -> {
+                // Baseline declarative behavior preserved
+            }
+        }
+        return text
     }
 }

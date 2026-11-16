@@ -1048,7 +1048,8 @@ class MainActivity : AppCompatActivity() {
                                 latestFacialAffect = ToneMapper.toTriageAffect(rawLabel)
                                 val emotionLabel = rawLabel.replaceFirstChar { it.uppercase() }
                                 val tone = ToneMapper.fromEmotion(emotionLabel)
-                                sentenceComposer?.currentTone = SentenceTone.fromToneString(tone)
+                                val sentenceTone = SentenceTone.fromToneString(tone)
+                                sentenceComposer?.registerObservedTone(sentenceTone)
                                 val (isQ, isNeg) = classifier.latestLinguisticMarkers
                                 sentenceComposer?.currentMarkers = LinguisticMarkers(isQuestion = isQ, isNegation = isNeg)
                                 runOnUiThread {

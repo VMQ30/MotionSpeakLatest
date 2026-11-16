@@ -168,4 +168,61 @@ class LlmSentenceSynthesisTest {
         assertEquals("Hindi ko maintindihan.", result.text)
         assertFalse(result.isLlmGenerated)
     }
+
+    // ── 5. Emotion & Linguistic Markers Tests ─────────────────────────────────
+
+    @Test
+    fun testPromptBuilderWithQuestionMarker() {
+        val tokens = listOf("medicines")
+        val prompt = LlmPromptBuilder.buildPrompt(
+            tokens = tokens,
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH,
+            markers = LinguisticMarkers(isQuestion = true)
+        )
+        assertTrue(prompt.contains("Frame the output sentence as an inquiry/question ending with '?'"))
+    }
+
+    @Test
+    fun testPromptBuilderWithNegationMarker() {
+        val tokens = listOf("fever")
+        val prompt = LlmPromptBuilder.buildPrompt(
+            tokens = tokens,
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH,
+            markers = LinguisticMarkers(isNegation = true)
+        )
+        assertTrue(prompt.contains("Strictly preserve negation for the signed condition or symptom"))
+    }
+
+    @Test
+    fun testPromptBuilderRule8EmotionToneContext() {
+        val tokens = listOf("headache")
+        val prompt = LlmPromptBuilder.buildPrompt(tokens, SentenceTone.CONCERNED, SentenceLanguage.ENGLISH)
+        assertTrue(prompt.contains("EMOTION & TONE CONTEXT"))
+        assertTrue(prompt.contains("Context tone: concerned"))
+    }
+
+    @Test
+    fun testLlmSynthesizerQuestionMarkerFallback() = runTest {
+        val nonExistentFile = File(tempFolder.root, "absent_model.task")
+        val fallback = DeterministicSentenceSynthesizer(defaultWordBank())
+
+        val synthesizer = LlmSynthesizer(
+            context = DummyContext(),
+            modelFile = nonExistentFile,
+            fallbackSynthesizer = fallback
+        )
+
+        val result = synthesizer.compose(
+            tokens = listOf("medicines"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH,
+            markers = LinguisticMarkers(isQuestion = true)
+        )
+
+        assertTrue("Expected question ending with '?', but got \"${result.text}\"", result.text.endsWith("?"))
+        assertTrue(result.linguisticMarkers.isQuestion)
+        assertFalse(result.isLlmGenerated)
+    }
 }

@@ -1,6 +1,8 @@
 package com.example.motionspeak
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -470,6 +472,116 @@ class SentenceGenerationTest {
         assertEquals(testPrompt, result?.targetPrompt)
         assertEquals(SentenceTone.CONCERNED, result?.tone)
         assertTrue("Latency should be recorded", (result?.latencyMs ?: 0L) >= 0L)
+        composer.close()
+    }
+
+    // ── G. Emotion & Tone Modulation Tests ───────────────────────────────────
+
+    @Test
+    fun testTemporalToneAggregatorPeakLatching() {
+        val aggregator = TemporalToneAggregator()
+        assertEquals(SentenceTone.NEUTRAL, aggregator.peek())
+
+        // Neutral input
+        aggregator.registerTone(SentenceTone.NEUTRAL)
+        assertEquals(SentenceTone.NEUTRAL, aggregator.peek())
+
+        // Concerned input latches priority
+        aggregator.registerTone(SentenceTone.CONCERNED)
+        assertEquals(SentenceTone.CONCERNED, aggregator.peek())
+
+        // Face relaxing back to neutral during 2-second pause does NOT drop concerned tone
+        aggregator.registerTone(SentenceTone.NEUTRAL)
+        assertEquals(SentenceTone.CONCERNED, aggregator.peek())
+
+        // Negative tone (acute distress) retains top tier
+        aggregator.registerTone(SentenceTone.NEGATIVE)
+        assertEquals(SentenceTone.NEGATIVE, aggregator.peek())
+
+        // Reading the tone resets it for the next sentence
+        val consumed = aggregator.getAndReset()
+        assertEquals(SentenceTone.NEGATIVE, consumed)
+        assertEquals(SentenceTone.NEUTRAL, aggregator.peek())
+    }
+
+    @Test
+    fun testEnglishToneModulationConcernedVsNeutral() = runTest {
+        val tokens = listOf("headache", "fever")
+        val neutralResult = synthesizer.compose(tokens, SentenceTone.NEUTRAL, SentenceLanguage.ENGLISH)
+        val concernedResult = synthesizer.compose(tokens, SentenceTone.CONCERNED, SentenceLanguage.ENGLISH)
+
+        assertEquals("I have a headache and a fever.", neutralResult.text)
+        assertEquals("I have a headache and a fever!", concernedResult.text)
+    }
+
+    @Test
+    fun testEnglishToneModulationEmergencyConcerned() = runTest {
+        val tokens = listOf("accident", "hurt")
+        val neutralResult = synthesizer.compose(tokens, SentenceTone.NEUTRAL, SentenceLanguage.ENGLISH)
+        val concernedResult = synthesizer.compose(tokens, SentenceTone.CONCERNED, SentenceLanguage.ENGLISH)
+
+        assertEquals("There has been an accident! I am hurt.", neutralResult.text)
+        assertEquals("There has been an accident! I am hurt! Please attend immediately.", concernedResult.text)
+    }
+
+    @Test
+    fun testEnglishToneModulationPositiveGratitude() = runTest {
+        val tokens = listOf("thank_you", "medicines")
+        val neutralResult = synthesizer.compose(tokens, SentenceTone.NEUTRAL, SentenceLanguage.ENGLISH)
+        val positiveResult = synthesizer.compose(tokens, SentenceTone.POSITIVE, SentenceLanguage.ENGLISH)
+
+        assertEquals("I need medicine. Thank you.", neutralResult.text)
+        assertEquals("I need medicine. Thank you very much.", positiveResult.text)
+    }
+
+    @Test
+    fun testFilipinoToneModulationConcerned() = runTest {
+        val tokens = listOf("headache", "fever")
+        val neutralResult = synthesizer.compose(tokens, SentenceTone.NEUTRAL, SentenceLanguage.FILIPINO)
+        val concernedResult = synthesizer.compose(tokens, SentenceTone.CONCERNED, SentenceLanguage.FILIPINO)
+
+        assertTrue(neutralResult.text.endsWith("."))
+        assertTrue(concernedResult.text.endsWith("!"))
+    }
+
+    @Test
+    fun testFilipinoToneModulationPositiveGratitude() = runTest {
+        val tokens = listOf("thank_you", "medicines")
+        val positiveResult = synthesizer.compose(tokens, SentenceTone.POSITIVE, SentenceLanguage.FILIPINO)
+
+        assertTrue(positiveResult.text.contains("Maraming salamat po."))
+    }
+
+    @Test
+    fun testComposerLatchingDuringPauseRelaxation() = runTest {
+        val testDispatcher = StandardTestDispatcher(testScheduler)
+        val composerScope = CoroutineScope(SupervisorJob() + testDispatcher)
+        var composed: SentenceResult? = null
+        val composer = SentenceComposer(
+            synthesizer = synthesizer,
+            scope = composerScope,
+            dispatcher = testDispatcher,
+            pauseDurationMs = 2000L,
+            dedupeWindowMs = 0L,
+            autoComposeEnabled = false
+        )
+        composer.onSentenceComposed = { result -> composed = result }
+
+        composer.addToken("accident")
+        testScheduler.advanceTimeBy(50)
+
+        // Signer shows distress during signing
+        composer.registerObservedTone(SentenceTone.CONCERNED)
+
+        // Face relaxes during the 2-second pause before timeout
+        composer.registerObservedTone(SentenceTone.NEUTRAL)
+
+        composer.triggerComposition(fallbackTokens = listOf("accident", "hurt"))
+        testScheduler.advanceTimeBy(100)
+
+        assertNotNull(composed)
+        assertEquals(SentenceTone.CONCERNED, composed?.tone)
+        assertTrue(composed?.text?.contains("Please attend immediately") == true)
         composer.close()
     }
 }
