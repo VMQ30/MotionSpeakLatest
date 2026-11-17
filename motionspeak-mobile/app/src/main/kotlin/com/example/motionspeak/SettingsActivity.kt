@@ -79,6 +79,7 @@ class SettingsActivity : BaseActivity() {
         bindAdvancedTools()
         bindResetButton()
         bindReplayTutorial()
+        bindUploadMp4Controls()
         bindTestModeControls()
     }
 
@@ -88,6 +89,7 @@ class SettingsActivity : BaseActivity() {
         // returns here without recreating this Activity.
         refreshProfileCard()
         refreshLlmModelStatus()
+        findViewById<SwitchMaterial>(R.id.switchUploadMp4)?.isChecked = appSettings.isMp4UploadEnabled
         findViewById<SwitchMaterial>(R.id.switchTestMode)?.isChecked = appSettings.isTestModeEnabled
         refreshDownloadLogsVisibility()
     }
@@ -129,6 +131,9 @@ class SettingsActivity : BaseActivity() {
         // Privacy controls
         findViewById<SwitchMaterial>(R.id.switchRecordHistory)?.isChecked = appSettings.recordTranslationHistory
         findViewById<SwitchMaterial>(R.id.switchFacialAnalysis)?.isChecked = appSettings.isFacialAnalysisEnabled
+
+        // Upload MP4
+        findViewById<SwitchMaterial>(R.id.switchUploadMp4)?.isChecked = appSettings.isMp4UploadEnabled
     }
 
     // ── Volume ────────────────────────────────────────────────────────────────
@@ -541,6 +546,28 @@ class SettingsActivity : BaseActivity() {
                 putExtra(OnboardingActivity.EXTRA_IS_REPLAY, true)
             })
             finish()
+        }
+    }
+
+    // ── Upload MP4 Toggle ──────────────────────────────────────────────────
+
+    private fun bindUploadMp4Controls() {
+        val switchUpload = findViewById<SwitchMaterial>(R.id.switchUploadMp4)
+        val rowUpload = findViewById<View>(R.id.rowUploadMp4)
+
+        switchUpload?.isChecked = appSettings.isMp4UploadEnabled
+        rowUpload?.setOnClickListener {
+            switchUpload?.toggle()
+        }
+        switchUpload?.setOnCheckedChangeListener { _, isChecked ->
+            appSettings.isMp4UploadEnabled = isChecked
+            Haptics.tick(switchUpload)
+            val msg = if (isChecked) {
+                "Upload MP4 enabled. Floating icon will appear on camera page."
+            } else {
+                "Upload MP4 disabled."
+            }
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
         }
     }
 

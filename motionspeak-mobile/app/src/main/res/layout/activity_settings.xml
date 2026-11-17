@@ -1006,6 +1006,74 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- ════════════════════ UPLOAD MP4 ════════════════════ -->
+            <TextView
+                style="@style/Sigla.Text.Section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/ms_space_24"
+                android:layout_marginBottom="@dimen/ms_space_8"
+                android:text="Upload MP4" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardUploadMp4"
+                style="@style/Widget.Sigla.Card.Tint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <LinearLayout
+                    android:id="@+id/rowUploadMp4"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="@dimen/ms_space_16">
+
+                    <FrameLayout
+                        android:layout_width="@dimen/ms_badge_size"
+                        android:layout_height="@dimen/ms_badge_size"
+                        android:background="@drawable/bg_ms_circle_tint"
+                        android:backgroundTint="@color/ms_cat_violet_tint">
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_upload"
+                            android:tint="@color/ms_cat_violet_accent" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="@dimen/ms_space_12"
+                        android:orientation="vertical">
+                        <TextView
+                            style="@style/Sigla.Text.BodyStrong"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Upload MP4" />
+                        <TextView
+                            android:id="@+id/tvUploadMp4Subtitle"
+                            style="@style/Sigla.Text.Caption"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/ms_space_4"
+                            android:text="Show floating button in camera to upload and translate MP4 videos" />
+                    </LinearLayout>
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switchUploadMp4"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:useMaterialThemeColors="true" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- ════════════════════ TEST MODE BUTTON SECTION ════════════════════ -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardTestMode"

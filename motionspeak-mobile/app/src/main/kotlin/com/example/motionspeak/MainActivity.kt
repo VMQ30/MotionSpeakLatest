@@ -32,6 +32,12 @@ import android.text.style.ClickableSpan
 import android.text.style.UpdateAppearance
 import android.view.ViewGroup
 import android.widget.TextView
+import android.content.Intent
+import android.graphics.SurfaceTexture
+import android.media.MediaPlayer
+import android.net.Uri
+import android.view.TextureView
+import androidx.activity.result.contract.ActivityResultContracts
 import android.widget.LinearLayout
 import com.google.android.material.button.MaterialButton
 import android.view.View
@@ -60,6 +66,24 @@ private const val CAMERA_PERMISSION = 100
 
 internal val teardownExecutor = Executors.newSingleThreadExecutor { r ->
     Thread(r, "motionspeak-teardown").apply { isDaemon = true }
+}
+
+internal fun calculateFillCenterScale(viewWidth: Float, viewHeight: Float, videoWidth: Float, videoHeight: Float): Pair<Float, Float> {
+    if (viewWidth <= 0f || viewHeight <= 0f || videoWidth <= 0f || videoHeight <= 0f) return Pair(1f, 1f)
+    val viewAspect = viewWidth / viewHeight
+    val videoAspect = videoWidth / videoHeight
+    return if (videoAspect > viewAspect) {
+        Pair(videoAspect / viewAspect, 1.0f)
+    } else {
+        Pair(1.0f, viewAspect / videoAspect)
+    }
+}
+
+internal fun extractVideoDisplayName(uriString: String?): String {
+    if (uriString.isNullOrBlank()) return "Uploaded MP4"
+    val clean = uriString.substringBefore('?').substringBefore('#')
+    val segment = clean.substringAfterLast('/')
+    return if (segment.isNotEmpty()) segment else "Uploaded MP4"
 }
 
 
@@ -182,6 +206,23 @@ class MainActivity : AppCompatActivity() {
     }
     private var statusDotAnimator: ValueAnimator? = null
 
+    private var isVideoMode = false
+    private var videoPlayer: MediaPlayer? = null
+    private var currentVideoUri: Uri? = null
+    private var lastVideoFrameMs = 0L
+    private var videoPumpingJob: Job? = null
+
+    private val videoPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val uri = result.data?.data ?: result.data?.clipData?.getItemAt(0)?.uri
+            if (uri != null) {
+                loadAndPlayVideo(uri)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -197,6 +238,7 @@ class MainActivity : AppCompatActivity() {
         startVision()
         setupButtons()
         setupTestModeUi()
+        setupUploadMp4Ui()
         binding.btnBack.setOnClickListener { finish() }
     }
 
@@ -230,8 +272,10 @@ class MainActivity : AppCompatActivity() {
         if (visionActive || !setupComplete) return
         visionActive = true
 
-        if (hasCameraPermission()) startCamera()
-        else requestCameraPermission()
+        if (!isVideoMode) {
+            if (hasCameraPermission()) startCamera()
+            else requestCameraPermission()
+        }
 
         modelInitJob = lifecycleScope.launch(Dispatchers.IO) {
             withContext(Dispatchers.Main) { setStatus("Starting camera…", StatusKind.LOADING) }
@@ -1779,13 +1823,314 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // ── Upload MP4 & Video Sign Recognition ───────────────────────────────────
+
+    private fun setupUploadMp4Ui() {
+        setupDraggableFloatingUpload()
+        updateUploadMp4Visibility()
+
+        binding.btnVideoPlayPause.setOnClickListener {
+            val player = videoPlayer ?: return@setOnClickListener
+            if (player.isPlaying) {
+                player.pause()
+                binding.btnVideoPlayPause.setImageResource(R.drawable.ic_play)
+                setStatus("Video paused", StatusKind.READY)
+            } else {
+                player.start()
+                binding.btnVideoPlayPause.setImageResource(R.drawable.ic_pause)
+                setStatus("Analyzing video signs…", StatusKind.READY)
+            }
+        }
+
+        binding.btnVideoClose.setOnClickListener {
+            stopVideoMode()
+        }
+    }
+
+    private fun updateUploadMp4Visibility() {
+        binding.cardFloatingVideoUpload.visibility =
+            if (appSettings.isMp4UploadEnabled) View.VISIBLE else View.GONE
+        if (!appSettings.isMp4UploadEnabled && isVideoMode) {
+            stopVideoMode()
+        }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupDraggableFloatingUpload() {
+        val card = binding.cardFloatingVideoUpload
+        val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
+        var dX = 0f
+        var dY = 0f
+        var startRawX = 0f
+        var startRawY = 0f
+        var isDragging = false
+
+        card.setOnTouchListener { view, event ->
+            val parent = view.parent as? View ?: return@setOnTouchListener false
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    dX = view.x - event.rawX
+                    dY = view.y - event.rawY
+                    startRawX = event.rawX
+                    startRawY = event.rawY
+                    isDragging = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val deltaX = event.rawX - startRawX
+                    val deltaY = event.rawY - startRawY
+                    val distance = kotlin.math.hypot(deltaX.toDouble(), deltaY.toDouble()).toFloat()
+                    if (distance > touchSlop) {
+                        isDragging = true
+                    }
+                    if (isDragging) {
+                        val maxAvailableX = (parent.width - view.width).coerceAtLeast(0).toFloat()
+                        val maxAvailableY = (parent.height - view.height).coerceAtLeast(0).toFloat()
+                        val newX = (event.rawX + dX).coerceIn(0f, maxAvailableX)
+                        val newY = (event.rawY + dY).coerceIn(0f, maxAvailableY)
+                        view.animate().x(newX).y(newY).setDuration(0).start()
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!isDragging) {
+                        view.performClick()
+                        openVideoPicker()
+                    }
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    isDragging = false
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    private fun openVideoPicker() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "video/*"
+            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("video/mp4", "video/*"))
+            addCategory(Intent.CATEGORY_OPENABLE)
+        }
+        try {
+            videoPickerLauncher.launch(Intent.createChooser(intent, "Select MP4 Video"))
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to launch video picker: ${e.message}", e)
+            Toast.makeText(this, "Unable to open video picker", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun loadAndPlayVideo(uri: Uri) {
+        currentVideoUri = uri
+        isVideoMode = true
+
+        // 1. Pause and detach camera so video has full vision pipeline
+        cameraSessionManager?.stop()
+        binding.cameraPreview.visibility = View.INVISIBLE
+        binding.videoPreviewView.visibility = View.VISIBLE
+        binding.cardVideoControls.visibility = View.VISIBLE
+        binding.btnFlipCamera.isEnabled = false
+        binding.btnFlipCamera.alpha = 0.5f
+
+        // 2. Query file name for UI display
+        val fileName = getFileName(uri) ?: "Uploaded MP4"
+        binding.tvVideoPlayingTitle.text = fileName
+        setStatus("Analyzing video signs…", StatusKind.READY)
+
+        // 3. Setup and start video playback
+        setupVideoPlayer(uri)
+    }
+
+    private fun setupVideoPlayer(uri: Uri) {
+        try {
+            videoPlayer?.stop()
+            videoPlayer?.release()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error cleaning up previous player: ${e.message}")
+        }
+        videoPlayer = null
+
+        val player = MediaPlayer()
+        videoPlayer = player
+
+        try {
+            player.setDataSource(applicationContext, uri)
+            player.isLooping = true
+            player.setVolume(0f, 0f) // Keep video silent so TTS speech synthesis is clear
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting video data source: ${e.message}", e)
+            Toast.makeText(this, "Failed to load video file", Toast.LENGTH_SHORT).show()
+            stopVideoMode()
+            return
+        }
+
+        var isPrepared = false
+        fun preparePlayer(surface: SurfaceTexture) {
+            try {
+                player.setSurface(android.view.Surface(surface))
+                player.prepareAsync()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error preparing player: ${e.message}", e)
+            }
+        }
+
+        player.setOnPreparedListener { mp ->
+            if (!isVideoMode || videoPlayer !== mp) return@setOnPreparedListener
+            isPrepared = true
+            adjustVideoAspectRatio(mp.videoWidth, mp.videoHeight)
+            mp.start()
+            startVideoFramePumper()
+            runOnUiThread {
+                binding.btnVideoPlayPause.setImageResource(R.drawable.ic_pause)
+                Toast.makeText(this, "Playing video. Looking for signs…", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        player.setOnErrorListener { mp, what, extra ->
+            Log.e(TAG, "MediaPlayer error: what=$what, extra=$extra")
+            runOnUiThread {
+                Toast.makeText(this, "Error playing video", Toast.LENGTH_SHORT).show()
+                stopVideoMode()
+            }
+            true
+        }
+
+        binding.videoPreviewView.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
+                preparePlayer(surface)
+            }
+            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
+                if (isPrepared) {
+                    adjustVideoAspectRatio(player.videoWidth, player.videoHeight)
+                }
+            }
+            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                try {
+                    player.setSurface(null)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error setting null surface: ${e.message}")
+                }
+                return true
+            }
+            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
+                extractAndProcessVideoFrame()
+            }
+        }
+
+        val existingSurface = binding.videoPreviewView.surfaceTexture
+        if (binding.videoPreviewView.isAvailable && existingSurface != null) {
+            preparePlayer(existingSurface)
+        }
+    }
+
+    private fun startVideoFramePumper() {
+        videoPumpingJob?.cancel()
+        videoPumpingJob = lifecycleScope.launch(Dispatchers.Main) {
+            while (isActive && isVideoMode) {
+                val player = videoPlayer
+                if (player != null && player.isPlaying) {
+                    val now = SystemClock.elapsedRealtime()
+                    if (now - lastVideoFrameMs >= 33L) {
+                        extractAndProcessVideoFrame()
+                    }
+                }
+                kotlinx.coroutines.delay(16L)
+            }
+        }
+    }
+
+    private fun extractAndProcessVideoFrame() {
+        if (!isVideoMode || !visionActive) return
+        val player = videoPlayer ?: return
+        if (!player.isPlaying) return
+
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastVideoFrameMs < 30L) {
+            return
+        }
+        lastVideoFrameMs = now
+
+        val vw = binding.videoPreviewView.width
+        val vh = binding.videoPreviewView.height
+        if (vw <= 0 || vh <= 0) return
+
+        val targetW = 480
+        val targetH = maxOf(1, ((480f * vh) / vw).toInt())
+        val bmp = try {
+            binding.videoPreviewView.getBitmap(targetW, targetH)
+        } catch (e: Exception) {
+            null
+        } ?: return
+
+        CaptureRateMonitor.onFrame()
+        processFrame(bmp, now)
+    }
+
+    private fun adjustVideoAspectRatio(videoWidth: Int, videoHeight: Int) {
+        val viewWidth = binding.videoPreviewView.width.toFloat()
+        val viewHeight = binding.videoPreviewView.height.toFloat()
+        val (scaleX, scaleY) = calculateFillCenterScale(viewWidth, viewHeight, videoWidth.toFloat(), videoHeight.toFloat())
+
+        val matrix = Matrix()
+        matrix.setScale(scaleX, scaleY, viewWidth / 2f, viewHeight / 2f)
+        binding.videoPreviewView.setTransform(matrix)
+    }
+
+    private fun stopVideoMode() {
+        if (!isVideoMode) return
+        isVideoMode = false
+        videoPumpingJob?.cancel()
+        videoPumpingJob = null
+
+        try {
+            videoPlayer?.stop()
+            videoPlayer?.release()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error releasing video player: ${e.message}")
+        }
+        videoPlayer = null
+        currentVideoUri = null
+
+        binding.videoPreviewView.visibility = View.GONE
+        binding.cardVideoControls.visibility = View.GONE
+        binding.cameraPreview.visibility = View.VISIBLE
+        binding.btnFlipCamera.isEnabled = true
+        binding.btnFlipCamera.alpha = 1.0f
+
+        // Resume live camera
+        if (hasCameraPermission()) {
+            startCamera()
+        }
+        setStatus("Starting camera…", StatusKind.LOADING)
+        Toast.makeText(this, "Returned to camera mode", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun getFileName(uri: Uri): String? {
+        var name: String? = null
+        if (uri.scheme == "content") {
+            try {
+                contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    val nameIdx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (nameIdx >= 0 && cursor.moveToFirst()) {
+                        name = cursor.getString(nameIdx)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to resolve file name: ${e.message}")
+            }
+        }
+        return name ?: uri.lastPathSegment
+    }
+
     private fun hasCameraPermission() = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
     private fun requestCameraPermission() = ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), CAMERA_PERMISSION)
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == CAMERA_PERMISSION && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-            startCamera()
+            if (!isVideoMode) startCamera()
         } else {
             Toast.makeText(this, "Camera permission required", Toast.LENGTH_LONG).show()
         }
@@ -1802,6 +2147,8 @@ class MainActivity : AppCompatActivity() {
         }
         binding.btnMakeSentence.visibility = if (appSettings.isLlmSynthesisEnabled) View.VISIBLE else View.GONE
         binding.btnMakeSentence.alpha = 1.0f
+
+        updateUploadMp4Visibility()
 
         if (appSettings.isTestModeEnabled) {
             TestModeManager.startSensor(this)
@@ -1821,6 +2168,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
+        if (isVideoMode) {
+            videoPlayer?.pause()
+            binding.btnVideoPlayPause.setImageResource(R.drawable.ic_play)
+        }
         stopVision()
         TestModeManager.stopSensor()
         backspaceHandler.removeCallbacks(backspaceRepeatRunnable)
@@ -1833,6 +2184,7 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() { super.onStart(); startVision() }
     override fun onStop() { stopVision(); super.onStop() }
     override fun onDestroy() {
+        stopVideoMode()
         TestModeManager.stopSensor()
         cameraSessionManager?.release()
         cameraSessionManager = null
@@ -1859,5 +2211,14 @@ class MainActivity : AppCompatActivity() {
         speech?.release()
         speech = null
         super.onDestroy()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (isVideoMode) {
+            stopVideoMode()
+            return
+        }
+        super.onBackPressed()
     }
 }

@@ -26,6 +26,12 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
+        <TextureView
+            android:id="@+id/videoPreviewView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
         <com.example.motionspeak.OverlayView
             android:id="@+id/overlayView"
             android:layout_width="match_parent"
@@ -43,6 +49,73 @@
         app:icon="@drawable/ic_back"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Video Mode Control Banner -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardVideoControls"
+        style="@style/Widget.Sigla.Card.Tint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/ms_space_16"
+        android:visibility="gone"
+        app:cardBackgroundColor="@color/ms_bg"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="20dp"
+        app:strokeColor="@color/ms_cat_teal_bg"
+        app:strokeWidth="1.5dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="8dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_upload"
+                app:tint="@color/ms_cat_teal_bg" />
+
+            <TextView
+                android:id="@+id/tvVideoPlayingTitle"
+                style="@style/Sigla.Text.Caption"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="8dp"
+                android:text="Video Mode"
+                android:textStyle="bold"
+                android:textColor="@color/ms_cat_teal_bg" />
+
+            <ImageView
+                android:id="@+id/btnVideoPlayPause"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Play or pause video"
+                android:padding="6dp"
+                android:src="@drawable/ic_pause"
+                app:tint="@color/ms_cat_teal_bg" />
+
+            <ImageView
+                android:id="@+id/btnVideoClose"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Exit video mode"
+                android:padding="6dp"
+                android:src="@drawable/ic_close_line"
+                app:tint="@color/ms_danger" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
     <!-- ════════════════════ TEST MODE PROMPT OVERLAY ════════════════════ -->
     <com.google.android.material.card.MaterialCardView
@@ -1126,6 +1199,63 @@
                 android:layout_marginStart="8dp"
                 android:text="Test Menu"
                 android:textColor="@color/ms_cat_violet_text"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- ════════════════════ FLOATING VIDEO UPLOAD (DRAGGABLE) ════════════════════ -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardFloatingVideoUpload"
+        style="@style/Widget.Sigla.Card.Outlined"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="80dp"
+        android:layout_marginStart="@dimen/ms_space_16"
+        android:clickable="true"
+        android:focusable="true"
+        android:elevation="35dp"
+        android:visibility="gone"
+        app:cardBackgroundColor="@color/ms_bg"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="28dp"
+        app:strokeColor="@color/ms_cat_teal_bg"
+        app:strokeWidth="2dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="16dp">
+
+            <FrameLayout
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_ms_circle_tint"
+                android:backgroundTint="@color/ms_cat_teal_bg">
+
+                <ImageView
+                    android:id="@+id/ivFloatingUploadIcon"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Upload MP4 video"
+                    android:src="@drawable/ic_upload"
+                    app:tint="@color/ms_cat_teal_text" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tvFloatingUploadLabel"
+                style="@style/Sigla.Text.BodyStrong"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Upload MP4"
+                android:textColor="@color/ms_cat_teal_bg"
                 android:textSize="13sp" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
