@@ -375,6 +375,64 @@ class MainActivity : AppCompatActivity() {
         binding.tvUncertaintyBanner.visibility = View.VISIBLE
     }
 
+    private var toastDismissRunnable: Runnable? = null
+    private var lastUnrecognizedToastTime = 0L
+
+    private fun showSignNotRecognizedToast(message: String = "Sign is not recognized") {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastUnrecognizedToastTime < 1500L) {
+            return
+        }
+        lastUnrecognizedToastTime = now
+
+        runOnUiThread {
+            Haptics.reject(binding.root)
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+
+            toastDismissRunnable?.let { binding.root.removeCallbacks(it) }
+
+            binding.tvSignNotRecognizedToast.text = message
+            val toast = binding.toastSignNotRecognized
+            toast.visibility = View.VISIBLE
+            toast.animate().cancel()
+            toast.alpha = 0f
+            toast.translationY = 16f * resources.displayMetrics.density
+
+            toast.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(220L)
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
+                .start()
+
+            val dismiss = Runnable {
+                toast.animate()
+                    .alpha(0f)
+                    .translationY(-12f * resources.displayMetrics.density)
+                    .setDuration(250L)
+                    .withEndAction {
+                        toast.visibility = View.GONE
+                    }
+                    .start()
+            }
+            toastDismissRunnable = dismiss
+            binding.root.postDelayed(dismiss, 2200L)
+        }
+    }
+
+    private fun hideSignNotRecognizedToast() {
+        toastDismissRunnable?.let { binding.root.removeCallbacks(it) }
+        val toast = binding.toastSignNotRecognized
+        if (toast.visibility == View.VISIBLE) {
+            toast.animate().cancel()
+            toast.animate()
+                .alpha(0f)
+                .setDuration(150L)
+                .withEndAction { toast.visibility = View.GONE }
+                .start()
+        }
+    }
+
     private fun setupCallbacks() {
         val predictor = this.predictor ?: return
         var inferenceStartMs = 0L
@@ -407,11 +465,8 @@ class MainActivity : AppCompatActivity() {
                         showResult(decision.topLabel, decision)
                     }
                     ConfidenceTier.LOW -> {
-                        Haptics.reject(binding.root)
-                        val pct = (decision.confidence * 100).toInt()
-                        val htmlReason = decision.uncertaintyReason
-                            ?: "<b>Gesture confidence low</b> ($pct%). Please repeat the gesture."
-                        setUncertaintyBannerHtml(htmlReason)
+                        binding.tvUncertaintyBanner.visibility = View.GONE
+                        showSignNotRecognizedToast("Sign is not recognized")
                         if (appSettings.isTestModeEnabled) {
                             recordTestModePrediction(decision, latencyMs)
                         }
@@ -628,6 +683,7 @@ class MainActivity : AppCompatActivity() {
         if (isSentenceState) {
             return
         }
+        hideSignNotRecognizedToast()
         lastLabel = label
 
         // Avoid rapid duplicates of the same word within 1 second
@@ -981,6 +1037,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnClearMessage.setOnClickListener {
+            hideSignNotRecognizedToast()
             dialogueWords.clear()
             signedWords.clear()
             rawTokens.clear()
@@ -1003,6 +1060,8 @@ class MainActivity : AppCompatActivity() {
                 val clip = ClipData.newPlainText("MotionSpeak translation", text)
                 clipboard.setPrimaryClip(clip)
                 Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "No translation to copy", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -1010,6 +1069,8 @@ class MainActivity : AppCompatActivity() {
             val text = binding.tvMessage.text.toString().trim()
             if (text.isNotEmpty()) {
                 speak(text)
+            } else {
+                Toast.makeText(this, "No translation to speak", Toast.LENGTH_SHORT).show()
             }
         }
     }

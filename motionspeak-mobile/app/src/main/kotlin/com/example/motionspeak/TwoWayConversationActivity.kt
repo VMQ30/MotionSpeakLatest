@@ -86,6 +86,8 @@ class TwoWayConversationActivity : BaseActivity() {
             val text = etHearingInput.text.toString().trim()
             if (text.isNotEmpty()) {
                 translateTextToFsl(text)
+            } else {
+                Toast.makeText(this, "Please enter text to translate", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -127,6 +129,7 @@ class TwoWayConversationActivity : BaseActivity() {
             tvDemoPlaceholder.text = "Sign for \"$input\" not found in offline dictionary. Try words like 'Water', 'Help', 'Fever'."
             tvCurrentSignLabel.visibility = View.GONE
             videoFslDemo.visibility = View.GONE
+            Toast.makeText(this, "Sign is not recognized", Toast.LENGTH_SHORT).show()
         }
     }
 

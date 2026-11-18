@@ -170,24 +170,20 @@ class PredictionService(private val context: Context) {
             // Fire on terminal hold (hand held still for ~500ms after executing the sign with sufficient motion)
             // Increased threshold to HOLD_THRESHOLD (18 frames) prevents multi-phase signs like GOOD_MORNING from premature truncation!
             if (holdFrames >= HOLD_THRESHOLD && frameBuffer.size >= MIN_POSE_FRAMES && cumulativeMotion >= MIN_SEQUENCE_MOTION) {
-                val success = runInference(frameCaptureTimestampMs)
-                if (success) {
-                    frameBuffer.clear()
-                    holdFrames = 0
-                    inactiveStreak = 0
-                    cumulativeMotion = 0f
-                    onCollecting?.invoke(0f)
-                }
+                runInference(frameCaptureTimestampMs)
+                frameBuffer.clear()
+                holdFrames = 0
+                inactiveStreak = 0
+                cumulativeMotion = 0f
+                onCollecting?.invoke(0f)
             } else if (frameBuffer.size >= 85 && holdFrames >= 8 && cumulativeMotion >= MIN_SEQUENCE_MOTION) {
                 // Buffer capacity reached and motion has slowed
-                val success = runInference(frameCaptureTimestampMs)
-                if (success) {
-                    frameBuffer.clear()
-                    holdFrames = 0
-                    inactiveStreak = 0
-                    cumulativeMotion = 0f
-                    onCollecting?.invoke(0f)
-                }
+                runInference(frameCaptureTimestampMs)
+                frameBuffer.clear()
+                holdFrames = 0
+                inactiveStreak = 0
+                cumulativeMotion = 0f
+                onCollecting?.invoke(0f)
             }
             // CRITICAL: If hands are still actively moving (motionMag >= 0.05f),
             // DO NOT INTERRUPT THE SIGN! Let the user finish the full motion.
@@ -225,7 +221,19 @@ class PredictionService(private val context: Context) {
         val filledTimed = MotionPreprocessor.fillGapsTimed(frameBuffer.toList())
 
         // 2. Trim active frames (between first and last hand detection +/- 3 pad)
-        val activeTimed = MotionPreprocessor.trimActiveTimed(filledTimed) ?: return false
+        val activeTimed = MotionPreprocessor.trimActiveTimed(filledTimed) ?: run {
+            onDecision?.invoke(
+                PredictionDecision(
+                    topLabel = "Unknown",
+                    confidence = 0f,
+                    tier = ConfidenceTier.LOW,
+                    alternatives = emptyList(),
+                    uncertaintyReason = "Sign is not recognized. Please repeat the gesture.",
+                    finalFrameTimestampMs = finalFrameTimestampMs
+                )
+            )
+            return false
+        }
 
         // 3. Resample to target sequence length using physical time continuous linear interpolation (∆t)
         val resampled = MotionPreprocessor.resampleTimed(activeTimed, sequenceLength)

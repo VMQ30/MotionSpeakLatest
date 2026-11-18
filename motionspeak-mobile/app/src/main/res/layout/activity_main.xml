@@ -722,7 +722,53 @@
             android:textColor="@color/ms_on_dark" />
     </LinearLayout>
 
-<LinearLayout
+    <!-- Quick notification / toast pill for unrecognized signs -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/toastSignNotRecognized"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        android:alpha="0"
+        android:visibility="gone"
+        app:cardBackgroundColor="#E60F172A"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="16dp"
+        app:strokeColor="#44EF4444"
+        app:strokeWidth="1.5dp"
+        app:layout_constraintBottom_toTopOf="@id/statusLayout"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="@dimen/ms_space_16"
+            android:paddingTop="@dimen/ms_space_8"
+            android:paddingEnd="@dimen/ms_space_16"
+            android:paddingBottom="@dimen/ms_space_8">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:contentDescription="Alert icon"
+                android:src="@drawable/ic_sos_alert"
+                app:tint="@color/ms_danger" />
+
+            <TextView
+                android:id="@+id/tvSignNotRecognizedToast"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/ms_space_8"
+                android:fontFamily="@font/poppins_medium"
+                android:text="Sign is not recognized"
+                android:textColor="@color/ms_on_dark"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <LinearLayout
         android:id="@+id/detectionContainer"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
