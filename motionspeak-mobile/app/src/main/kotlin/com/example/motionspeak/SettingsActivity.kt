@@ -75,8 +75,11 @@ class SettingsActivity : BaseActivity() {
         bindDarkModeSwitch()
         bindHapticToggle()
         bindSentenceSynthesisControls()
+        bindPrivacyControls()
+        bindAdvancedTools()
         bindResetButton()
         bindReplayTutorial()
+        bindTestModeControls()
     }
 
     override fun onResume() {
@@ -85,6 +88,8 @@ class SettingsActivity : BaseActivity() {
         // returns here without recreating this Activity.
         refreshProfileCard()
         refreshLlmModelStatus()
+        findViewById<SwitchMaterial>(R.id.switchTestMode)?.isChecked = appSettings.isTestModeEnabled
+        refreshDownloadLogsVisibility()
     }
 
     // ── Load saved preferences ────────────────────────────────────────────────
@@ -120,6 +125,10 @@ class SettingsActivity : BaseActivity() {
         val darkSwitch = findViewById<SwitchMaterial>(R.id.switchDarkMode)
         darkSwitch?.isChecked = currentDarkMode
         updateDarkModeSubtitle(currentDarkMode)
+
+        // Privacy controls
+        findViewById<SwitchMaterial>(R.id.switchRecordHistory)?.isChecked = appSettings.recordTranslationHistory
+        findViewById<SwitchMaterial>(R.id.switchFacialAnalysis)?.isChecked = appSettings.isFacialAnalysisEnabled
     }
 
     // ── Volume ────────────────────────────────────────────────────────────────
@@ -321,6 +330,66 @@ class SettingsActivity : BaseActivity() {
         style(btnMax,   mode == AppSettings.HAPTIC_MAX)
     }
 
+    // ── Privacy & Advanced Tools ──────────────────────────────────────────
+
+    private fun bindPrivacyControls() {
+        val switchHistory = findViewById<SwitchMaterial>(R.id.switchRecordHistory)
+        switchHistory?.isChecked = appSettings.recordTranslationHistory
+        switchHistory?.setOnCheckedChangeListener { _, isChecked ->
+            appSettings.recordTranslationHistory = isChecked
+        }
+
+        val switchFacial = findViewById<SwitchMaterial>(R.id.switchFacialAnalysis)
+        switchFacial?.isChecked = appSettings.isFacialAnalysisEnabled
+        switchFacial?.setOnCheckedChangeListener { _, isChecked ->
+            appSettings.isFacialAnalysisEnabled = isChecked
+        }
+
+        val switchGpu = findViewById<SwitchMaterial>(R.id.switchGpuInference)
+        switchGpu?.isChecked = appSettings.isInferenceGpuEnabled
+        switchGpu?.setOnCheckedChangeListener { _, isChecked ->
+            appSettings.isInferenceGpuEnabled = isChecked
+        }
+    }
+
+    private fun bindAdvancedTools() {
+        findViewById<View>(R.id.rowSignerCalibration)?.setOnClickListener {
+            startActivity(Intent(this, SignerCalibrationActivity::class.java))
+        }
+
+        findViewById<View>(R.id.rowTwoWayConversation)?.setOnClickListener {
+            startActivity(Intent(this, TwoWayConversationActivity::class.java))
+        }
+
+        findViewById<View>(R.id.rowDiagnostics)?.setOnClickListener {
+            startActivity(Intent(this, QualityDashboardActivity::class.java))
+        }
+    }
+
+    private fun showDiagnosticsDialog() {
+        val (p50, p95, p99) = PipelineProfiler.getPercentiles()
+        val summary = AnalyticsManager.getInstance(this).getSummary()
+
+        val msg = """
+• Model: motionspeak.tflite (On-device TFLite)
+• Security: Hardware-backed KeyStore encryption
+• Total Inferences: ${summary.totalInferences}
+• Average Latency: ${"%.1f".format(summary.averageLatencyMs)} ms
+• Pipeline Latency Percentiles:
+    p50: ${"%.1f".format(p50)} ms | p95: ${"%.1f".format(p95)} ms | p99: ${"%.1f".format(p99)} ms
+• Confidence Distribution:
+    High: ${summary.highConfidenceCount} | Moderate: ${summary.moderateConfidenceCount} | Low: ${summary.lowConfidenceCount}
+• Signer Calibration:
+    Hand Scale: ${"%.2f".format(appSettings.signerHandScale)}x | Speed Factor: ${"%.2f".format(appSettings.signerSpeedFactor)}x
+        """.trimIndent()
+
+        AlertDialog.Builder(this)
+            .setTitle("System & Model Diagnostics")
+            .setMessage(msg)
+            .setPositiveButton("Close", null)
+            .show()
+    }
+
     // ── Sentence Generation (LLM) ─────────────────────────────────────────────
 
     private fun bindSentenceSynthesisControls() {
@@ -387,6 +456,7 @@ class SettingsActivity : BaseActivity() {
             view.findViewById<MaterialButton>(R.id.btnConfirmCancel).setOnClickListener { dialog.dismiss() }
             view.findViewById<MaterialButton>(R.id.btnConfirmAction).setOnClickListener {
                 appSettings.resetToDefault()
+                TestModeManager.clearLogs(this)
                 MotionSpeakApplication.applyFontScale(applicationContext, AppSettings.FONT_SIZE_NORMAL)
                 TtsVoiceHelper.invalidate()   // resets voiceType as well
                 loadPreferences()
@@ -472,6 +542,140 @@ class SettingsActivity : BaseActivity() {
             })
             finish()
         }
+    }
+
+    // ── Test Mode & Telemetry Logs ──────────────────────────────────────────
+
+    private fun bindTestModeControls() {
+        val switchTestMode = findViewById<SwitchMaterial>(R.id.switchTestMode)
+        val rowTestMode = findViewById<View>(R.id.rowTestMode)
+
+        val btnDownload31 = findViewById<View>(R.id.btnDownload31)
+        val rowDownload31 = findViewById<View>(R.id.rowDownload31)
+        val btnDownload32 = findViewById<View>(R.id.btnDownload32)
+        val rowDownload32 = findViewById<View>(R.id.rowDownload32)
+        val btnDownload33 = findViewById<View>(R.id.btnDownload33)
+        val rowDownload33 = findViewById<View>(R.id.rowDownload33)
+        val btnDownload34 = findViewById<View>(R.id.btnDownload34)
+        val rowDownload34 = findViewById<View>(R.id.rowDownload34)
+
+        switchTestMode?.isChecked = appSettings.isTestModeEnabled
+        refreshDownloadLogsVisibility()
+
+        rowTestMode?.setOnClickListener {
+            switchTestMode?.toggle()
+        }
+
+        switchTestMode?.setOnCheckedChangeListener { _, isChecked ->
+            appSettings.isTestModeEnabled = isChecked
+            if (!isChecked) {
+                // When test mode is off, all preexisting logs must be deleted / logs shouldn't generate
+                TestModeManager.clearLogs(this)
+                Toast.makeText(this, "Test mode disabled. All test logs deleted.", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Test mode enabled.", Toast.LENGTH_SHORT).show()
+            }
+            refreshDownloadLogsVisibility()
+        }
+
+        // Section 3.1: Table 4.17 Recognition Logs
+        val download31Action = View.OnClickListener {
+            val fileName = TestModeManager.exportSection31(this)
+            if (fileName != null) {
+                Toast.makeText(this, "Table 4.17 logs downloaded to Downloads: $fileName", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "No Table 4.17 logs to export", Toast.LENGTH_SHORT).show()
+            }
+            refreshDownloadLogsVisibility()
+        }
+        btnDownload31?.setOnClickListener(download31Action)
+        rowDownload31?.setOnClickListener(download31Action)
+
+        // Section 3.2: Table 4.18 Sentence BLEU Logs
+        val download32Action = View.OnClickListener {
+            val fileName = TestModeManager.exportSection32(this)
+            if (fileName != null) {
+                Toast.makeText(this, "Table 4.18 logs downloaded to Downloads: $fileName", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "No Table 4.18 logs to export", Toast.LENGTH_SHORT).show()
+            }
+            refreshDownloadLogsVisibility()
+        }
+        btnDownload32?.setOnClickListener(download32Action)
+        rowDownload32?.setOnClickListener(download32Action)
+
+        // Section 3.3: Table 4.19 Efficiency Logs
+        val download33Action = View.OnClickListener {
+            val fileName = TestModeManager.exportSection33(this)
+            if (fileName != null) {
+                Toast.makeText(this, "Table 4.19 logs downloaded to Downloads: $fileName", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "No Table 4.19 logs to export", Toast.LENGTH_SHORT).show()
+            }
+            refreshDownloadLogsVisibility()
+        }
+        btnDownload33?.setOnClickListener(download33Action)
+        rowDownload33?.setOnClickListener(download33Action)
+
+        // Section 3.4: Table 4.20 Operational Boundaries Logs
+        val download34Action = View.OnClickListener {
+            val fileName = TestModeManager.exportSection34(this)
+            if (fileName != null) {
+                Toast.makeText(this, "Table 4.20 logs downloaded to Downloads: $fileName", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "No Table 4.20 logs to export", Toast.LENGTH_SHORT).show()
+            }
+            refreshDownloadLogsVisibility()
+        }
+        btnDownload34?.setOnClickListener(download34Action)
+        rowDownload34?.setOnClickListener(download34Action)
+
+        val btnDeleteLogs = findViewById<View>(R.id.btnDeleteLogs)
+        val rowDeleteLogs = findViewById<View>(R.id.rowDeleteLogs)
+
+        val deleteAction = View.OnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Delete test logs?")
+                .setMessage("Are you sure you want to permanently delete all recorded test telemetry logs across all 4 sections? This cannot be undone.")
+                .setPositiveButton("Delete") { _, _ ->
+                    TestModeManager.clearLogs(this)
+                    Toast.makeText(this, "All test logs deleted.", Toast.LENGTH_SHORT).show()
+                    refreshDownloadLogsVisibility()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+                .apply {
+                    getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(getColor(R.color.ms_danger))
+                }
+        }
+
+        btnDeleteLogs?.setOnClickListener(deleteAction)
+        rowDeleteLogs?.setOnClickListener(deleteAction)
+    }
+
+    private fun refreshDownloadLogsVisibility() {
+        val layoutDownloadLogs = findViewById<View>(R.id.layoutDownloadLogs)
+        val isTestMode = appSettings.isTestModeEnabled
+
+        val hasLogs31 = isTestMode && TestModeManager.hasLogsForSection(this, 1)
+        val hasLogs32 = isTestMode && TestModeManager.hasLogsForSection(this, 2)
+        val hasLogs33 = isTestMode && TestModeManager.hasLogsForSection(this, 3)
+        val hasLogs34 = isTestMode && TestModeManager.hasLogsForSection(this, 4)
+
+        findViewById<View>(R.id.rowDownload31)?.visibility = if (hasLogs31) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.dividerDownload31)?.visibility = if (hasLogs31) View.VISIBLE else View.GONE
+
+        findViewById<View>(R.id.rowDownload32)?.visibility = if (hasLogs32) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.dividerDownload32)?.visibility = if (hasLogs32) View.VISIBLE else View.GONE
+
+        findViewById<View>(R.id.rowDownload33)?.visibility = if (hasLogs33) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.dividerDownload33)?.visibility = if (hasLogs33) View.VISIBLE else View.GONE
+
+        findViewById<View>(R.id.rowDownload34)?.visibility = if (hasLogs34) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.dividerDownload34)?.visibility = if (hasLogs34) View.VISIBLE else View.GONE
+
+        val anyLogs = hasLogs31 || hasLogs32 || hasLogs33 || hasLogs34
+        layoutDownloadLogs?.visibility = if (anyLogs) View.VISIBLE else View.GONE
     }
 
     override fun onDestroy() {

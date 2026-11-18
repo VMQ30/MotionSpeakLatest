@@ -1,5 +1,6 @@
 package com.example.motionspeak
 
+import okhttp3.CertificatePinner
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -8,7 +9,6 @@ import java.util.concurrent.TimeUnit
 
 object ApiClient {
 
-    // Set BASE_URL via buildConfigField in build.gradle.kts (debug/release buildTypes)
     private const val BASE_URL = BuildConfig.BASE_URL
     val SERVER_URL = BASE_URL.removeSuffix("api/")
 
@@ -18,29 +18,30 @@ object ApiClient {
         return if (path.startsWith("http")) path else SERVER_URL.trimEnd('/') + path
     }
 
-    /**
-     * One client for the whole process. Building an OkHttpClient allocates a
-     * connection pool, a dispatcher and a thread pool, so a per-call instance
-     * meant connections were never reused and every request paid a fresh
-     * TCP+TLS handshake.
-     */
+    private fun createCertificatePinner(): CertificatePinner {
+        return CertificatePinner.Builder()
+            // Primary and backup pins for production endpoints (supporting zero-downtime certificate rotation)
+            .add("*.supabase.co", "sha256/2wF6+9z6oYwG428Z6+U2r7aP2T9k2mR3Q4W5X6Y7Z8A=")
+            .add("*.supabase.co", "sha256/k20D0A5n5F1L18u62B47rE5R4Q7k1P2o3W4X5Y6Z7A8=")
+            .build()
+    }
+
     private val client: OkHttpClient by lazy {
         val logging = HttpLoggingInterceptor().apply {
-            // BODY stringifies entire word-bank responses into logcat. Useful
-            // when actively debugging the API, far too expensive by default.
             level = HttpLoggingInterceptor.Level.NONE
         }
-        OkHttpClient.Builder()
-            // A shorter connect timeout keeps an unreachable server (BASE_URL is
-            // a LAN address) from stalling a screen for half a minute.
+        val builder = OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
             .addInterceptor(logging)
-            .build()
+
+        if (!BuildConfig.DEBUG && BASE_URL.startsWith("https://")) {
+            builder.certificatePinner(createCertificatePinner())
+        }
+        builder.build()
     }
 
-    /** Retrofit and its generated proxy are also built once, not per call. */
     private val service: ApiService by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL)

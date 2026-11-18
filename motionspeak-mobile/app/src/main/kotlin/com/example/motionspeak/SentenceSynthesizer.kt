@@ -18,5 +18,12 @@ interface SentenceSynthesizer {
         language: SentenceLanguage
     ): SentenceResult
 
+    suspend fun compose(
+        tokens: List<String>,
+        tone: SentenceTone,
+        language: SentenceLanguage,
+        markers: LinguisticMarkers
+    ): SentenceResult = compose(tokens, tone, language)
+
     suspend fun close() {}
 }

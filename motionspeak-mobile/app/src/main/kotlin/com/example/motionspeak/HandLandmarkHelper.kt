@@ -20,6 +20,9 @@ private const val LEFT_FLAG = 171
 private const val RIGHT_FLAG = 172
 private const val MOTION_SCALE = 5.0f
 
+const val POSE_DETECT_INTERVAL = 2
+val POSE_KEYPOINTS = intArrayOf(0, 11, 12, 13, 14, 15, 16)
+
 private val POSE_IDX = intArrayOf(0, 2, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 23, 24)
 
 data class LandmarkResult(
@@ -29,7 +32,10 @@ data class LandmarkResult(
     val faceLandmarks: List<FloatArray> = emptyList(),
     val sourceWidth: Int = 1,
     val sourceHeight: Int = 1,
-    val handSlots: List<Int> = emptyList() // 0 = Left (green), 1 = Right (orange)
+    val handSlots: List<Int> = emptyList(), // 0 = Left (green), 1 = Right (orange)
+    val landmarkLatencyMs: Double = 0.0,
+    val detectionConfidence: Float = 0.5f,
+    val frameCaptureTimestampMs: Long = 0L
 )
 
 class HandLandmarkHelper(
@@ -45,6 +51,7 @@ class HandLandmarkHelper(
     @Volatile private var lastSourceWidth = 1
     @Volatile private var lastSourceHeight = 1
     @Volatile private var lastFrameTimeMs = 0L
+    @Volatile private var latestFrameCaptureMs = 0L
     private var frameCounter = 0L
 
     // EMA shoulder reference for position- and scale-invariant normalization matching collect_data.py / train.py
@@ -70,16 +77,22 @@ class HandLandmarkHelper(
     private val smoothedRight = FloatArray(42)
     private var hasSmoothedRight = false
 
+    // Pre-allocated flat buffer for pose coordinates to eliminate heap thrashing in live stream
+    private val cachedPoseCoords = FloatArray(33 * 3)
+    private val overlayFaceCoords = FloatArray(22)
+
     init {
+        val allowGpu = AppSettings.getInstance(context).isInferenceGpuEnabled
+        val primaryDelegate = if (allowGpu) Delegate.GPU else Delegate.CPU
         try {
             val handOptions = HandLandmarker.HandLandmarkerOptions.builder()
-                .setBaseOptions(BaseOptions.builder().setModelAssetPath("hand_landmarker.task").setDelegate(Delegate.GPU).build())
+                .setBaseOptions(BaseOptions.builder().setModelAssetPath("hand_landmarker.task").setDelegate(primaryDelegate).build())
                 .setRunningMode(RunningMode.LIVE_STREAM)
                 .setNumHands(2)
                 .setMinHandDetectionConfidence(0.50f)
                 .setMinHandPresenceConfidence(0.50f)
                 .setMinTrackingConfidence(0.45f)
-                .setResultListener { result, _ -> resultSink?.invoke(parseResult(result, lastPoseResult)) }
+                .setResultListener { result, _ -> resultSink?.invoke(parseResult(result, lastPoseResult, latestFrameCaptureMs)) }
                 .build()
             landmarker = HandLandmarker.createFromOptions(context, handOptions)
         } catch (e: Exception) {
@@ -92,7 +105,7 @@ class HandLandmarkHelper(
                     .setMinHandDetectionConfidence(0.50f)
                     .setMinHandPresenceConfidence(0.50f)
                     .setMinTrackingConfidence(0.45f)
-                    .setResultListener { result, _ -> resultSink?.invoke(parseResult(result, lastPoseResult)) }
+                    .setResultListener { result, _ -> resultSink?.invoke(parseResult(result, lastPoseResult, latestFrameCaptureMs)) }
                     .build()
                 landmarker = HandLandmarker.createFromOptions(context, handOptionsCpu)
             } catch (e2: Exception) {
@@ -101,8 +114,9 @@ class HandLandmarkHelper(
         }
 
         try {
+            // PoseLandmarker runs on CPU (XNNPACK) to eliminate GPU pipeline contention with HandLandmarker
             val poseOptions = PoseLandmarker.PoseLandmarkerOptions.builder()
-                .setBaseOptions(BaseOptions.builder().setModelAssetPath("pose_landmarker_lite.task").setDelegate(Delegate.GPU).build())
+                .setBaseOptions(BaseOptions.builder().setModelAssetPath("pose_landmarker_lite.task").setDelegate(Delegate.CPU).build())
                 .setRunningMode(RunningMode.LIVE_STREAM)
                 .setNumPoses(1)
                 .setMinPoseDetectionConfidence(0.35f)
@@ -112,29 +126,16 @@ class HandLandmarkHelper(
                 .build()
             poseLandmarker = PoseLandmarker.createFromOptions(context, poseOptions)
         } catch (e: Exception) {
-            Log.w(TAG, "PoseLandmarker GPU init failed, trying CPU: ${e.message}")
-            try {
-                val poseOptionsCpu = PoseLandmarker.PoseLandmarkerOptions.builder()
-                    .setBaseOptions(BaseOptions.builder().setModelAssetPath("pose_landmarker_lite.task").setDelegate(Delegate.CPU).build())
-                    .setRunningMode(RunningMode.LIVE_STREAM)
-                    .setNumPoses(1)
-                    .setMinPoseDetectionConfidence(0.35f)
-                    .setMinPosePresenceConfidence(0.35f)
-                    .setMinTrackingConfidence(0.35f)
-                    .setResultListener { result, _ -> lastPoseResult = result }
-                    .build()
-                poseLandmarker = PoseLandmarker.createFromOptions(context, poseOptionsCpu)
-            } catch (e2: Exception) {
-                Log.e(TAG, "PoseLandmarker CPU init failed: ${e2.message}", e2)
-            }
+            Log.e(TAG, "PoseLandmarker CPU init failed: ${e.message}", e)
         }
     }
 
-    fun detectAsync(bitmap: Bitmap, frameTimestampMs: Long) {
+    fun detectAsync(bitmap: Bitmap, frameTimestampMs: Long, frameCaptureTimestampMs: Long = frameTimestampMs) {
         val mpImage = BitmapImageBuilder(bitmap).build()
         lastSourceWidth = bitmap.width
         lastSourceHeight = bitmap.height
         lastSubmitNs = System.nanoTime()
+        latestFrameCaptureMs = frameCaptureTimestampMs
 
         val ts = maxOf(frameTimestampMs, lastFrameTimeMs + 1)
         lastFrameTimeMs = ts
@@ -191,25 +192,76 @@ class HandLandmarkHelper(
         return pts
     }
 
+    private fun isLandmarkQualityAcceptable(lms: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>): Boolean {
+        if (lms.size < 21) return false
+        val wrist = lms[0]
+        val middleMcp = lms[9]
+
+        if (wrist.x() < 0.015f || wrist.x() > 0.985f || wrist.y() < 0.015f || wrist.y() > 0.985f) {
+            return false
+        }
+
+        var edgeCount = 0
+        var minX = 1f; var maxX = 0f; var minY = 1f; var maxY = 0f
+        for (i in 0 until 21) {
+            val x = lms[i].x()
+            val y = lms[i].y()
+            if (x < 0.015f || x > 0.985f || y < 0.015f || y > 0.985f) {
+                edgeCount++
+            }
+            if (x < minX) minX = x
+            if (x > maxX) maxX = x
+            if (y < minY) minY = y
+            if (y > maxY) maxY = y
+        }
+        if (edgeCount > 3) return false
+
+        val handWidth = maxX - minX
+        val handHeight = maxY - minY
+        if (handWidth < 0.02f || handHeight < 0.02f) return false
+
+        val dx = middleMcp.x() - wrist.x()
+        val dy = middleMcp.y() - wrist.y()
+        val span = sqrt(dx * dx + dy * dy)
+        if (span < 0.025f || span > 0.65f) return false
+
+        return true
+    }
+
     private fun parseResult(
         result: HandLandmarkerResult,
-        pose: PoseLandmarkerResult?
+        pose: PoseLandmarkerResult?,
+        frameCaptureTimestampMs: Long = 0L
     ): LandmarkResult {
         val poseLms = pose?.landmarks()?.firstOrNull()
-        val poseCoords: List<FloatArray>? = poseLms?.map {
-            floatArrayOf(it.x(), it.y(), it.z())
+        val hasPose = poseLms != null && poseLms.isNotEmpty()
+        val poseCount = if (hasPose) minOf(poseLms!!.size, 33) else 0
+
+        if (hasPose) {
+            for (idx in 0 until poseCount) {
+                val lm = poseLms!![idx]
+                cachedPoseCoords[idx * 3]     = lm.x()
+                cachedPoseCoords[idx * 3 + 1] = lm.y()
+                cachedPoseCoords[idx * 3 + 2] = lm.z()
+            }
         }
 
         // EMA shoulder reference for position- and scale-invariant normalization matching collect_data.py / train.py
-        if (poseCoords != null && poseCoords.size > 12) {
-            val lSh = poseCoords[11]
-            val rSh = poseCoords[12]
-            val cx = (lSh[0] + rSh[0]) * 0.5f
-            val cy = (lSh[1] + rSh[1]) * 0.5f
-            val cz = (lSh[2] + rSh[2]) * 0.5f
-            val dx = lSh[0] - rSh[0]
-            val dy = lSh[1] - rSh[1]
-            val dz = lSh[2] - rSh[2]
+        if (hasPose && poseCount > 12) {
+            val lShX = cachedPoseCoords[11 * 3]
+            val lShY = cachedPoseCoords[11 * 3 + 1]
+            val lShZ = cachedPoseCoords[11 * 3 + 2]
+
+            val rShX = cachedPoseCoords[12 * 3]
+            val rShY = cachedPoseCoords[12 * 3 + 1]
+            val rShZ = cachedPoseCoords[12 * 3 + 2]
+
+            val cx = (lShX + rShX) * 0.5f
+            val cy = (lShY + rShY) * 0.5f
+            val cz = (lShZ + rShZ) * 0.5f
+            val dx = lShX - rShX
+            val dy = lShY - rShY
+            val dz = lShZ - rShZ
             val w = sqrt(dx * dx + dy * dy + dz * dz)
 
             if (w > 0.05f) {
@@ -247,6 +299,7 @@ class HandLandmarkHelper(
             val score = cat?.score() ?: 0f
             // Filter out low-confidence hallucinations (< 0.45 confidence)
             if (score < 0.45f) continue
+            if (!isLandmarkQualityAcceptable(lms)) continue
             val isLeft = cat?.categoryName() == "Left"
             validHands.add(DetectedHand(lms, isLeft, score))
         }
@@ -262,9 +315,11 @@ class HandLandmarkHelper(
         var leftOn = 0f
         var rightOn = 0f
 
-        val hasPoseWrists = poseCoords != null && poseCoords.size > 16
-        val poseLeftWrist = if (hasPoseWrists) poseCoords!![15] else null
-        val poseRightWrist = if (hasPoseWrists) poseCoords!![16] else null
+        val hasPoseWrists = hasPose && poseCount > 16
+        val poseLeftWristX = if (hasPoseWrists) cachedPoseCoords[15 * 3] else 0f
+        val poseLeftWristY = if (hasPoseWrists) cachedPoseCoords[15 * 3 + 1] else 0f
+        val poseRightWristX = if (hasPoseWrists) cachedPoseCoords[16 * 3] else 0f
+        val poseRightWristY = if (hasPoseWrists) cachedPoseCoords[16 * 3 + 1] else 0f
 
         val assignedHands = ArrayList<Pair<DetectedHand, Boolean>>(2)
 
@@ -273,9 +328,9 @@ class HandLandmarkHelper(
             val wx = h.landmarks[0].x()
             val wy = h.landmarks[0].y()
 
-            val isLeft = if (poseLeftWrist != null && poseRightWrist != null) {
-                val dL = sqrt((wx - poseLeftWrist[0]) * (wx - poseLeftWrist[0]) + (wy - poseLeftWrist[1]) * (wy - poseLeftWrist[1]))
-                val dR = sqrt((wx - poseRightWrist[0]) * (wx - poseRightWrist[0]) + (wy - poseRightWrist[1]) * (wy - poseRightWrist[1]))
+            val isLeft = if (hasPoseWrists) {
+                val dL = sqrt((wx - poseLeftWristX) * (wx - poseLeftWristX) + (wy - poseLeftWristY) * (wy - poseLeftWristY))
+                val dR = sqrt((wx - poseRightWristX) * (wx - poseRightWristX) + (wy - poseRightWristY) * (wy - poseRightWristY))
                 if (kotlin.math.abs(dL - dR) > 0.06f) {
                     dL < dR
                 } else {
@@ -291,11 +346,11 @@ class HandLandmarkHelper(
             val w0x = h0.landmarks[0].x(); val w0y = h0.landmarks[0].y()
             val w1x = h1.landmarks[0].x(); val w1y = h1.landmarks[0].y()
 
-            var h0IsLeft = if (poseLeftWrist != null && poseRightWrist != null) {
-                val distA = sqrt((w0x - poseLeftWrist[0]) * (w0x - poseLeftWrist[0]) + (w0y - poseLeftWrist[1]) * (w0y - poseLeftWrist[1])) +
-                            sqrt((w1x - poseRightWrist[0]) * (w1x - poseRightWrist[0]) + (w1y - poseRightWrist[1]) * (w1y - poseRightWrist[1]))
-                val distB = sqrt((w0x - poseRightWrist[0]) * (w0x - poseRightWrist[0]) + (w0y - poseRightWrist[1]) * (w0y - poseRightWrist[1])) +
-                            sqrt((w1x - poseLeftWrist[0]) * (w1x - poseLeftWrist[0]) + (w1y - poseLeftWrist[1]) * (w1y - poseLeftWrist[1]))
+            var h0IsLeft = if (hasPoseWrists) {
+                val distA = sqrt((w0x - poseLeftWristX) * (w0x - poseLeftWristX) + (w0y - poseLeftWristY) * (w0y - poseLeftWristY)) +
+                            sqrt((w1x - poseRightWristX) * (w1x - poseRightWristX) + (w1y - poseRightWristY) * (w1y - poseRightWristY))
+                val distB = sqrt((w0x - poseRightWristX) * (w0x - poseRightWristX) + (w0y - poseRightWristY) * (w0y - poseRightWristY)) +
+                            sqrt((w1x - poseLeftWristX) * (w1x - poseLeftWristX) + (w1y - poseLeftWristY) * (w1y - poseLeftWristY))
                 if (kotlin.math.abs(distA - distB) > 0.06f) {
                     distA < distB
                 } else {
@@ -349,14 +404,16 @@ class HandLandmarkHelper(
         if (!rightDetected) hasSmoothedRight = false
 
         // Pose reference landmarks matching collect_data.py
-        if (poseCoords != null) {
+        if (hasPose) {
             for (k in POSE_IDX.indices) {
                 val idx = POSE_IDX[k]
-                if (idx < poseCoords.size) {
-                    val p = poseCoords[idx]
-                    val nx = normX(p[0])
-                    val ny = normY(p[1])
-                    val nz = normZ(p[2])
+                if (idx < poseCount) {
+                    val px = cachedPoseCoords[idx * 3]
+                    val py = cachedPoseCoords[idx * 3 + 1]
+                    val pz = cachedPoseCoords[idx * 3 + 2]
+                    val nx = normX(px)
+                    val ny = normY(py)
+                    val nz = normZ(pz)
                     baseFeat[126 + k * 3]     = nx
                     baseFeat[126 + k * 3 + 1] = ny
                     baseFeat[126 + k * 3 + 2] = nz
@@ -431,16 +488,17 @@ class HandLandmarkHelper(
         System.arraycopy(motionFeat, 0, finalFeatures, 299, 51)
 
         val overlayFaceLandmarks = ArrayList<FloatArray>(1)
-        if (poseCoords != null && poseCoords.size > 10) {
-            val coords = FloatArray(22)
+        if (hasPose && poseCount > 10) {
             for (j in 0..10) {
-                coords[j * 2]     = poseCoords[j][0]
-                coords[j * 2 + 1] = poseCoords[j][1]
+                overlayFaceCoords[j * 2]     = cachedPoseCoords[j * 3]
+                overlayFaceCoords[j * 2 + 1] = cachedPoseCoords[j * 3 + 1]
             }
-            overlayFaceLandmarks.add(coords)
+            overlayFaceLandmarks.add(overlayFaceCoords)
         }
 
         val totalHands = (if (leftOn > 0f) 1 else 0) + (if (rightOn > 0f) 1 else 0)
+        val sinceSubmitMs = if (lastSubmitNs > 0L) (System.nanoTime() - lastSubmitNs) / 1e6 else 0.0
+        val avgScore = if (validHands.isNotEmpty()) validHands.map { it.score }.average().toFloat() else 0.5f
 
         return LandmarkResult(
             handsDetected = totalHands,
@@ -449,7 +507,10 @@ class HandLandmarkHelper(
             faceLandmarks = overlayFaceLandmarks,
             sourceWidth = lastSourceWidth,
             sourceHeight = lastSourceHeight,
-            handSlots = overlaySlots
+            handSlots = overlaySlots,
+            landmarkLatencyMs = sinceSubmitMs,
+            detectionConfidence = avgScore,
+            frameCaptureTimestampMs = frameCaptureTimestampMs
         )
     }
 
@@ -472,6 +533,8 @@ class HandLandmarkHelper(
         handShapeFeat.fill(0f)
         motionFeat.fill(0f)
         finalFeatures.fill(0f)
+        cachedPoseCoords.fill(0f)
+        overlayFaceCoords.fill(0f)
     }
 
     fun close() {

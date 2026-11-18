@@ -382,6 +382,50 @@
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
+            <!-- FSL Linguistic Context & Notes -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardContextualNotes"
+                style="@style/Widget.Sigla.Card.Outlined"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/ms_space_16"
+                app:cardCornerRadius="@dimen/ms_radius_md">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/ms_space_16">
+                    <TextView
+                        style="@style/Sigla.Text.CardTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Linguistic &amp; Contextual Notes" />
+                    <TextView
+                        android:id="@+id/tvUsageNotes"
+                        style="@style/Sigla.Text.Body"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:textColor="@color/ms_text"
+                        android:text="Contextual FSL usage notes and signing parameters." />
+                    <TextView
+                        android:id="@+id/tvExampleSentence"
+                        style="@style/Sigla.Text.Caption"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:textColor="@color/ms_text_secondary"
+                        android:text="Halimbawa: ..." />
+                    <TextView
+                        android:id="@+id/tvRegionalVariants"
+                        style="@style/Sigla.Text.Caption"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textColor="@color/ms_text_secondary"
+                        android:text="Regional variations: Standard FSL." />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 

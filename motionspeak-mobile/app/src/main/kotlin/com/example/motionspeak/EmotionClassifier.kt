@@ -14,13 +14,30 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 
+data class FacialAnalysisResult(
+    val affectiveEmotion: String,
+    val affectiveConfidence: Float,
+    val isQuestionMarker: Boolean,
+    val isNegationMarker: Boolean
+)
+
 class EmotionClassifier(private val context: Context) {
     private var faceLandmarker: FaceLandmarker? = null
     private var emotionInterpreter: Interpreter? = null
 
+    // Pre-allocated direct ByteBuffers to avoid native heap churn and GC pauses during facial analysis
+    private val inputBuffer = ByteBuffer.allocateDirect(1 * 3 * 224 * 224 * 4).order(ByteOrder.nativeOrder())
+    private val outputBuffer = ByteBuffer.allocateDirect(1 * 8 * 4).order(ByteOrder.nativeOrder())
+    private val pixels = IntArray(224 * 224)
+
     /** Latest face landmark coordinates (x,y pairs) for overlay rendering. */
     @Volatile var lastFaceLandmarks: List<FloatArray> = emptyList()
         private set
+
+    /** Latest grammatical non-manual markers: (isQuestionMarker, isNegationMarker). */
+    @Volatile var latestLinguisticMarkers: Pair<Boolean, Boolean> = Pair(false, false)
+        private set
+
 
     private val emotionLabels = listOf(
         "angry", "contempt", "disgust", "fear", "happy", "neutral", "sad", "surprise"
@@ -63,6 +80,11 @@ class EmotionClassifier(private val context: Context) {
      */
     @Synchronized
     fun predictTone(bitmap: Bitmap): Pair<String, Float>? {
+        if (!AppSettings.getInstance(context).isFacialAnalysisEnabled) {
+            lastFaceLandmarks = emptyList()
+            latestLinguisticMarkers = Pair(false, false)
+            return null
+        }
         val fl = faceLandmarker ?: return null
         val interp = emotionInterpreter ?: return null
 
@@ -99,6 +121,21 @@ class EmotionClassifier(private val context: Context) {
             minY = (minY - h * 0.15f).coerceAtLeast(0f)
             maxY = (maxY + h * 0.15f).coerceAtMost(1f)
 
+            // Calculate grammatical non-manual markers from facial geometry
+            // Brows: landmark 70 (left), 300 (right); Upper eyelids: 159 (left), 386 (right)
+            var isQuestion = false
+            var isNegation = false
+            if (face.size >= 400) {
+                val dyLeft = kotlin.math.abs(face[159].y() - face[70].y())
+                val dyRight = kotlin.math.abs(face[386].y() - face[300].y())
+                val avgBrowDist = (dyLeft + dyRight) / 2f
+                val faceH = (maxY - minY).coerceAtLeast(0.01f)
+                val normBrow = avgBrowDist / faceH
+                isQuestion = normBrow > 0.085f
+                isNegation = normBrow < 0.045f
+            }
+            latestLinguisticMarkers = Pair(isQuestion, isNegation)
+
             // 2. Crop the bitmap safely within bitmap dimensions
             val left = (minX * bitmap.width).toInt().coerceIn(0, (bitmap.width - 1).coerceAtLeast(0))
             val top = (minY * bitmap.height).toInt().coerceIn(0, (bitmap.height - 1).coerceAtLeast(0))
@@ -113,9 +150,8 @@ class EmotionClassifier(private val context: Context) {
             // 3. Resize to 224x224 for HSEmotion
             val scaledBmp = Bitmap.createScaledBitmap(croppedBmp, 224, 224, true)
 
-            // 4. Convert to ByteBuffer (NCHW format, normalized)
-            val inputBuffer = ByteBuffer.allocateDirect(1 * 3 * 224 * 224 * 4).order(ByteOrder.nativeOrder())
-            val pixels = IntArray(224 * 224)
+            // 4. Convert to pre-allocated ByteBuffer (NCHW format, normalized)
+            inputBuffer.rewind()
             scaledBmp.getPixels(pixels, 0, 224, 0, 0, 224, 224)
 
             // HSEmotion expects ImageNet normalization: (pixel/255 - mean) / std
@@ -139,8 +175,8 @@ class EmotionClassifier(private val context: Context) {
                 }
             }
 
-            // 5. Run inference
-            val outputBuffer = ByteBuffer.allocateDirect(1 * 8 * 4).order(ByteOrder.nativeOrder())
+            // 5. Run inference with pre-allocated output buffer
+            outputBuffer.rewind()
             interp.run(inputBuffer, outputBuffer)
 
             // 6. Find max probability

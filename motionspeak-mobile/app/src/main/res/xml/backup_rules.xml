@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <exclude domain="sharedpref" path="sigla_history.xml" />
+    <exclude domain="sharedpref" path="sigla_translations.xml" />
+    <exclude domain="sharedpref" path="motionspeak_history.xml" />
+    <exclude domain="sharedpref" path="motionspeak_translations.xml" />
+    <exclude domain="root" path="models/" />
+</full-backup-content>

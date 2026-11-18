@@ -81,6 +81,28 @@ class HomeActivity : BaseActivity() {
         binding.tvCategoriesViewAll.setOnClickListener { BottomNavHelper.open(this, Tab.WORD_BANK) }
         binding.tvRecentViewAll.setOnClickListener { BottomNavHelper.open(this, Tab.HISTORY) }
 
+        var homeTapCount = 0
+        var lastHomeTapTime = 0L
+        val secretLogoTap = View.OnClickListener {
+            val now = System.currentTimeMillis()
+            if (now - lastHomeTapTime > 2000L) homeTapCount = 0
+            lastHomeTapTime = now
+            homeTapCount++
+            if (homeTapCount >= 5) {
+                homeTapCount = 0
+                val enabled = !appSettings.isTestModeEnabled
+                appSettings.isTestModeEnabled = enabled
+                if (enabled) {
+                    android.widget.Toast.makeText(this, "Test mode enabled!", android.widget.Toast.LENGTH_SHORT).show()
+                } else {
+                    TestModeManager.clearLogs(this)
+                    android.widget.Toast.makeText(this, "Test mode disabled. Preexisting logs deleted.", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        binding.tvAvatar.setOnClickListener(secretLogoTap)
+        binding.tvGreetingTitle.setOnClickListener(secretLogoTap)
+
         // Home is the root: back leaves the app. finishAffinity() also closes the
         // other tab screens kept alive behind it by the bottom bar.
         onBackPressedDispatcher.addCallback(this) { finishAffinity() }

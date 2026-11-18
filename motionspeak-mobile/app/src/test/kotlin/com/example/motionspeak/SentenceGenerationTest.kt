@@ -7,6 +7,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -424,6 +425,51 @@ class SentenceGenerationTest {
         assertTrue(composedSentence != null)
         assertEquals(listOf("hello"), composedSentence?.originalTokens)
         assertEquals("Hello.", composedSentence?.text)
+        composer.close()
+    }
+
+    @Test
+    fun testComposerPropagatesT0AndPromptAndTone() = runTest {
+        val testDispatcher = StandardTestDispatcher(testScheduler)
+        val testScope = TestScope(testDispatcher)
+
+        var composedSentence: SentenceResult? = null
+        val composer = SentenceComposer(
+            synthesizer = synthesizer,
+            scope = testScope,
+            dispatcher = testDispatcher,
+            pauseDurationMs = 2000L,
+            dedupeWindowMs = 0L,
+            autoComposeEnabled = false
+        )
+        composer.onSentenceComposed = { result -> composedSentence = result }
+
+        val testPrompt = SentencePrompt(
+            promptText = "I HAVE HEADACHE AND FEVER",
+            glosses = listOf("HEADACHE", "FEVER"),
+            referenceTranslations = listOf("I have a headache and fever"),
+            expectedEmotion = "Sad"
+        )
+
+        composer.addToken("headache", t0CaptureMs = 998877L)
+        testScheduler.advanceTimeBy(50)
+        composer.addToken("fever", t0CaptureMs = 998899L)
+        testScheduler.advanceTimeBy(50)
+
+        composer.triggerComposition(
+            fallbackTokens = listOf("headache", "fever"),
+            t0CaptureMs = 998899L,
+            detectedEmotion = "sad",
+            targetPrompt = testPrompt
+        )
+        testScheduler.advanceTimeBy(100)
+
+        val result = composedSentence
+        assertNotNull(result)
+        assertEquals(998899L, result?.t0CaptureMs)
+        assertEquals(testPrompt, result?.targetPrompt)
+        assertEquals(SentenceTone.CONCERNED, result?.tone)
+        assertTrue("Latency should be recorded", (result?.latencyMs ?: 0L) >= 0L)
         composer.close()
     }
 }

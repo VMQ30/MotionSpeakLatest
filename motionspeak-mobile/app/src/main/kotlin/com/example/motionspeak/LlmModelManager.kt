@@ -117,7 +117,10 @@ object LlmModelManager {
     fun verifyIntegrity(context: Context, expectedSha256: String?): Boolean {
         val file = getModelFile(context)
         if (!file.exists() || file.length() == 0L) return false
-        if (expectedSha256.isNullOrBlank()) return true
+        if (expectedSha256.isNullOrBlank()) {
+            Log.e(TAG, "Integrity verification failed: expected SHA-256 is missing")
+            return false
+        }
         val actual = computeSha256(file)
         return actual.equals(expectedSha256.trim(), ignoreCase = true)
     }
@@ -219,7 +222,21 @@ object LlmModelManager {
                     return@withContext false
                 }
                 val body = response.body ?: return@withContext false
-                val totalBytes = body.contentLength()
+                                val totalBytes = body.contentLength()
+                val maxAllowedBytes = 3L * 1024 * 1024 * 1024 // 3 GB max
+                if (totalBytes > maxAllowedBytes) {
+                    Log.e(TAG, "Model download exceeds maximum permitted size: $totalBytes bytes")
+                    return@withContext false
+                }
+                val requiredUsableSpace = if (totalBytes > 0) totalBytes * 2 else 500L * 1024 * 1024
+                if (context.filesDir.usableSpace < requiredUsableSpace) {
+                    Log.e(TAG, "Insufficient disk space on device for model download")
+                    return@withContext false
+                }
+                if (expectedSha256.isNullOrBlank()) {
+                    Log.e(TAG, "Refusing unverified download: expected SHA-256 checksum is required")
+                    return@withContext false
+                }
                 var bytesRead = 0L
 
                 val digest = MessageDigest.getInstance("SHA-256")

@@ -33,11 +33,16 @@ object LlmPromptBuilder {
             append("3. STRUCTURE: Put greetings first, followed by bodily states and symptoms, then medical needs, actions, or inquiries.\n")
             append("4. STRICT NEGATION: When 'no' precedes a symptom or condition (e.g. 'no, fever'), clearly express that the user does not have it (e.g. 'I have no fever'). Preserve negation strictly (\"no\", \"i don't understand\").\n")
             append("5. MEDICAL ACCURACY: Use ONLY the meanings supported by the input labels. Never invent symptoms, medications, or details not signed.\n")
-            append("6. OUTPUT FORMAT: Return ONLY the final sentence. No quotes, no markdown, no commentary, no explanations, no prefix.\n\n")
+            append("6. OUTPUT FORMAT: Return ONLY the final sentence. No quotes, no markdown, no commentary, no explanations, no prefix.\n")
+            append("7. DEDUPLICATION: When input words are duplicated or repeated (e.g. 'hello, hello' or 'water, water, please'), merge the duplicated words as one single concept. Never repeat words back-to-back in the sentence.\n\n")
 
             // Few-shot guidance based on language
             if (language == SentenceLanguage.ENGLISH) {
                 append("Examples:\n")
+                append("Input: hello, hello\n")
+                append("Sentence: Hello!\n\n")
+                append("Input: water, water, please\n")
+                append("Sentence: Water, please.\n\n")
                 append("Input: hello, how are you\n")
                 append("Sentence: Hello, how are you?\n\n")
                 append("Input: hurt, broken bone\n")
@@ -62,6 +67,10 @@ object LlmPromptBuilder {
                 append("Sentence: I feel dizzy. Please arrange an X-ray and laboratory tests.\n\n")
             } else {
                 append("Halimbawa:\n")
+                append("Input: hello, hello\n")
+                append("Sentence: Kamusta!\n\n")
+                append("Input: water, water, please\n")
+                append("Sentence: Tubig, pakiusap.\n\n")
                 append("Input: hello, how are you\n")
                 append("Sentence: Kamusta, kamusta ka?\n\n")
                 append("Input: hurt, broken bone\n")
@@ -123,6 +132,9 @@ object LlmPromptBuilder {
         if (newlineIdx != -1) {
             cleaned = cleaned.substring(0, newlineIdx).trim()
         }
+
+        // Merge any accidentally duplicated consecutive words
+        cleaned = cleaned.replace(Regex("""\\b(\\w+)\\s+\\1\\b""", RegexOption.IGNORE_CASE), "$1")
 
         // Ensure ending punctuation
         if (cleaned.isNotEmpty() && !cleaned.endsWith(".") && !cleaned.endsWith("?") && !cleaned.endsWith("!")) {

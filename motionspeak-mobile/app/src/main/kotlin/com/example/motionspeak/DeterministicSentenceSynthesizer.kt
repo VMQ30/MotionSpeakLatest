@@ -30,6 +30,7 @@ class DeterministicSentenceSynthesizer(
         tone: SentenceTone,
         language: SentenceLanguage
     ): SentenceResult {
+        val startNs = android.os.SystemClock.elapsedRealtimeNanos()
         if (tokens.isEmpty()) {
             return SentenceResult(
                 text = "",
@@ -41,10 +42,15 @@ class DeterministicSentenceSynthesizer(
             )
         }
 
-        val text = when (language) {
-            SentenceLanguage.ENGLISH -> composeEnglish(tokens, tone)
-            SentenceLanguage.FILIPINO -> composeFilipino(tokens, tone)
+        val deduplicatedTokens = tokens.filterIndexed { index, token ->
+            index == 0 || !token.trim().equals(tokens[index - 1].trim(), ignoreCase = true)
         }
+
+        val text = when (language) {
+            SentenceLanguage.ENGLISH -> composeEnglish(deduplicatedTokens, tone)
+            SentenceLanguage.FILIPINO -> composeFilipino(deduplicatedTokens, tone)
+        }
+        val durationMs = maxOf(1L, (android.os.SystemClock.elapsedRealtimeNanos() - startNs) / 1_000_000)
 
         return SentenceResult(
             text = text,
@@ -52,8 +58,26 @@ class DeterministicSentenceSynthesizer(
             language = language,
             tone = tone,
             isLlmGenerated = false,
-            latencyMs = 0L
+            latencyMs = durationMs
         )
+    }
+
+    override suspend fun compose(
+        tokens: List<String>,
+        tone: SentenceTone,
+        language: SentenceLanguage,
+        markers: LinguisticMarkers
+    ): SentenceResult {
+        val base = compose(tokens, tone, language)
+        var adjustedText = base.text
+        if (markers.isQuestion && !adjustedText.endsWith("?")) {
+            adjustedText = if (adjustedText.endsWith(".")) {
+                adjustedText.dropLast(1) + "?"
+            } else {
+                "${base.text}?"
+            }
+        }
+        return base.copy(text = adjustedText, linguisticMarkers = markers)
     }
 
     private fun composeEnglish(tokens: List<String>, tone: SentenceTone): String {

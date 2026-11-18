@@ -88,6 +88,9 @@ class WordDetailActivity : BaseActivity() {
     private lateinit var btnBack: MaterialButton
     private lateinit var tvDetailCategoryTitle: TextView
     private lateinit var tvDetailWord: TextView
+    private lateinit var tvUsageNotes: TextView
+    private lateinit var tvExampleSentence: TextView
+    private lateinit var tvRegionalVariants: TextView
     private lateinit var tvDetailFilipino: TextView
     private lateinit var btnSpeak: MaterialButton
     private lateinit var tvCategoryChip: TextView
@@ -201,6 +204,9 @@ class WordDetailActivity : BaseActivity() {
         btnBack = findViewById(R.id.btnBack)
         tvDetailCategoryTitle = findViewById(R.id.tvDetailCategoryTitle)
         tvDetailWord = findViewById(R.id.tvDetailWord)
+        tvUsageNotes = findViewById(R.id.tvUsageNotes)
+        tvExampleSentence = findViewById(R.id.tvExampleSentence)
+        tvRegionalVariants = findViewById(R.id.tvRegionalVariants)
         tvDetailFilipino = findViewById(R.id.tvDetailFilipino)
         btnSpeak = findViewById(R.id.btnSpeak)
         tvCategoryChip = findViewById(R.id.tvCategoryChip)
@@ -270,6 +276,13 @@ class WordDetailActivity : BaseActivity() {
         val filipino = filipinoDisplay(w.filipino_translation.orEmpty())
         tvDetailFilipino.text = filipino
         tvDetailFilipino.visibility = if (filipino.isEmpty()) View.GONE else View.VISIBLE
+
+        val notes = w.usage_notes ?: "Primary FSL sign used in medical and daily communications. Ensure clear palm orientation."
+        val example = w.example_sentence_filipino ?: "Halimbawa: \"Kailangan ko ng tulong para sa ${wordDisplayLabel(w)}.\""
+        val regional = w.regional_variants ?: "Regional variants: Standard Filipino Sign Language."
+        tvUsageNotes.text = notes
+        tvExampleSentence.text = example
+        tvRegionalVariants.text = regional
 
         // Opens the translator on the word's own vocabulary (letters for a letter),
         // falling back to Words when the letters model isn't loaded (see MainActivity).

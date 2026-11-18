@@ -43,6 +43,11 @@ object Haptics {
         trigger(view)
     }
 
+    /** Low-confidence or rejected gesture. */
+    fun reject(view: View) {
+        trigger(view.context, view, AppSettings.HAPTIC_MAX)
+    }
+
     private fun vibrateLight(context: Context, view: View?) {
         try {
             view?.performHapticFeedback(

@@ -70,6 +70,10 @@ object CaptureRateMonitor {
     @Volatile
     var onLowCaptureRate: ((Double) -> Unit)? = null
 
+    @Volatile
+    var currentFps: Double = 28.0
+        private set
+
     /**
      * Call once per frame delivered to the analyzer, before any work.
      *
@@ -89,6 +93,7 @@ object CaptureRateMonitor {
             if (frames >= WINDOW_FRAMES) {
                 val avgGapMs = gapSumNs / frames / 1e6
                 val fps = if (avgGapMs > 0) 1000.0 / avgGapMs else 0.0
+                currentFps = fps
                 frames = 0
                 gapSumNs = 0L
 
