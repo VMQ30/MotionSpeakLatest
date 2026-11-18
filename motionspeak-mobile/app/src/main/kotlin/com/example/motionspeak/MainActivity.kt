@@ -686,9 +686,13 @@ class MainActivity : AppCompatActivity() {
         hideSignNotRecognizedToast()
         lastLabel = label
 
-        // Avoid rapid duplicates of the same word within 1 second
+        // Avoid rapid duplicates of the same word within 1 second, and inter-sign epenthesis within 400ms
         val now = SystemClock.elapsedRealtime()
         if (now - lastResultTime < 1000L && label == lastEmittedWord) {
+            return
+        }
+        if (now - lastResultTime < 400L) {
+            Log.d(TAG, "Suppressed rapid inter-sign transition ($label within ${now - lastResultTime}ms of $lastEmittedWord)")
             return
         }
         lastResultTime = now

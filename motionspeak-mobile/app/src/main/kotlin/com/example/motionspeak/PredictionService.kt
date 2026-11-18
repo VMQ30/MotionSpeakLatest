@@ -39,7 +39,9 @@ data class PredictionDecision(
     val alternatives: List<PredictionAlternative>,
     val uncertaintyReason: String? = null,
     val tfliteLatencyMs: Double = 0.0,
-    val finalFrameTimestampMs: Long = 0L
+    val finalFrameTimestampMs: Long = 0L,
+    val margin: Float = 0f,
+    val normalizedEntropy: Float = 0f
 )
 
 internal data class ModelMeta(
@@ -63,11 +65,13 @@ class PredictionService(private val context: Context) {
         const val EXTRA_START_VOCABULARY = "extra_start_vocabulary"
         const val NO_HAND_TIMEOUT = 16
         const val HOLD_THRESHOLD = 18
+        const val FAST_HOLD_THRESHOLD = 10
         const val MIN_POSE_FRAMES = 24
         const val SEQUENCE_LENGTH = 30
         const val MIN_SEQUENCE_MOTION = 0.50f
         const val MIN_REAL_FRAMES_FOR_FIRE = 20
         const val MIN_MOTION_FRAMES = 6
+        const val INTER_SIGN_COOLDOWN_MS = 350L
     }
 
     private var interpreter: Interpreter? = null
@@ -76,6 +80,8 @@ class PredictionService(private val context: Context) {
     private var inactiveStreak = 0
     private var holdFrames = 0
     private var cumulativeMotion = 0f
+    private var downwardRetractionStreak = 0
+    private var lastValidInferenceTimestampMs = 0L
 
     private var sequenceLength = DEFAULT_SEQUENCE_LENGTH
     private var numFeatures = MotionPreprocessor.RAW_FEATURES
@@ -139,10 +145,24 @@ class PredictionService(private val context: Context) {
     fun processFrame(features: FloatArray, frameCaptureTimestampMs: Long = SystemClock.elapsedRealtime()) {
         if (!isReady) return
 
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastValidInferenceTimestampMs < INTER_SIGN_COOLDOWN_MS) {
+            return
+        }
+
         val hasHands = features.size > RIGHT_FLAG && (features[LEFT_FLAG] > 0f || features[RIGHT_FLAG] > 0f)
+        val spatialGate = if (hasHands) MotionPreprocessor.evaluateSpatialGating(features) else null
+        val isLapResting = spatialGate?.isLapResting == true
 
         if (hasHands) {
             inactiveStreak = 0
+
+            // If hands are resting on the lap and buffer is empty, do not trigger false gesture collection
+            if (isLapResting && frameBuffer.isEmpty()) {
+                onCollecting?.invoke(0f)
+                return
+            }
+
             // Buffer timestamp and raw 173-dimensional features for temporal sequence processing
             frameBuffer.addLast(frameCaptureTimestampMs to features.copyOf(MotionPreprocessor.RAW_FEATURES))
             if (frameBuffer.size > 90) frameBuffer.removeFirst()
@@ -167,12 +187,54 @@ class PredictionService(private val context: Context) {
                 holdFrames = 0
             }
 
-            // Fire on terminal hold (hand held still for ~500ms after executing the sign with sufficient motion)
-            // Increased threshold to HOLD_THRESHOLD (18 frames) prevents multi-phase signs like GOOD_MORNING from premature truncation!
-            if (holdFrames >= HOLD_THRESHOLD && frameBuffer.size >= MIN_POSE_FRAMES && cumulativeMotion >= MIN_SEQUENCE_MOTION) {
+            // Detect downward retraction (hands lowering towards rest after a sign)
+            val isRetracting = if (frameBuffer.size >= 2) {
+                val prev = frameBuffer[frameBuffer.size - 2].second
+                val curr = frameBuffer[frameBuffer.size - 1].second
+                val leftDown = curr[LEFT_FLAG] > 0f && prev[LEFT_FLAG] > 0f && MotionPreprocessor.isDownwardRetraction(curr[1], prev[1])
+                val rightDown = curr[RIGHT_FLAG] > 0f && prev[RIGHT_FLAG] > 0f && MotionPreprocessor.isDownwardRetraction(curr[64], prev[64])
+                leftDown || rightDown
+            } else false
+
+            if (isRetracting) {
+                downwardRetractionStreak++
+            } else {
+                downwardRetractionStreak = 0
+            }
+
+            // If hands entered lap resting state after active signing, complete the gesture immediately
+            if (isLapResting && frameBuffer.size >= 16 && cumulativeMotion >= MIN_SEQUENCE_MOTION) {
                 runInference(frameCaptureTimestampMs)
                 frameBuffer.clear()
                 holdFrames = 0
+                downwardRetractionStreak = 0
+                inactiveStreak = 0
+                cumulativeMotion = 0f
+                onCollecting?.invoke(0f)
+                return
+            }
+
+            // If user completed a gesture with sufficient motion and starts downward retraction (epenthesis),
+            // trigger inference on the completed gesture instead of waiting for 16 empty frames
+            if (downwardRetractionStreak >= 4 && frameBuffer.size >= MIN_POSE_FRAMES && cumulativeMotion >= MIN_SEQUENCE_MOTION) {
+                runInference(frameCaptureTimestampMs)
+                frameBuffer.clear()
+                holdFrames = 0
+                downwardRetractionStreak = 0
+                inactiveStreak = 0
+                cumulativeMotion = 0f
+                onCollecting?.invoke(0f)
+                return
+            }
+
+            // Adaptive hold: If significant cumulative motion was executed (>= 0.80f), FAST_HOLD_THRESHOLD (~330ms) is sufficient!
+            // Slower gestures retain the full HOLD_THRESHOLD (18 frames ~600ms) to avoid premature cutoff.
+            val effectiveHoldThreshold = if (cumulativeMotion >= 0.80f) FAST_HOLD_THRESHOLD else HOLD_THRESHOLD
+            if (holdFrames >= effectiveHoldThreshold && frameBuffer.size >= MIN_POSE_FRAMES && cumulativeMotion >= MIN_SEQUENCE_MOTION) {
+                runInference(frameCaptureTimestampMs)
+                frameBuffer.clear()
+                holdFrames = 0
+                downwardRetractionStreak = 0
                 inactiveStreak = 0
                 cumulativeMotion = 0f
                 onCollecting?.invoke(0f)
@@ -181,18 +243,17 @@ class PredictionService(private val context: Context) {
                 runInference(frameCaptureTimestampMs)
                 frameBuffer.clear()
                 holdFrames = 0
+                downwardRetractionStreak = 0
                 inactiveStreak = 0
                 cumulativeMotion = 0f
                 onCollecting?.invoke(0f)
             }
-            // CRITICAL: If hands are still actively moving (motionMag >= 0.05f),
-            // DO NOT INTERRUPT THE SIGN! Let the user finish the full motion.
         } else {
             holdFrames = 0
+            downwardRetractionStreak = 0
             inactiveStreak++
 
             // If a gesture was in progress, buffer empty frames during brief tracking glitches (< NO_HAND_TIMEOUT)
-            // so MotionPreprocessor.fillGapsTimed can interpolate intermediate dropouts instead of dropping temporal sequence!
             if (frameBuffer.isNotEmpty() && inactiveStreak <= NO_HAND_TIMEOUT) {
                 frameBuffer.addLast(frameCaptureTimestampMs to features.copyOf(MotionPreprocessor.RAW_FEATURES))
                 if (frameBuffer.size > 90) frameBuffer.removeFirst()
@@ -201,7 +262,6 @@ class PredictionService(private val context: Context) {
             // Hands were lowered or left the frame: natural end of gesture
             if (inactiveStreak >= NO_HAND_TIMEOUT) {
                 if (frameBuffer.size >= 12 && cumulativeMotion >= 0.35f) {
-                    // Complete sign captured: run inference now!
                     runInference(frameCaptureTimestampMs)
                 }
                 frameBuffer.clear()
@@ -232,6 +292,15 @@ class PredictionService(private val context: Context) {
                     finalFrameTimestampMs = finalFrameTimestampMs
                 )
             )
+            return false
+        }
+
+        // 2b. Spatial Gating: Verify active sequence entered the valid signing space (not pure lap resting)
+        val hasSigningSpaceActivity = activeTimed.any { pair ->
+            MotionPreprocessor.evaluateSpatialGating(pair.second).hasValidSigningHand
+        }
+        if (!hasSigningSpaceActivity) {
+            Log.d(TAG, "Gated sequence: hands remained in resting/lap zone throughout motion")
             return false
         }
 
@@ -277,24 +346,30 @@ class PredictionService(private val context: Context) {
             PredictionAlternative(labels.getOrElse(idx) { "Unknown" }, conf)
         }
 
-        val tier = when {
-            topConf >= 0.75f -> ConfidenceTier.HIGH
-            topConf >= 0.45f -> ConfidenceTier.MODERATE
-            else -> ConfidenceTier.LOW
-        }
-
         val second = candidates.getOrNull(1)
-        val diff = if (second != null) topConf - second.second else 1.0f
+        val margin = if (second != null) topConf - second.second else topConf
+        val normalizedEntropy = MotionPreprocessor.computeNormalizedEntropy(outputBuffer[0])
+
+        val tier = MotionPreprocessor.evaluateConfidenceTier(
+            topConf = topConf,
+            margin = margin,
+            normalizedEntropy = normalizedEntropy
+        )
+
         val pct = (topConf * 100).toInt()
         val topFormatted = topLabel.replace('_', ' ').split(' ').joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
         val uncertaintyReason = when {
-            tier == ConfidenceTier.LOW -> "<b>Gesture confidence low</b> ($pct%). Please repeat the gesture."
-            tier == ConfidenceTier.MODERATE && diff < 0.15f && second != null -> {
+            tier == ConfidenceTier.LOW && topConf < MotionPreprocessor.DEFAULT_MODERATE_CONFIDENCE ->
+                "<b>Gesture confidence low</b> ($pct%). Please repeat the gesture."
+            tier == ConfidenceTier.LOW && margin < MotionPreprocessor.DEFAULT_MIN_MARGIN && second != null -> {
                 val secondRaw = labels.getOrElse(second.first) { "Unknown" }
                 val secondFormatted = secondRaw.replace('_', ' ').split(' ').joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
                 "Uncertain between <b>$topFormatted</b> and <b>$secondFormatted</b> ($pct%). Tap the blinking red words to adjust."
             }
-            tier == ConfidenceTier.MODERATE -> "<b>Moderate confidence</b> ($pct%). Tap the blinking red words to adjust."
+            tier == ConfidenceTier.LOW && normalizedEntropy > MotionPreprocessor.DEFAULT_MAX_ENTROPY ->
+                "<b>Gesture ambiguous</b> (entropy ${(normalizedEntropy * 100).toInt()}%). Please repeat the gesture."
+            tier == ConfidenceTier.MODERATE ->
+                "<b>Moderate confidence</b> ($pct%). Tap the blinking red words to adjust."
             else -> null
         }
 
@@ -305,7 +380,9 @@ class PredictionService(private val context: Context) {
             alternatives = topAlternatives,
             uncertaintyReason = uncertaintyReason,
             tfliteLatencyMs = tfliteDurationMs,
-            finalFrameTimestampMs = finalFrameTimestampMs
+            finalFrameTimestampMs = finalFrameTimestampMs,
+            margin = margin,
+            normalizedEntropy = normalizedEntropy
         )
 
         onDecision?.invoke(decision)
@@ -314,6 +391,7 @@ class PredictionService(private val context: Context) {
             if (onDecision == null) {
                 onResult?.invoke(topLabel)
             }
+            lastValidInferenceTimestampMs = SystemClock.elapsedRealtime()
             return true
         }
         return false
@@ -360,7 +438,9 @@ class PredictionService(private val context: Context) {
         frameBuffer.clear()
         inactiveStreak = 0
         holdFrames = 0
+        downwardRetractionStreak = 0
         cumulativeMotion = 0f
+        lastValidInferenceTimestampMs = 0L
         onCollecting?.invoke(0f)
     }
 
@@ -394,6 +474,8 @@ class PredictionService(private val context: Context) {
         frameBuffer.clear()
         inactiveStreak = 0
         holdFrames = 0
+        downwardRetractionStreak = 0
         cumulativeMotion = 0f
+        lastValidInferenceTimestampMs = 0L
     }
 }

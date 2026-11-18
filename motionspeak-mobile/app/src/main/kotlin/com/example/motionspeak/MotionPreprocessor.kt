@@ -23,6 +23,14 @@ object MotionPreprocessor {
     const val MIN_ACTIVE = 6
     const val MOTION_SCALE = 5.0f
 
+    const val DEFAULT_HIGH_CONFIDENCE = 0.75f
+    const val DEFAULT_MODERATE_CONFIDENCE = 0.45f
+    const val DEFAULT_MIN_MARGIN = 0.15f
+    const val DEFAULT_MAX_ENTROPY = 0.70f
+    const val DEFAULT_LAP_BOUNDARY_Y = 2.0f
+    const val DEFAULT_LATERAL_BOUND_X = 2.2f
+    const val DEFAULT_TOP_BOUND_Y = -1.5f
+
     data class KinematicTrajectory(
         val dominantDirectionX: Float,
         val dominantDirectionY: Float,
@@ -343,5 +351,159 @@ object MotionPreprocessor {
                 }
             }
         }
+    }
+
+    data class SpatialGatingResult(
+        val hasValidSigningHand: Boolean,
+        val isLapResting: Boolean,
+        val leftInSigningSpace: Boolean,
+        val rightInSigningSpace: Boolean,
+        val reason: String? = null
+    )
+
+    /**
+     * Evaluates torso-relative spatial positioning to distinguish intentional signing in the
+     * signing space (head, chest, abdomen) from resting hands on the lap, desk, or out of view.
+     * Preserves abdominal signs (e.g. pregnant, diarrhea) and wide gestures (e.g. ambulance, surgery).
+     */
+    fun evaluateSpatialGating(
+        raw: FloatArray,
+        lapBoundaryY: Float = DEFAULT_LAP_BOUNDARY_Y,
+        lateralBoundX: Float = DEFAULT_LATERAL_BOUND_X,
+        topBoundY: Float = DEFAULT_TOP_BOUND_Y
+    ): SpatialGatingResult {
+        val hasLeft = raw.size > LEFT_FLAG && raw[LEFT_FLAG] > 0f
+        val hasRight = raw.size > RIGHT_FLAG && raw[RIGHT_FLAG] > 0f
+
+        if (!hasLeft && !hasRight) {
+            return SpatialGatingResult(
+                hasValidSigningHand = false,
+                isLapResting = false,
+                leftInSigningSpace = false,
+                rightInSigningSpace = false,
+                reason = "No hands detected"
+            )
+        }
+
+        // Determine hip Y from pose if present (features 126+13*3+1 and 126+14*3+1)
+        val leftHipY = if (raw.size > 126 + 13 * 3 + 1) raw[126 + 13 * 3 + 1] else 0f
+        val rightHipY = if (raw.size > 126 + 14 * 3 + 1) raw[126 + 14 * 3 + 1] else 0f
+        val measuredHipY = if (leftHipY != 0f && rightHipY != 0f) {
+            (leftHipY + rightHipY) * 0.5f
+        } else maxOf(leftHipY, rightHipY)
+
+        // Effective boundary below which hands are in resting lap position
+        val effectiveLapY = if (measuredHipY > 0.5f) {
+            measuredHipY + 0.35f
+        } else {
+            lapBoundaryY
+        }
+
+        var leftValid = false
+        var leftInLap = false
+        if (hasLeft) {
+            val wx = raw[0]
+            val wy = raw[1]
+            leftInLap = wy > effectiveLapY
+            leftValid = wy in topBoundY..effectiveLapY && kotlin.math.abs(wx) <= lateralBoundX
+        }
+
+        var rightValid = false
+        var rightInLap = false
+        if (hasRight) {
+            val wx = raw[63]
+            val wy = raw[64]
+            rightInLap = wy > effectiveLapY
+            rightValid = wy in topBoundY..effectiveLapY && kotlin.math.abs(wx) <= lateralBoundX
+        }
+
+        val isLapResting = (hasLeft || hasRight) &&
+                (!hasLeft || leftInLap) &&
+                (!hasRight || rightInLap)
+
+        val hasSigningHand = leftValid || rightValid
+
+        val reason = when {
+            isLapResting -> "Hands resting in lap (Y > $effectiveLapY)"
+            !hasSigningHand -> "Hands outside signing volume"
+            else -> null
+        }
+
+        return SpatialGatingResult(
+            hasValidSigningHand = hasSigningHand,
+            isLapResting = isLapResting,
+            leftInSigningSpace = leftValid,
+            rightInSigningSpace = rightValid,
+            reason = reason
+        )
+    }
+
+    /**
+     * Normalized Shannon entropy across the prediction vector:
+     * H_norm = -sum(p * ln(p)) / ln(K) in [0.0, 1.0].
+     * High entropy indicates diffuse uncertainty (transitions, out-of-distribution resting movements).
+     */
+    fun computeNormalizedEntropy(probabilities: FloatArray): Float {
+        if (probabilities.isEmpty()) return 1.0f
+        val n = probabilities.size
+        if (n <= 1) return 0.0f
+        val lnN = kotlin.math.ln(n.toDouble())
+        var h = 0.0
+        for (i in 0 until n) {
+            val p = probabilities[i].toDouble()
+            if (p > 1e-12) {
+                h -= p * kotlin.math.ln(p)
+            }
+        }
+        return (h / lnN).toFloat().coerceIn(0f, 1f)
+    }
+
+    /**
+     * Calculates margin between top-1 and top-2 probabilities.
+     */
+    fun computeMargin(probabilities: FloatArray): Float {
+        if (probabilities.size < 2) return probabilities.firstOrNull() ?: 0f
+        var max1 = Float.NEGATIVE_INFINITY
+        var max2 = Float.NEGATIVE_INFINITY
+        for (p in probabilities) {
+            if (p > max1) {
+                max2 = max1
+                max1 = p
+            } else if (p > max2) {
+                max2 = p
+            }
+        }
+        return (max1 - max2).coerceAtLeast(0f)
+    }
+
+    /**
+     * Evaluates confidence tier combining top confidence, margin, and entropy.
+     * Rejects ambiguous transitions (small margin, high entropy) from being accepted as MODERATE.
+     */
+    fun evaluateConfidenceTier(
+        topConf: Float,
+        margin: Float,
+        normalizedEntropy: Float,
+        highThreshold: Float = DEFAULT_HIGH_CONFIDENCE,
+        moderateThreshold: Float = DEFAULT_MODERATE_CONFIDENCE,
+        minMargin: Float = DEFAULT_MIN_MARGIN,
+        maxEntropy: Float = DEFAULT_MAX_ENTROPY
+    ): ConfidenceTier {
+        return when {
+            topConf >= highThreshold -> ConfidenceTier.HIGH
+            topConf >= moderateThreshold && margin >= minMargin && normalizedEntropy <= maxEntropy -> ConfidenceTier.MODERATE
+            else -> ConfidenceTier.LOW
+        }
+    }
+
+    /**
+     * Detects rapid downward retraction motion typical of gesture epenthesis (lowering hands).
+     */
+    fun isDownwardRetraction(
+        currWristY: Float,
+        prevWristY: Float,
+        threshold: Float = 0.06f
+    ): Boolean {
+        return (currWristY - prevWristY) > threshold
     }
 }
