@@ -482,7 +482,7 @@ class SentenceGenerationTest {
             tokens = listOf("consult"),
             tone = SentenceTone.NEUTRAL,
             language = SentenceLanguage.ENGLISH,
-            markers = LinguisticMarkers(isQuestion = true)
+            markers = LinguisticMarkers(isYesNoQuestion = true)
         )
         assertEquals("May I consult a doctor?", result.text)
         assertTrue(result.linguisticMarkers.isQuestion)
@@ -494,7 +494,7 @@ class SentenceGenerationTest {
             tokens = listOf("headache", "fever", "medicines"),
             tone = SentenceTone.NEUTRAL,
             language = SentenceLanguage.ENGLISH,
-            markers = LinguisticMarkers(isQuestion = true)
+            markers = LinguisticMarkers(isYesNoQuestion = true)
         )
         assertTrue("Multi-token sentence with question marker must end with ?", result.text.endsWith("?"))
         assertTrue(result.linguisticMarkers.isQuestion)
@@ -518,7 +518,7 @@ class SentenceGenerationTest {
             tokens = listOf("consult"),
             tone = SentenceTone.NEUTRAL,
             language = SentenceLanguage.FILIPINO,
-            markers = LinguisticMarkers(isQuestion = true)
+            markers = LinguisticMarkers(isYesNoQuestion = true)
         )
         assertEquals("Maaari ba akong kumonsulta sa doktor?", result.text)
         assertTrue(result.linguisticMarkers.isQuestion)
@@ -556,16 +556,170 @@ class SentenceGenerationTest {
             fallbackTokens = listOf("consult"),
             t0CaptureMs = 12345L,
             detectedEmotion = "sad",
-            linguisticMarkers = LinguisticMarkers(isQuestion = true)
+            linguisticMarkers = LinguisticMarkers(isYesNoQuestion = true)
         )
         testScheduler.advanceTimeBy(100)
 
         val result = composedSentence
         assertNotNull(result)
         assertEquals(SentenceTone.CONCERNED, result?.tone)
-        assertTrue(result?.linguisticMarkers?.isQuestion == true)
+        assertTrue(result?.linguisticMarkers?.isYesNoQuestion == true)
+        assertTrue(result?.linguisticMarkers?.isQuestion == true) // alias still works
         assertEquals("May I consult a doctor?", result?.text)
         composer.close()
+    }
+
+    // ── F. New per-side brow classification tests ────────────────────────────
+
+    @Test
+    fun testYesNoQuestionMarkerSingleConceptEnglish() = runTest {
+        val result = synthesizer.compose(
+            tokens = listOf("fever"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH,
+            markers = LinguisticMarkers(isYesNoQuestion = true)
+        )
+        assertEquals("Do I have a fever?", result.text)
+        assertTrue(result.linguisticMarkers.isYesNoQuestion)
+        assertTrue(result.linguisticMarkers.isQuestion) // backward-compat alias
+        assertFalse(result.linguisticMarkers.isExclamation)
+    }
+
+    @Test
+    fun testYesNoQuestionMarkerMultiConceptEnglish() = runTest {
+        val result = synthesizer.compose(
+            tokens = listOf("headache", "fever"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH,
+            markers = LinguisticMarkers(isYesNoQuestion = true)
+        )
+        assertEquals("Do I have a headache and a fever?", result.text)
+        assertTrue(result.linguisticMarkers.isYesNoQuestion)
+    }
+
+    @Test
+    fun testYesNoQuestionAccidentEnglish() = runTest {
+        val result = synthesizer.compose(
+            tokens = listOf("accident"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH,
+            markers = LinguisticMarkers(isYesNoQuestion = true)
+        )
+        assertEquals("Has there been an accident?", result.text)
+        assertTrue(result.linguisticMarkers.isYesNoQuestion)
+    }
+
+    @Test
+    fun testYesNoQuestionMultiConceptFilipino() = runTest {
+        val result = synthesizer.compose(
+            tokens = listOf("headache", "fever"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.FILIPINO,
+            markers = LinguisticMarkers(isYesNoQuestion = true)
+        )
+        assertEquals("Mayroon ba akong sakit ng ulo at lagnat?", result.text)
+        assertTrue(result.linguisticMarkers.isYesNoQuestion)
+    }
+
+    @Test
+    fun testYesNoQuestionAccidentFilipino() = runTest {
+        val result = synthesizer.compose(
+            tokens = listOf("accident"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.FILIPINO,
+            markers = LinguisticMarkers(isYesNoQuestion = true)
+        )
+        assertEquals("May aksidente ba?", result.text)
+        assertTrue(result.linguisticMarkers.isYesNoQuestion)
+    }
+
+    @Test
+    fun testExclamationMarkerSingleConceptEnglish() = runTest {
+        val result = synthesizer.compose(
+            tokens = listOf("fever"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH,
+            markers = LinguisticMarkers(isExclamation = true)
+        )
+        // Both brows raised → exclamation point replaces period
+        assertTrue("Exclamation marker must produce a sentence ending with !", result.text.endsWith("!"))
+        assertFalse(result.text.endsWith("?"))
+        assertTrue(result.linguisticMarkers.isExclamation)
+        assertFalse(result.linguisticMarkers.isYesNoQuestion)
+    }
+
+    @Test
+    fun testExclamationMarkerMultiConceptEnglish() = runTest {
+        val result = synthesizer.compose(
+            tokens = listOf("headache", "fever"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH,
+            markers = LinguisticMarkers(isExclamation = true)
+        )
+        assertTrue("Multi-token exclamation must end with !", result.text.endsWith("!"))
+        assertTrue(result.linguisticMarkers.isExclamation)
+    }
+
+    @Test
+    fun testYesNoQuestionMarkerSingleConceptFilipino() = runTest {
+        val result = synthesizer.compose(
+            tokens = listOf("fever"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.FILIPINO,
+            markers = LinguisticMarkers(isYesNoQuestion = true)
+        )
+        assertTrue("Filipino yes/no question must end with ?", result.text.endsWith("?"))
+        assertTrue(result.linguisticMarkers.isYesNoQuestion)
+    }
+
+    @Test
+    fun testExclamationMarkerSingleConceptFilipino() = runTest {
+        val result = synthesizer.compose(
+            tokens = listOf("fever"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.FILIPINO,
+            markers = LinguisticMarkers(isExclamation = true)
+        )
+        assertTrue("Filipino exclamation must end with !", result.text.endsWith("!"))
+        assertFalse(result.text.endsWith("?"))
+        assertTrue(result.linguisticMarkers.isExclamation)
+    }
+
+    @Test
+    fun testYesNoQuestionAndExclamationAreMutuallyExclusive() {
+        // Verifies the data class enforces the invariant at the model level:
+        // isYesNoQuestion and isExclamation cannot both be true simultaneously
+        // (the classifier sets one or the other, never both).
+        val ynq = LinguisticMarkers(isYesNoQuestion = true)
+        val excl = LinguisticMarkers(isExclamation = true)
+
+        assertTrue(ynq.isYesNoQuestion)
+        assertFalse(ynq.isExclamation)
+
+        assertFalse(excl.isYesNoQuestion)
+        assertTrue(excl.isExclamation)
+    }
+
+    @Test
+    fun testNegationMarkerStillWorksMutuallyExclusive() = runTest {
+        val result = synthesizer.compose(
+            tokens = listOf("fever"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH,
+            markers = LinguisticMarkers(isNegation = true)
+        )
+        assertEquals("I have no fever.", result.text)
+        assertTrue(result.linguisticMarkers.isNegation)
+        assertFalse(result.linguisticMarkers.isYesNoQuestion)
+        assertFalse(result.linguisticMarkers.isExclamation)
+    }
+
+    @Test
+    fun testHasActiveMarkersReflectsAllThreeFlags() {
+        assertFalse(LinguisticMarkers().hasActiveMarkers)
+        assertTrue(LinguisticMarkers(isYesNoQuestion = true).hasActiveMarkers)
+        assertTrue(LinguisticMarkers(isExclamation = true).hasActiveMarkers)
+        assertTrue(LinguisticMarkers(isNegation = true).hasActiveMarkers)
     }
 
     // ── G. Emotion & Tone Synergy Differentiation Tests ─────────────────────────

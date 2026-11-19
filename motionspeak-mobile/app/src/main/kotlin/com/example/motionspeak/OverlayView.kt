@@ -147,14 +147,22 @@ class OverlayView @JvmOverloads constructor(
     // Each face is a flat FloatArray of interleaved x,y (478*2 floats for full mesh).
     private var faceLandmarks: List<FloatArray> = emptyList()
     private var detectedEmotion: String? = null
+    private var detectedMarker: String? = null
     private var srcWidth = 1f
     private var srcHeight = 1f
     private var isMirrored = false
 
-    /** Update detected facial expression label displayed on camera. */
-    fun setDetectedEmotion(emotion: String?) {
-        if (detectedEmotion != emotion) {
-            detectedEmotion = emotion
+    /** Update detected facial expression label and optional linguistic marker displayed on camera. */
+    fun setDetectedEmotion(emotion: String?, marker: String? = null) {
+        val combinedText = when {
+            !emotion.isNullOrEmpty() && !marker.isNullOrEmpty() -> "$emotion • $marker"
+            !emotion.isNullOrEmpty() -> emotion
+            !marker.isNullOrEmpty() -> marker
+            else -> null
+        }
+        if (detectedEmotion != combinedText) {
+            detectedEmotion = combinedText
+            detectedMarker = marker
             invalidate()
         }
     }

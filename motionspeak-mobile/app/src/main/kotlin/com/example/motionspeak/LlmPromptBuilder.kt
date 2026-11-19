@@ -37,8 +37,11 @@ object LlmPromptBuilder {
             append("You are an intelligent, offline sentence generator for Filipino Sign Language (FSL) translation.\n")
             append("Task: Convert ALL recognized gesture words into one natural, grammatically correct, coherent sentence (or two short connected sentences) in $languageName.\n")
             append("Context tone: $toneName.\n")
-            if (markers.isQuestion) {
-                append("Facial Non-Manual Marker: Question / Inquiry (Raised eyebrows detected).\n")
+            if (markers.isYesNoQuestion) {
+                append("Facial Non-Manual Marker: Yes/No Question (single raised eyebrow detected). Structure the sentence as a yes/no question ending with '?'.\n")
+            }
+            if (markers.isExclamation) {
+                append("Facial Non-Manual Marker: Exclamation / Emphasis (both eyebrows raised). Append an exclamation mark ('!') to the generated sentence.\n")
             }
             if (markers.isNegation) {
                 append("Facial Non-Manual Marker: Negation / Denial (Furrowed eyebrows detected).\n")
@@ -64,7 +67,8 @@ object LlmPromptBuilder {
             append("   - If Context tone is 'negative', emphasize discomfort or refusal.\n")
             append("   - If Context tone is 'neutral', use calm declarative structure with periods.\n")
             append("9. FACIAL GRAMMATICAL MARKERS & PUNCTUATION:\n")
-            append("   - When Question Marker is detected (raised eyebrows) or the gesture is an inquiry, structure the sentence as a question and terminate with a question mark (?).\n")
+            append("   - When Yes/No Question Marker is detected (single raised eyebrow), structure the sentence as a yes/no question and terminate with a question mark (?).\n")
+            append("   - When Exclamation Marker is detected (both eyebrows raised), append an exclamation mark (!) to the generated sentence.\n")
             append("   - When Negation Marker is detected (furrowed eyebrows), ensure the sentence reflects negation, denial, or refusal.\n\n")
 
             // Few-shot guidance based on language
@@ -89,6 +93,11 @@ object LlmPromptBuilder {
                 append("Input: hurt, broken bone\n")
                 append("Context tone: concerned\n")
                 append("Sentence: Please help, I am hurt and have a broken bone!\n\n")
+
+                append("Input: headache, fever\n")
+                append("Context tone: neutral\n")
+                append("Facial Non-Manual Marker: Yes/No Question (single raised eyebrow detected). Structure the sentence as a yes/no question ending with '?'.\n")
+                append("Sentence: Do I have a headache and a fever?\n\n")
 
                 append("Input: headache, fever, please, medicines\n")
                 append("Context tone: neutral\n")
@@ -175,6 +184,11 @@ object LlmPromptBuilder {
                 append("Context tone: concerned\n")
                 append("Sentence: Tulungan ninyo ako, nasasaktan ako at may bali sa buto!\n\n")
 
+                append("Input: headache, fever\n")
+                append("Context tone: neutral\n")
+                append("Facial Non-Manual Marker: Yes/No Question (single raised eyebrow detected). Structure the sentence as a yes/no question ending with '?'.\n")
+                append("Sentence: Mayroon ba akong sakit ng ulo at lagnat?\n\n")
+
                 append("Input: headache, fever, please, medicines\n")
                 append("Context tone: neutral\n")
                 append("Sentence: May sakit ako sa ulo at lagnat. Pakiusap, bigyan ako ng gamot.\n\n")
@@ -242,8 +256,11 @@ object LlmPromptBuilder {
 
             append("Input: $inputString\n")
             append("Context tone: $toneName\n")
-            if (markers.isQuestion) {
-                append("Facial Non-Manual Marker: Question / Inquiry (Raised eyebrows detected).\n")
+            if (markers.isYesNoQuestion) {
+                append("Facial Non-Manual Marker: Yes/No Question (single raised eyebrow detected). Structure the sentence as a yes/no question ending with '?'.\n")
+            }
+            if (markers.isExclamation) {
+                append("Facial Non-Manual Marker: Exclamation / Emphasis (both eyebrows raised). Append an exclamation mark ('!') to the generated sentence.\n")
             }
             if (markers.isNegation) {
                 append("Facial Non-Manual Marker: Negation / Denial (Furrowed eyebrows detected).\n")
@@ -300,12 +317,20 @@ object LlmPromptBuilder {
 
         // Ensure proper ending punctuation shaped by linguistic markers and tone synergy
         if (cleaned.isNotEmpty()) {
-            if (markers.isQuestion) {
+            if (markers.isYesNoQuestion) {
                 if (!cleaned.endsWith("?")) {
                     cleaned = if (cleaned.endsWith(".") || cleaned.endsWith("!")) {
                         cleaned.dropLast(1) + "?"
                     } else {
                         "$cleaned?"
+                    }
+                }
+            } else if (markers.isExclamation) {
+                if (!cleaned.endsWith("!") && !cleaned.endsWith("?")) {
+                    cleaned = if (cleaned.endsWith(".")) {
+                        cleaned.dropLast(1) + "!"
+                    } else {
+                        "$cleaned!"
                     }
                 }
             } else if (tone == SentenceTone.CONCERNED && isEmergencyOrUrgent(cleaned)) {

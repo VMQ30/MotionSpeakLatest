@@ -150,6 +150,8 @@ class MainActivity : AppCompatActivity() {
     @Volatile private var latestEmotion: String = "neutral"
     @Volatile private var latestEmotionConfidence: Float = 0.5f
     @Volatile private var latestFacialAffect: String = "[STABLE]"
+    @Volatile private var latchedLinguisticMarkers = LinguisticMarkers()
+    @Volatile private var lastActiveMarkerTimeMs = 0L
     private var overlayShown = true
     private val overlayPostPending = AtomicBoolean(false)
     private var lastShownPct    = -1
@@ -1032,17 +1034,28 @@ class MainActivity : AppCompatActivity() {
             }
             val t0 = composer.latestT0CaptureMs
 
-            val (isQ, isNeg) = emotionClassifier?.latestLinguisticMarkers ?: Pair(false, false)
+            val currentInstant = emotionClassifier?.latestLinguisticMarkers ?: Triple(false, false, false)
+            val instantMarkers = LinguisticMarkers(isYesNoQuestion = currentInstant.first, isExclamation = currentInstant.second, isNegation = currentInstant.third)
+            val effectiveMarkers = when {
+                instantMarkers.hasActiveMarkers -> instantMarkers
+                (System.currentTimeMillis() - lastActiveMarkerTimeMs) < 4000L && latchedLinguisticMarkers.hasActiveMarkers -> latchedLinguisticMarkers
+                else -> LinguisticMarkers()
+            }
+            latchedLinguisticMarkers = LinguisticMarkers()
+            lastActiveMarkerTimeMs = 0L
+
             composer.triggerComposition(
                 fallbackTokens = tokensToCompose,
                 t0CaptureMs = t0,
                 detectedEmotion = latestEmotion,
                 targetPrompt = currentPrompt,
-                linguisticMarkers = LinguisticMarkers(isQuestion = isQ, isNegation = isNeg)
+                linguisticMarkers = effectiveMarkers
             )
         }
 
         binding.btnClearMessage.setOnClickListener {
+            latchedLinguisticMarkers = LinguisticMarkers()
+            lastActiveMarkerTimeMs = 0L
             hideSignNotRecognizedToast()
             dialogueWords.clear()
             signedWords.clear()
@@ -1116,10 +1129,21 @@ class MainActivity : AppCompatActivity() {
                                 val emotionLabel = rawLabel.replaceFirstChar { it.uppercase() }
                                 val tone = ToneMapper.fromEmotion(emotionLabel)
                                 sentenceComposer?.currentTone = SentenceTone.fromToneString(tone)
-                                val (isQ, isNeg) = classifier.latestLinguisticMarkers
-                                sentenceComposer?.currentMarkers = LinguisticMarkers(isQuestion = isQ, isNegation = isNeg)
+                                val (isYNQ, isExcl, isNeg) = classifier.latestLinguisticMarkers
+                                val markers = LinguisticMarkers(isYesNoQuestion = isYNQ, isExclamation = isExcl, isNegation = isNeg)
+                                sentenceComposer?.currentMarkers = markers
+                                if (markers.hasActiveMarkers) {
+                                    latchedLinguisticMarkers = markers
+                                    lastActiveMarkerTimeMs = System.currentTimeMillis()
+                                }
+                                val markerBadge = when {
+                                    isYNQ -> "[?] Question"
+                                    isExcl -> "[!] Exclamation"
+                                    isNeg -> "[-] Negation"
+                                    else -> null
+                                }
                                 runOnUiThread {
-                                    binding.overlayView.setDetectedEmotion(emotionLabel)
+                                    binding.overlayView.setDetectedEmotion(emotionLabel, markerBadge)
                                 }
                             } else {
                                 latestEmotion = "neutral"
@@ -1518,13 +1542,22 @@ class MainActivity : AppCompatActivity() {
             val prompt = TestModeManager.FULL_SENTENCE_PROMPTS.getOrNull(TestModeManager.sentenceIndex)
             val tokens = if (signedWords.isNotEmpty()) signedWords.toList() else prompt?.glosses ?: listOf("HELLO")
             val t0 = sentenceComposer?.latestT0CaptureMs ?: 0L
-            val (isQ, isNeg) = emotionClassifier?.latestLinguisticMarkers ?: Pair(false, false)
+            val currentInstant = emotionClassifier?.latestLinguisticMarkers ?: Triple(false, false, false)
+            val instantMarkers = LinguisticMarkers(isYesNoQuestion = currentInstant.first, isExclamation = currentInstant.second, isNegation = currentInstant.third)
+            val effectiveMarkers = when {
+                instantMarkers.hasActiveMarkers -> instantMarkers
+                (System.currentTimeMillis() - lastActiveMarkerTimeMs) < 4000L && latchedLinguisticMarkers.hasActiveMarkers -> latchedLinguisticMarkers
+                else -> LinguisticMarkers()
+            }
+            latchedLinguisticMarkers = LinguisticMarkers()
+            lastActiveMarkerTimeMs = 0L
+
             sentenceComposer?.triggerComposition(
                 fallbackTokens = tokens,
                 t0CaptureMs = t0,
                 detectedEmotion = latestEmotion,
                 targetPrompt = prompt,
-                linguisticMarkers = LinguisticMarkers(isQuestion = isQ, isNegation = isNeg)
+                linguisticMarkers = effectiveMarkers
             )
             Haptics.confirm(it)
         }

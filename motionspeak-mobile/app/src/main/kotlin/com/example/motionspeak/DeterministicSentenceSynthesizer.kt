@@ -348,11 +348,13 @@ class DeterministicSentenceSynthesizer(
         }
 
         var combined = sentences.joinToString(" ")
-        if (markers.isQuestion && !combined.endsWith("?")) {
-            combined = if (combined.endsWith(".") || combined.endsWith("!")) {
-                combined.dropLast(1) + "?"
+        if (markers.isYesNoQuestion) {
+            combined = formatYesNoQuestionEnglish(combined)
+        } else if (markers.isExclamation && !combined.endsWith("!") && !combined.endsWith("?")) {
+            combined = if (combined.endsWith(".")) {
+                combined.dropLast(1) + "!"
             } else {
-                "$combined?"
+                "$combined!"
             }
         } else if (tone == SentenceTone.CONCERNED && isEmergencyOrUrgentEnglish(combined)) {
             if (combined.endsWith(".")) {
@@ -628,11 +630,13 @@ class DeterministicSentenceSynthesizer(
         }
 
         var combined = sentences.joinToString(" ")
-        if (markers.isQuestion && !combined.endsWith("?")) {
-            combined = if (combined.endsWith(".") || combined.endsWith("!")) {
-                combined.dropLast(1) + "?"
+        if (markers.isYesNoQuestion) {
+            combined = formatYesNoQuestionFilipino(combined)
+        } else if (markers.isExclamation && !combined.endsWith("!") && !combined.endsWith("?")) {
+            combined = if (combined.endsWith(".")) {
+                combined.dropLast(1) + "!"
             } else {
-                "$combined?"
+                "$combined!"
             }
         } else if (tone == SentenceTone.CONCERNED && isEmergencyOrUrgentFilipino(combined)) {
             if (combined.endsWith(".")) {
@@ -687,7 +691,7 @@ class DeterministicSentenceSynthesizer(
     ): String {
         val lower = token.lowercase(Locale.ENGLISH).trim().replace('_', ' ')
         return when {
-            markers.isQuestion -> {
+            markers.isYesNoQuestion -> {
                 when {
                     isQuestionPhrase(lower) -> ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "?")
                     lower == "consult" -> "May I consult a doctor?"
@@ -702,8 +706,28 @@ class DeterministicSentenceSynthesizer(
                     lower == "sick" -> "Am I sick?"
                     lower == "hurt" -> "Am I hurt?"
                     lower == "pregnant" -> "Am I pregnant?"
+                    lower == "giving birth" -> "Am I giving birth?"
+                    lower == "dizziness" -> "Do I feel dizzy?"
+                    lower == "accident" -> "Has there been an accident?"
+                    lower == "emergency" -> "Is this an emergency?"
+                    lower == "ambulance" -> "Should we call an ambulance?"
+                    lower == "heart attack" -> "Is someone having a heart attack?"
+                    lower == "breathing" -> "Am I having difficulty breathing?"
+                    lower == "thermometer" -> "Do I need a thermometer?"
+                    lower == "compression" -> "Do I need compression?"
+                    lower == "circumcision" -> "Do I need a circumcision consultation?"
+                    lower == "abortion" -> "Do I need an abortion consultation?"
+                    lower == "understand" -> "Do you understand?"
+                    lower == "i don't understand" -> "Do you understand?"
+                    lower == "hello" || lower == "hi" -> "Hello, how are you?"
+                    lower == "yes" -> "Is that a yes?"
+                    lower == "no" -> "Is that a no?"
+                    lower == "maybe" -> "Is it maybe?"
+                    lower == "please" -> "Could you please help?"
+                    lower == "thank you" -> "Thank you, could you help me?"
                     isSymptomWordEnglish(lower) -> "Do I have ${formatSymptomItemEnglish(lower)}?"
-                    else -> ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "?")
+                    isNeedWordEnglish(lower) -> "Do I need ${formatNeedItemEnglish(lower)}?"
+                    else -> "Do I have ${token.lowercase(Locale.ENGLISH)}?"
                 }
             }
             markers.isNegation -> {
@@ -717,6 +741,11 @@ class DeterministicSentenceSynthesizer(
                     lower == "yes" -> "No."
                     else -> "I do not have $lower."
                 }
+            }
+            markers.isExclamation -> {
+                // Both brows raised → emphasize the concept with an exclamation mark.
+                val base = formatSingleConceptEnglish(token, tone, LinguisticMarkers())
+                if (base.endsWith(".")) base.dropLast(1) + "!" else base
             }
             isQuestionPhrase(lower) -> ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "?")
             lower == "hello" || lower == "hi" -> if (tone == SentenceTone.POSITIVE) "Hello!" else "Hello."
@@ -764,7 +793,7 @@ class DeterministicSentenceSynthesizer(
     ): String {
         val lower = token.lowercase(Locale.ROOT).trim().replace('_', ' ')
         return when {
-            markers.isQuestion -> {
+            markers.isYesNoQuestion -> {
                 when {
                     isQuestionPhraseFilipino(lower) -> ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "?")
                     lower.contains("konsulta") -> "Maaari ba akong kumonsulta sa doktor?"
@@ -774,9 +803,30 @@ class DeterministicSentenceSynthesizer(
                     lower.contains("iniksyon") -> "Kailangan ko ba ng iniksyon?"
                     lower.contains("operasyon") || lower.contains("surgery") -> "Kailangan ko ba ng operasyon?"
                     lower.contains("may sakit") -> "May sakit ba ako?"
+                    lower.contains("nasasaktan") || lower == "masakit" -> "Nasasaktan ba ako?"
                     lower.contains("buntis") -> "Buntis ba ako?"
+                    lower.contains("panganganak") -> "Manganganak na ba ako?"
+                    lower.contains("nahihilo") || lower.contains("pagkahilo") -> "Nahihilo ba ako?"
+                    lower.contains("aksidente") -> "May aksidente ba?"
+                    lower.contains("emerhensya") -> "Emerhensya ba ito?"
+                    lower.contains("ambulansya") -> "Kailangan ba ng ambulansya?"
+                    lower.contains("atake sa puso") -> "May inaatake ba sa puso?"
+                    lower.contains("paghinga") -> "Nahihirapan ba akong huminga?"
+                    lower.contains("termometro") -> "Kailangan ko ba ng termometro?"
+                    lower.contains("swero") || lower.contains("iv") -> "Kailangan ko ba ng swero?"
+                    lower.contains("kompression") -> "Kailangan ko ba ng kompression?"
+                    lower.contains("tuli") -> "Kailangan ko ba ng tuli?"
+                    lower.contains("pagpapalaglag") -> "Kailangan ko ba ng pagpapalaglag?"
+                    lower.contains("pagsusuri") || lower.contains("laboratoryo") -> "Kailangan ko ba ng pagsusuri sa laboratoryo?"
+                    lower.contains("ospital") || lower.contains("naospital") -> "Kailangan ko bang maospital?"
+                    lower.contains("naiintindihan") -> "Naiintindihan mo ba?"
+                    lower.contains("salamat") -> "Salamat, maaari mo ba akong tulungan?"
+                    lower.contains("pakiusap") -> "Pakiusap, maaari mo ba akong tulungan?"
+                    lower == "oo" -> "Oo ba?"
+                    lower == "hindi" -> "Hindi ba?"
                     isSymptomWordFilipino(lower) -> "Mayroon ba akong ${formatFilipinoSymptomItem(lower)}?"
-                    else -> ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "?")
+                    isNeedWordFilipino(lower) -> "Kailangan ko ba ng ${formatNeedItemFilipino(lower)}?"
+                    else -> "Mayroon ba akong $lower?"
                 }
             }
             markers.isNegation -> {
@@ -789,6 +839,11 @@ class DeterministicSentenceSynthesizer(
                     lower == "oo" -> "Hindi."
                     else -> "Wala akong $lower."
                 }
+            }
+            markers.isExclamation -> {
+                // Both brows raised → emphasize with an exclamation mark.
+                val base = formatSingleConceptFilipino(token, tone, LinguisticMarkers())
+                if (base.endsWith(".")) base.dropLast(1) + "!" else base
             }
             isQuestionPhraseFilipino(lower) -> ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "?")
             lower == "kamusta" || isGreetingPhraseFilipino(lower) -> if (tone == SentenceTone.POSITIVE) ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "!") else ensurePunctuation(token.replaceFirstChar { it.uppercase() }, ".")
@@ -1054,6 +1109,96 @@ class DeterministicSentenceSynthesizer(
         val lower = token.lowercase(Locale.ROOT)
         return lower.startsWith("magandang umaga") || lower.startsWith("magandang hapon") ||
                 lower.startsWith("magandang gabi") || lower == "kamusta"
+    }
+
+    private fun formatYesNoQuestionEnglish(statement: String): String {
+        val trimmed = statement.trim()
+        if (isQuestionPhrase(trimmed) || trimmed.endsWith("?")) {
+            return ensurePunctuation(trimmed, "?")
+        }
+        val clean = trimmed.removeSuffix(".").removeSuffix("!").removeSuffix("?").trim()
+        val transformed = when {
+            clean.startsWith("I have no ", ignoreCase = true) ->
+                "Do I have no " + clean.substring(10)
+            clean.startsWith("I have ", ignoreCase = true) ->
+                "Do I have " + clean.substring(7)
+            clean.startsWith("I am ", ignoreCase = true) ->
+                "Am I " + clean.substring(5)
+            clean.startsWith("There has been an accident, please call an ambulance", ignoreCase = true) ->
+                "Has there been an accident? Should we call an ambulance?"
+            clean.startsWith("There has been ", ignoreCase = true) ->
+                "Has there been " + clean.substring(15)
+            clean.startsWith("There is ", ignoreCase = true) ->
+                "Is there " + clean.substring(9)
+            clean.startsWith("This is an emergency, please call an ambulance", ignoreCase = true) ->
+                "Is this an emergency? Should we call an ambulance?"
+            clean.startsWith("This is ", ignoreCase = true) ->
+                "Is this " + clean.substring(8)
+            clean.startsWith("Someone is ", ignoreCase = true) ->
+                "Is someone " + clean.substring(11)
+            clean.startsWith("Please help! ", ignoreCase = true) ->
+                formatYesNoQuestionEnglish(clean.substring(13))
+            clean.startsWith("Please, I want to ", ignoreCase = true) ->
+                "May I please " + clean.substring(18)
+            clean.startsWith("Please, I want ", ignoreCase = true) ->
+                "May I please " + clean.substring(15)
+            clean.startsWith("I want to ", ignoreCase = true) ->
+                "May I " + clean.substring(10)
+            clean.startsWith("I need to ", ignoreCase = true) ->
+                "Do I need to " + clean.substring(10)
+            clean.startsWith("I need ", ignoreCase = true) ->
+                "Do I need " + clean.substring(7)
+            clean.startsWith("Please call ", ignoreCase = true) ->
+                "Should we call " + clean.substring(12)
+            clean.startsWith("Please give me ", ignoreCase = true) ->
+                "Can I have " + clean.substring(15)
+            clean.startsWith("I do not ", ignoreCase = true) ->
+                "Do I not " + clean.substring(9)
+            else -> clean
+        }
+        return if (!transformed.endsWith("?")) "$transformed?" else transformed
+    }
+
+    private fun formatYesNoQuestionFilipino(statement: String): String {
+        val trimmed = statement.trim()
+        if (isQuestionPhraseFilipino(trimmed) || trimmed.endsWith("?")) {
+            return ensurePunctuation(trimmed, "?")
+        }
+        val clean = trimmed.removeSuffix(".").removeSuffix("!").removeSuffix("?").trim()
+        val transformed = when {
+            clean.startsWith("Mayroon akong ", ignoreCase = true) ->
+                "Mayroon ba akong " + clean.substring(14)
+            clean.startsWith("May inaatake sa puso", ignoreCase = true) ->
+                "May inaatake ba sa puso? Tumawag ba ng ambulansya?"
+            clean.startsWith("May aksidente", ignoreCase = true) ->
+                "May aksidente ba" + clean.substring(13).replace("tumawag ng ambulansya", "kailangan ba ng ambulansya")
+            clean.startsWith("Emerhensya ito", ignoreCase = true) ->
+                "Emerhensya ba ito" + clean.substring(14).replace("tumawag ng ambulansya", "kailangan ba ng ambulansya")
+            clean.startsWith("Saklolo! ", ignoreCase = true) ->
+                formatYesNoQuestionFilipino(clean.substring(9))
+            clean.startsWith("Nahihirapan akong huminga", ignoreCase = true) ->
+                "Nahihirapan ba akong huminga" + clean.substring(25)
+            clean.startsWith("Wala akong ", ignoreCase = true) ->
+                "Wala ba akong " + clean.substring(11)
+            clean.startsWith("Kailangan ko ng ", ignoreCase = true) ->
+                "Kailangan ko ba ng " + clean.substring(16)
+            clean.startsWith("Kailangang maospital", ignoreCase = true) ->
+                "Kailangan ko bang maospital" + clean.substring(20)
+            clean.startsWith("Kailangan kong maospital", ignoreCase = true) ->
+                "Kailangan ko bang maospital" + clean.substring(24)
+            clean.startsWith("Nais kong kumonsulta", ignoreCase = true) ->
+                "Maaari ba akong kumonsulta" + clean.substring(20)
+            clean.startsWith("Pakiusap, nais kong kumonsulta", ignoreCase = true) ->
+                "Pakiusap, maaari ba akong kumonsulta" + clean.substring(30)
+            clean.startsWith("Pakiusap bigyan ako ng ", ignoreCase = true) ->
+                "Maaari ba akong humingi ng " + clean.substring(23)
+            clean.startsWith("Pakiusap tumawag ng ", ignoreCase = true) ->
+                "Kailangan bang tumawag ng " + clean.substring(20)
+            clean.contains(" ako", ignoreCase = true) && !clean.contains(" ba", ignoreCase = true) ->
+                clean.replaceFirst(" ako", " ba ako")
+            else -> clean
+        }
+        return if (!transformed.endsWith("?")) "$transformed?" else transformed
     }
 
     private fun normalizeLabelKey(label: String): String {

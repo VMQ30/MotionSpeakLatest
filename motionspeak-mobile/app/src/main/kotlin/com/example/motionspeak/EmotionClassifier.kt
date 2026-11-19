@@ -17,7 +17,8 @@ import java.nio.channels.FileChannel
 data class FacialAnalysisResult(
     val affectiveEmotion: String,
     val affectiveConfidence: Float,
-    val isQuestionMarker: Boolean,
+    val isYesNoQuestionMarker: Boolean,
+    val isExclamationMarker: Boolean,
     val isNegationMarker: Boolean
 )
 
@@ -34,8 +35,11 @@ class EmotionClassifier(private val context: Context) {
     @Volatile var lastFaceLandmarks: List<FloatArray> = emptyList()
         private set
 
-    /** Latest grammatical non-manual markers: (isQuestionMarker, isNegationMarker). */
-    @Volatile var latestLinguisticMarkers: Pair<Boolean, Boolean> = Pair(false, false)
+    /**
+     * Latest grammatical non-manual markers derived from per-side brow geometry.
+     * Triple: (isYesNoQuestion, isExclamation, isNegation)
+     */
+    @Volatile var latestLinguisticMarkers: Triple<Boolean, Boolean, Boolean> = Triple(false, false, false)
         private set
 
 
@@ -82,7 +86,7 @@ class EmotionClassifier(private val context: Context) {
     fun predictTone(bitmap: Bitmap): Pair<String, Float>? {
         if (!AppSettings.getInstance(context).isFacialAnalysisEnabled) {
             lastFaceLandmarks = emptyList()
-            latestLinguisticMarkers = Pair(false, false)
+            latestLinguisticMarkers = Triple(false, false, false)
             return null
         }
         val fl = faceLandmarker ?: return null
@@ -121,20 +125,31 @@ class EmotionClassifier(private val context: Context) {
             minY = (minY - h * 0.15f).coerceAtLeast(0f)
             maxY = (maxY + h * 0.15f).coerceAtMost(1f)
 
-            // Calculate grammatical non-manual markers from facial geometry
-            // Brows: landmark 70 (left), 300 (right); Upper eyelids: 159 (left), 386 (right)
-            var isQuestion = false
-            var isNegation = false
+            // Calculate grammatical non-manual markers from independent per-side brow geometry.
+            // Left brow : landmark 70 (brow) → landmark 159 (upper eyelid)
+            // Right brow: landmark 300 (brow) → landmark 386 (upper eyelid)
+            // Each distance is normalized by face height so the thresholds are scale-invariant.
+            //   > 0.085 → raised brow on that side
+            //   < 0.045 → furrowed brow on that side
+            var isYesNoQuestion = false   // only one brow raised
+            var isExclamation   = false   // both brows raised
+            var isNegation      = false   // both brows furrowed (< 0.045)
             if (face.size >= 400) {
-                val dyLeft = kotlin.math.abs(face[159].y() - face[70].y())
-                val dyRight = kotlin.math.abs(face[386].y() - face[300].y())
-                val avgBrowDist = (dyLeft + dyRight) / 2f
                 val faceH = (maxY - minY).coerceAtLeast(0.01f)
-                val normBrow = avgBrowDist / faceH
-                isQuestion = normBrow > 0.085f
-                isNegation = normBrow < 0.045f
+                val normLeft  = kotlin.math.abs(face[159].y() - face[70].y())  / faceH
+                val normRight = kotlin.math.abs(face[386].y() - face[300].y()) / faceH
+                val leftRaised  = normLeft  > 0.065f
+                val rightRaised = normRight > 0.065f
+                val leftFurrowed  = normLeft  < 0.050f
+                val rightFurrowed = normRight < 0.050f
+                when {
+                    leftRaised && rightRaised         -> isExclamation   = true
+                    leftRaised xor rightRaised        -> isYesNoQuestion = true
+                    leftFurrowed && rightFurrowed     -> isNegation      = true
+                }
+                Log.d("EmotionClassifier", "Brows: L=$normLeft, R=$normRight -> YNQ=$isYesNoQuestion, Excl=$isExclamation, Neg=$isNegation")
             }
-            latestLinguisticMarkers = Pair(isQuestion, isNegation)
+            latestLinguisticMarkers = Triple(isYesNoQuestion, isExclamation, isNegation)
 
             // 2. Crop the bitmap safely within bitmap dimensions
             val left = (minX * bitmap.width).toInt().coerceIn(0, (bitmap.width - 1).coerceAtLeast(0))

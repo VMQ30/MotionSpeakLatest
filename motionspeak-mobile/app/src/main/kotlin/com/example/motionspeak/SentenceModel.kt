@@ -36,12 +36,28 @@ enum class SentenceTone(val id: String) {
 
 /**
  * Non-manual grammatical markers identified from facial geometry.
+ *
+ * Brow classification rules (each side normalized by face height):
+ *  - [isYesNoQuestion]: Only one brow raised (> 0.085), the other at or below threshold.
+ *    Signals a yes/no question; sentence ends with `?`.
+ *  - [isExclamation]: Both brows raised (> 0.085).
+ *    Signals emphasis/exclamation; sentence ends with `!`.
+ *  - [isNegation]: Both brows furrowed (< 0.045).
+ *    Signals negation/denial; sentence is negated.
+ *
+ * [isYesNoQuestion] and [isExclamation] are mutually exclusive by definition.
+ * Legacy [isQuestion] is kept as a computed alias of [isYesNoQuestion] so that
+ * existing call-sites that have not been migrated yet continue to compile.
  */
 data class LinguisticMarkers(
-    val isQuestion: Boolean = false,
+    val isYesNoQuestion: Boolean = false,
+    val isExclamation: Boolean = false,
     val isNegation: Boolean = false
 ) {
-    val hasActiveMarkers: Boolean get() = isQuestion || isNegation
+    /** Backward-compat alias: a single-brow raise is treated as a yes/no question. */
+    val isQuestion: Boolean get() = isYesNoQuestion
+
+    val hasActiveMarkers: Boolean get() = isYesNoQuestion || isExclamation || isNegation
 }
 
 /**

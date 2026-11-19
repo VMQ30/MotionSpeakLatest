@@ -198,7 +198,8 @@ class SentenceComposer(
                     .replace('_', ' ')
                     .replaceFirstChar { it.uppercase() }
                 val fallbackText = when {
-                    markersSnapshot.isQuestion -> "$rawFallback?"
+                    markersSnapshot.isYesNoQuestion -> "$rawFallback?"
+                    markersSnapshot.isExclamation   -> "$rawFallback!"
                     toneSnapshot == SentenceTone.CONCERNED -> "$rawFallback!"
                     else -> "$rawFallback."
                 }
