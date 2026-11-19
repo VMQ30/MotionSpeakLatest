@@ -12,7 +12,8 @@ object ToneMapper {
             "neutral" -> "neutral"
             "happy" -> "positive"
             "sad", "fear", "surprise" -> "concerned"
-            "angry", "disgust", "contempt" -> "negative"
+            // angry/disgust/contempt in a medical context signals urgency and distress — treat as concerned
+            "angry", "disgust", "contempt" -> "concerned"
             else -> "neutral"
         }
     }

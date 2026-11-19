@@ -68,9 +68,13 @@ interface SentenceSynthesizer {
 
 Three implementations:
 
-1. **`PassThroughSynthesizer`** — deterministic glue: `capitalize(words.joinToString(" "))`.
-   Identical to today's output (minus per-word appending). Always available;
-   default until the LLM is downloaded; explicit fallback on failure paths;
+1. **`DeterministicSentenceSynthesizer`** (formerly PassThrough) — deterministic glue:
+   Produces structured, punctuated, and grammatically consistent sentences in English and Filipino
+   based strictly on recognized labels and word bank definitions. In the deterministic synthesizer,
+   its lexical impact is minimal: When running the deterministic engine (Table 4.16), the tone
+   (CONCERNED, NEUTRAL, POSITIVE, NEGATIVE) primarily affects exclamation marks (! on emergencies)
+   and prompt context for the LLM. It does not rewrite "I have a headache" into "My head is killing me with severe agony".
+   Always available; default until the LLM is downloaded; explicit fallback on failure paths;
    test baseline in unit tests.
 2. **`LlmSynthesizer`** — wraps MediaPipe LLM Inference (`com.google.mediapipe:tasks-genai`)
    with a Gemma 3 1B int4 `.task`. Strict prompt template, temperature 0 so the

@@ -10,6 +10,10 @@ import java.util.Locale
  *
  * Guarantees ZERO WORD LOSS: Every single input gesture label is preserved and woven
  * into a coherent, natural thought.
+ *
+ * In the deterministic synthesizer, its lexical impact is minimal: When running the deterministic engine (Table 4.16),
+ * the tone (CONCERNED, NEUTRAL, POSITIVE, NEGATIVE) primarily affects exclamation marks (! on emergencies) and prompt
+ * context for the LLM. It does not rewrite "I have a headache" into "My head is killing me with severe agony".
  */
 class DeterministicSentenceSynthesizer(
     private val wordBank: List<WordBankWord> = defaultWordBank()
@@ -29,6 +33,13 @@ class DeterministicSentenceSynthesizer(
         tokens: List<String>,
         tone: SentenceTone,
         language: SentenceLanguage
+    ): SentenceResult = compose(tokens, tone, language, LinguisticMarkers())
+
+    override suspend fun compose(
+        tokens: List<String>,
+        tone: SentenceTone,
+        language: SentenceLanguage,
+        markers: LinguisticMarkers
     ): SentenceResult {
         val startNs = android.os.SystemClock.elapsedRealtimeNanos()
         if (tokens.isEmpty()) {
@@ -38,7 +49,8 @@ class DeterministicSentenceSynthesizer(
                 language = language,
                 tone = tone,
                 isLlmGenerated = false,
-                latencyMs = 0L
+                latencyMs = 0L,
+                linguisticMarkers = markers
             )
         }
 
@@ -47,8 +59,8 @@ class DeterministicSentenceSynthesizer(
         }
 
         val text = when (language) {
-            SentenceLanguage.ENGLISH -> composeEnglish(deduplicatedTokens, tone)
-            SentenceLanguage.FILIPINO -> composeFilipino(deduplicatedTokens, tone)
+            SentenceLanguage.ENGLISH -> composeEnglish(deduplicatedTokens, tone, markers)
+            SentenceLanguage.FILIPINO -> composeFilipino(deduplicatedTokens, tone, markers)
         }
         val durationMs = maxOf(1L, (android.os.SystemClock.elapsedRealtimeNanos() - startNs) / 1_000_000)
 
@@ -58,35 +70,22 @@ class DeterministicSentenceSynthesizer(
             language = language,
             tone = tone,
             isLlmGenerated = false,
-            latencyMs = durationMs
+            latencyMs = durationMs,
+            linguisticMarkers = markers
         )
     }
 
-    override suspend fun compose(
+    private fun composeEnglish(
         tokens: List<String>,
         tone: SentenceTone,
-        language: SentenceLanguage,
-        markers: LinguisticMarkers
-    ): SentenceResult {
-        val base = compose(tokens, tone, language)
-        var adjustedText = base.text
-        if (markers.isQuestion && !adjustedText.endsWith("?")) {
-            adjustedText = if (adjustedText.endsWith(".")) {
-                adjustedText.dropLast(1) + "?"
-            } else {
-                "${base.text}?"
-            }
-        }
-        return base.copy(text = adjustedText, linguisticMarkers = markers)
-    }
-
-    private fun composeEnglish(tokens: List<String>, tone: SentenceTone): String {
+        markers: LinguisticMarkers = LinguisticMarkers()
+    ): String {
         val normalized = tokens.map { normalizeEnglishToken(it) }
 
         // Special handling for single question / greeting / negation labels
         if (normalized.size == 1) {
             val single = normalized.first()
-            return formatSingleConceptEnglish(single, tone)
+            return formatSingleConceptEnglish(single, tone, markers)
         }
 
         // Handle 2-token negation patterns like ["no", "allergies"] -> "I have no allergies."
@@ -139,38 +138,58 @@ class DeterministicSentenceSynthesizer(
         }
 
         // C. Emergencies
+        val punct = if (tone == SentenceTone.CONCERNED) "!" else "."
         val heartAttackIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it] == "heart attack" }
         val accidentIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it] == "accident" }
         val emergencyIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it] == "emergency" }
         val ambulanceIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it] == "ambulance" }
+        val earlyStateIndices = rawTokens.indices.filter { isFree(it) && isStateWordEnglish(rawTokens[it]) }
+        val earlySymptomIndices = rawTokens.indices.filter { isFree(it) && isSymptomWordEnglish(rawTokens[it]) }
 
         if (heartAttackIdx != null) {
             use(heartAttackIdx)
             if (emergencyIdx != null) use(emergencyIdx)
             if (ambulanceIdx != null) use(ambulanceIdx)
-            sentences.add("Someone is having a heart attack. This is an emergency, please call an ambulance!")
+            sentences.add("Someone is having a heart attack. This is an emergency, please call an ambulance$punct")
         } else if (accidentIdx != null) {
             use(accidentIdx)
             if (emergencyIdx != null && ambulanceIdx != null) {
                 use(emergencyIdx)
                 use(ambulanceIdx)
-                sentences.add("There has been an accident. This is an emergency, please call an ambulance!")
+                sentences.add("There has been an accident. This is an emergency, please call an ambulance$punct")
             } else if (ambulanceIdx != null) {
                 use(ambulanceIdx)
-                sentences.add("There has been an accident, please call an ambulance!")
+                sentences.add("There has been an accident, please call an ambulance$punct")
             } else if (emergencyIdx != null) {
                 use(emergencyIdx)
-                sentences.add("There has been an accident. This is an emergency!")
+                sentences.add("There has been an accident. This is an emergency$punct")
+            } else if (tone == SentenceTone.CONCERNED && (earlyStateIndices.isNotEmpty() || earlySymptomIndices.isNotEmpty())) {
+                // Dynamic urgency restructuring: merge emergency with distress into an urgent appeal
+                val states = earlyStateIndices.map { rawTokens[it] }
+                val symptoms = earlySymptomIndices.map { rawTokens[it] }
+                earlyStateIndices.forEach { use(it) }
+                earlySymptomIndices.forEach { use(it) }
+                if (states.isNotEmpty() && symptoms.isNotEmpty()) {
+                    val statePart = formatStateEnglish(states)
+                    val symptomPart = formatSymptomListEnglish(symptoms)
+                    sentences.add("Please help! There has been an accident, $statePart and have $symptomPart!")
+                } else if (states.isNotEmpty()) {
+                    val statePart = formatStateEnglish(states)
+                    sentences.add("Please help! There has been an accident, $statePart!")
+                } else {
+                    val symptomPart = formatSymptomListEnglish(symptoms)
+                    sentences.add("Please help! There has been an accident, I have $symptomPart!")
+                }
             } else {
-                sentences.add("There has been an accident!")
+                sentences.add("There has been an accident$punct")
             }
         } else if (emergencyIdx != null && ambulanceIdx != null) {
             use(emergencyIdx)
             use(ambulanceIdx)
-            sentences.add("This is an emergency, please call an ambulance!")
+            sentences.add("This is an emergency, please call an ambulance$punct")
         } else if (emergencyIdx != null) {
             use(emergencyIdx)
-            sentences.add("This is an emergency!")
+            sentences.add("This is an emergency$punct")
         }
 
         // D. States & Symptoms
@@ -199,7 +218,7 @@ class DeterministicSentenceSynthesizer(
                 use(hospitalIdx)
                 sentences.add("$statePart and have $symptomPart, and need to be hospitalized.")
             } else {
-                sentences.add("$statePart and have $symptomPart.")
+                sentences.add("$statePart and have $symptomPart$punct")
             }
         } else if (states.isNotEmpty()) {
             val statePart = formatStateEnglish(states)
@@ -213,7 +232,7 @@ class DeterministicSentenceSynthesizer(
                 use(hospitalIdx)
                 sentences.add("$statePart and need to be hospitalized.")
             } else {
-                sentences.add("$statePart.")
+                sentences.add("$statePart$punct")
             }
         } else if (symptoms.isNotEmpty()) {
             val symptomPart = formatSymptomListEnglish(symptoms)
@@ -227,7 +246,7 @@ class DeterministicSentenceSynthesizer(
                 use(hospitalIdx)
                 sentences.add("I have $symptomPart and need to be admitted to the hospital.")
             } else {
-                sentences.add("I have $symptomPart.")
+                sentences.add("I have $symptomPart$punct")
             }
         }
 
@@ -277,7 +296,7 @@ class DeterministicSentenceSynthesizer(
         // H. Ambulance (if still free)
         if (ambulanceIdx != null && isFree(ambulanceIdx)) {
             use(ambulanceIdx)
-            sentences.add("Please call an ambulance!")
+            sentences.add("Please call an ambulance$punct")
         }
 
         // I. Conversational feedback & polite tokens
@@ -328,15 +347,31 @@ class DeterministicSentenceSynthesizer(
             sentences.add(clause)
         }
 
-        return sentences.joinToString(" ")
+        var combined = sentences.joinToString(" ")
+        if (markers.isQuestion && !combined.endsWith("?")) {
+            combined = if (combined.endsWith(".") || combined.endsWith("!")) {
+                combined.dropLast(1) + "?"
+            } else {
+                "$combined?"
+            }
+        } else if (tone == SentenceTone.CONCERNED && isEmergencyOrUrgentEnglish(combined)) {
+            if (combined.endsWith(".")) {
+                combined = combined.dropLast(1) + "!"
+            }
+        }
+        return combined
     }
 
-    private fun composeFilipino(tokens: List<String>, tone: SentenceTone): String {
+    private fun composeFilipino(
+        tokens: List<String>,
+        tone: SentenceTone,
+        markers: LinguisticMarkers = LinguisticMarkers()
+    ): String {
         val normalized = tokens.map { translateTokenToFilipino(it) }
 
         if (normalized.size == 1) {
             val single = normalized.first()
-            return formatSingleConceptFilipino(single, tone)
+            return formatSingleConceptFilipino(single, tone, markers)
         }
 
         // Negation pattern: ["Hindi", "Alerhiya"] -> "Wala akong alerhiya."
@@ -384,38 +419,57 @@ class DeterministicSentenceSynthesizer(
         }
 
         // C. Emergencies
+        val punct = if (tone == SentenceTone.CONCERNED) "!" else "."
         val heartAttackIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it].contains("atake") }
         val accidentIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it].contains("aksidente") }
         val emergencyIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it].contains("emerhensya") }
         val ambulanceIdx = rawTokens.indices.firstOrNull { isFree(it) && rawTokens[it].contains("ambulansya") }
+        val earlyStateIndices = rawTokens.indices.filter { isFree(it) && isStateWordFilipino(rawTokens[it]) }
+        val earlySymptomIndices = rawTokens.indices.filter { isFree(it) && isSymptomWordFilipino(rawTokens[it]) }
 
         if (heartAttackIdx != null) {
             use(heartAttackIdx)
             if (emergencyIdx != null) use(emergencyIdx)
             if (ambulanceIdx != null) use(ambulanceIdx)
-            sentences.add("May inaatake sa puso, tumawag agad ng ambulansya!")
+            sentences.add("May inaatake sa puso, tumawag agad ng ambulansya$punct")
         } else if (accidentIdx != null) {
             use(accidentIdx)
             if (emergencyIdx != null && ambulanceIdx != null) {
                 use(emergencyIdx)
                 use(ambulanceIdx)
-                sentences.add("May aksidente. Emerhensya ito, tumawag ng ambulansya!")
+                sentences.add("May aksidente. Emerhensya ito, tumawag ng ambulansya$punct")
             } else if (ambulanceIdx != null) {
                 use(ambulanceIdx)
-                sentences.add("May aksidente, pakiusap tumawag ng ambulansya!")
+                sentences.add("May aksidente, pakiusap tumawag ng ambulansya$punct")
             } else if (emergencyIdx != null) {
                 use(emergencyIdx)
-                sentences.add("May aksidente. Emerhensya ito!")
+                sentences.add("May aksidente. Emerhensya ito$punct")
+            } else if (tone == SentenceTone.CONCERNED && (earlyStateIndices.isNotEmpty() || earlySymptomIndices.isNotEmpty())) {
+                val states = earlyStateIndices.map { rawTokens[it] }
+                val symptoms = earlySymptomIndices.map { rawTokens[it] }
+                earlyStateIndices.forEach { use(it) }
+                earlySymptomIndices.forEach { use(it) }
+                if (states.isNotEmpty() && symptoms.isNotEmpty()) {
+                    val statePart = formatStateFilipino(states)
+                    val symptomPart = formatSymptomListFilipino(symptoms)
+                    sentences.add("Saklolo! May aksidente, $statePart at may $symptomPart!")
+                } else if (states.isNotEmpty()) {
+                    val statePart = formatStateFilipino(states)
+                    sentences.add("Saklolo! May aksidente, $statePart!")
+                } else {
+                    val symptomPart = formatSymptomListFilipino(symptoms)
+                    sentences.add("Saklolo! May aksidente, mayroon akong $symptomPart!")
+                }
             } else {
-                sentences.add("May aksidente!")
+                sentences.add("May aksidente$punct")
             }
         } else if (emergencyIdx != null && ambulanceIdx != null) {
             use(emergencyIdx)
             use(ambulanceIdx)
-            sentences.add("Emerhensya ito, tumawag ng ambulansya!")
+            sentences.add("Emerhensya ito, tumawag ng ambulansya$punct")
         } else if (emergencyIdx != null) {
             use(emergencyIdx)
-            sentences.add("Emerhensya ito!")
+            sentences.add("Emerhensya ito$punct")
         }
 
         // D. States & Symptoms
@@ -444,7 +498,7 @@ class DeterministicSentenceSynthesizer(
                 use(hospitalIdx)
                 sentences.add("$statePart at may $symptomPart, at kailangang maospital.")
             } else {
-                sentences.add("$statePart at may $symptomPart.")
+                sentences.add("$statePart at may $symptomPart$punct")
             }
         } else if (states.isNotEmpty()) {
             val statePart = formatStateFilipino(states).replaceFirstChar { it.uppercase() }
@@ -458,7 +512,7 @@ class DeterministicSentenceSynthesizer(
                 use(hospitalIdx)
                 sentences.add("$statePart at kailangang maospital.")
             } else {
-                sentences.add("$statePart.")
+                sentences.add("$statePart$punct")
             }
         } else if (symptoms.isNotEmpty()) {
             val symptomPart = formatSymptomListFilipino(symptoms)
@@ -472,7 +526,7 @@ class DeterministicSentenceSynthesizer(
                 use(hospitalIdx)
                 sentences.add("May $symptomPart ako at kailangang maospital.")
             } else {
-                sentences.add("Mayroon akong $symptomPart.")
+                sentences.add("Mayroon akong $symptomPart$punct")
             }
         }
 
@@ -522,7 +576,7 @@ class DeterministicSentenceSynthesizer(
         // H. Ambulance (if still free)
         if (ambulanceIdx != null && isFree(ambulanceIdx)) {
             use(ambulanceIdx)
-            sentences.add("Pakiusap tumawag ng ambulansya!")
+            sentences.add("Pakiusap tumawag ng ambulansya$punct")
         }
 
         // I. Conversational feedback & polite tokens
@@ -573,7 +627,19 @@ class DeterministicSentenceSynthesizer(
             sentences.add(clause)
         }
 
-        return sentences.joinToString(" ")
+        var combined = sentences.joinToString(" ")
+        if (markers.isQuestion && !combined.endsWith("?")) {
+            combined = if (combined.endsWith(".") || combined.endsWith("!")) {
+                combined.dropLast(1) + "?"
+            } else {
+                "$combined?"
+            }
+        } else if (tone == SentenceTone.CONCERNED && isEmergencyOrUrgentFilipino(combined)) {
+            if (combined.endsWith(".")) {
+                combined = combined.dropLast(1) + "!"
+            }
+        }
+        return combined
     }
 
     private fun normalizeEnglishToken(raw: String): String {
@@ -614,11 +680,47 @@ class DeterministicSentenceSynthesizer(
         }
     }
 
-    private fun formatSingleConceptEnglish(token: String, tone: SentenceTone): String {
+    private fun formatSingleConceptEnglish(
+        token: String,
+        tone: SentenceTone,
+        markers: LinguisticMarkers = LinguisticMarkers()
+    ): String {
         val lower = token.lowercase(Locale.ENGLISH).trim().replace('_', ' ')
         return when {
+            markers.isQuestion -> {
+                when {
+                    isQuestionPhrase(lower) -> ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "?")
+                    lower == "consult" -> "May I consult a doctor?"
+                    lower == "medicines" || lower == "medicine" -> "Can I have medicine?"
+                    lower == "prescription" -> "Can I get my prescription?"
+                    lower == "xray" || lower == "x-ray" -> "Do I need an X-ray?"
+                    lower == "laboratory" -> "Do I need laboratory tests?"
+                    lower == "injection" -> "Do I need an injection?"
+                    lower == "iv" -> "Do I need an IV?"
+                    lower == "surgery" -> "Do I need surgery?"
+                    lower == "hospitalized" -> "Do I need to be admitted to the hospital?"
+                    lower == "sick" -> "Am I sick?"
+                    lower == "hurt" -> "Am I hurt?"
+                    lower == "pregnant" -> "Am I pregnant?"
+                    isSymptomWordEnglish(lower) -> "Do I have ${formatSymptomItemEnglish(lower)}?"
+                    else -> ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "?")
+                }
+            }
+            markers.isNegation -> {
+                when {
+                    isSymptomWordEnglish(lower) -> "I have no $lower."
+                    lower == "sick" -> "I am not sick."
+                    lower == "hurt" -> "I am not hurt."
+                    lower == "pregnant" -> "I am not pregnant."
+                    lower == "giving birth" -> "I am not giving birth."
+                    lower == "understand" -> "I do not understand."
+                    lower == "yes" -> "No."
+                    else -> "I do not have $lower."
+                }
+            }
             isQuestionPhrase(lower) -> ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "?")
-            isGreetingPhrase(lower) -> ensurePunctuation(token.replaceFirstChar { it.uppercase() }, ".")
+            lower == "hello" || lower == "hi" -> if (tone == SentenceTone.POSITIVE) "Hello!" else "Hello."
+            isGreetingPhrase(lower) -> if (tone == SentenceTone.POSITIVE) ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "!") else ensurePunctuation(token.replaceFirstChar { it.uppercase() }, ".")
             lower == "i don't understand" -> "I do not understand."
             lower == "thank you" -> "Thank you."
             lower == "understand" -> "I understand."
@@ -626,11 +728,11 @@ class DeterministicSentenceSynthesizer(
             lower == "no" -> "No."
             lower == "maybe" -> "Maybe."
             lower == "please" -> "Please."
-            lower == "sick" -> "I am sick."
-            lower == "hurt" -> "I am hurt."
+            lower == "sick" -> if (tone == SentenceTone.CONCERNED) "I am sick!" else "I am sick."
+            lower == "hurt" -> if (tone == SentenceTone.CONCERNED) "I am hurt!" else "I am hurt."
             lower == "pregnant" -> "I am pregnant."
-            lower == "giving birth" -> "I am giving birth."
-            lower == "dizziness" -> "I feel dizzy."
+            lower == "giving birth" -> if (tone == SentenceTone.CONCERNED) "I am giving birth!" else "I am giving birth."
+            lower == "dizziness" -> if (tone == SentenceTone.CONCERNED) "I feel dizzy!" else "I feel dizzy."
             lower == "consult" -> "I want to consult a doctor."
             lower == "medicines" || lower == "medicine" -> "I need medicine."
             lower == "prescription" -> "I need my prescription."
@@ -640,26 +742,56 @@ class DeterministicSentenceSynthesizer(
             lower == "iv" -> "I need an IV."
             lower == "surgery" -> "I need surgery."
             lower == "thermometer" -> "I need a thermometer."
-            lower == "hospitalized" -> "I need to be admitted to the hospital."
+            lower == "hospitalized" -> if (tone == SentenceTone.CONCERNED) "I need to be admitted to the hospital!" else "I need to be admitted to the hospital."
             lower == "compression" -> "I need compression."
             lower == "circumcision" -> "I need a circumcision consultation."
             lower == "abortion" -> "I need an abortion consultation."
-            lower == "accident" -> "There has been an accident!"
-            lower == "emergency" -> "This is an emergency!"
-            lower == "ambulance" -> "Please call an ambulance!"
-            lower == "heart attack" -> "Someone is having a heart attack. This is an emergency, please call an ambulance!"
-            lower == "breathing" -> "I am having difficulty breathing."
-            isSymptomWordEnglish(lower) -> "I have ${formatSymptomItemEnglish(lower)}."
-            isEmergencyEventEnglish(lower) && tone == SentenceTone.CONCERNED -> ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "!")
+            lower == "accident" -> if (tone == SentenceTone.CONCERNED) "There has been an accident!" else "There has been an accident."
+            lower == "emergency" -> if (tone == SentenceTone.CONCERNED) "This is an emergency!" else "This is an emergency."
+            lower == "ambulance" -> if (tone == SentenceTone.CONCERNED) "Please call an ambulance!" else "Please call an ambulance."
+            lower == "heart attack" -> if (tone == SentenceTone.CONCERNED) "Someone is having a heart attack. This is an emergency, please call an ambulance!" else "Someone is having a heart attack. This is an emergency, please call an ambulance."
+            lower == "breathing" -> if (tone == SentenceTone.CONCERNED) "I am having difficulty breathing!" else "I am having difficulty breathing."
+            isSymptomWordEnglish(lower) -> if (tone == SentenceTone.CONCERNED) "I have ${formatSymptomItemEnglish(lower)}!" else "I have ${formatSymptomItemEnglish(lower)}."
+            isEmergencyEventEnglish(lower) -> if (tone == SentenceTone.CONCERNED) ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "!") else ensurePunctuation(token.replaceFirstChar { it.uppercase() }, ".")
             else -> ensurePunctuation(token.replaceFirstChar { it.uppercase() }, ".")
         }
     }
 
-    private fun formatSingleConceptFilipino(token: String, tone: SentenceTone): String {
+    private fun formatSingleConceptFilipino(
+        token: String,
+        tone: SentenceTone,
+        markers: LinguisticMarkers = LinguisticMarkers()
+    ): String {
         val lower = token.lowercase(Locale.ROOT).trim().replace('_', ' ')
         return when {
+            markers.isQuestion -> {
+                when {
+                    isQuestionPhraseFilipino(lower) -> ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "?")
+                    lower.contains("konsulta") -> "Maaari ba akong kumonsulta sa doktor?"
+                    lower.contains("gamot") -> "Maaari ba akong humingi ng gamot?"
+                    lower.contains("reseta") -> "Maaari ko bang makuha ang aking reseta?"
+                    lower.contains("x-ray") || lower.contains("xray") -> "Kailangan ko ba ng X-ray?"
+                    lower.contains("iniksyon") -> "Kailangan ko ba ng iniksyon?"
+                    lower.contains("operasyon") || lower.contains("surgery") -> "Kailangan ko ba ng operasyon?"
+                    lower.contains("may sakit") -> "May sakit ba ako?"
+                    lower.contains("buntis") -> "Buntis ba ako?"
+                    isSymptomWordFilipino(lower) -> "Mayroon ba akong ${formatFilipinoSymptomItem(lower)}?"
+                    else -> ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "?")
+                }
+            }
+            markers.isNegation -> {
+                when {
+                    isSymptomWordFilipino(lower) -> "Wala akong ${formatFilipinoSymptomItem(lower)}."
+                    lower.contains("may sakit") -> "Wala akong sakit."
+                    lower.contains("nasasaktan") || lower == "masakit" -> "Hindi ako nasasaktan."
+                    lower.contains("buntis") -> "Hindi ako buntis."
+                    lower.contains("naiintindihan") -> "Hindi ko maintindihan."
+                    lower == "oo" -> "Hindi."
+                    else -> "Wala akong $lower."
+                }
+            }
             isQuestionPhraseFilipino(lower) -> ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "?")
-            isGreetingPhraseFilipino(lower) -> ensurePunctuation(token.replaceFirstChar { it.uppercase() }, ".")
+            lower == "kamusta" || isGreetingPhraseFilipino(lower) -> if (tone == SentenceTone.POSITIVE) ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "!") else ensurePunctuation(token.replaceFirstChar { it.uppercase() }, ".")
             lower.contains("hindi ko maintindihan") -> "Hindi ko maintindihan."
             lower.contains("salamat") -> "Salamat."
             lower.contains("naiintindihan") -> "Naiintindihan ko."
@@ -667,11 +799,11 @@ class DeterministicSentenceSynthesizer(
             lower == "hindi" -> "Hindi."
             lower.contains("baka") || lower.contains("marahil") -> "Baka."
             lower.contains("pakiusap") -> "Pakiusap."
-            lower.contains("may sakit") -> "May sakit ako."
-            lower.contains("nasasaktan") || lower == "masakit" -> "Nasasaktan ako."
+            lower.contains("may sakit") -> if (tone == SentenceTone.CONCERNED) "May sakit ako!" else "May sakit ako."
+            lower.contains("nasasaktan") || lower == "masakit" -> if (tone == SentenceTone.CONCERNED) "Nasasaktan ako!" else "Nasasaktan ako."
             lower.contains("buntis") -> "Buntis ako."
-            lower.contains("panganganak") -> "Manganganak na ako."
-            lower.contains("nahihilo") || lower.contains("pagkahilo") -> "Nahihilo ako."
+            lower.contains("panganganak") -> if (tone == SentenceTone.CONCERNED) "Manganganak na ako!" else "Manganganak na ako."
+            lower.contains("nahihilo") || lower.contains("pagkahilo") -> if (tone == SentenceTone.CONCERNED) "Nahihilo ako!" else "Nahihilo ako."
             lower.contains("konsulta") -> "Nais kong kumonsulta sa doktor."
             lower.contains("gamot") -> "Kailangan ko ng gamot."
             lower.contains("reseta") -> "Kailangan ko ng reseta."
@@ -680,15 +812,31 @@ class DeterministicSentenceSynthesizer(
             lower.contains("swero") || lower.contains("iv") -> "Kailangan ko ng swero."
             lower.contains("operasyon") || lower.contains("surgery") -> "Kailangan ko ng operasyon."
             lower.contains("termometro") -> "Kailangan ko ng termometro."
-            lower.contains("aksidente") -> "May aksidente!"
-            lower.contains("emerhensya") -> "Emerhensya ito!"
-            lower.contains("ambulansya") -> "Pakiusap tumawag ng ambulansya!"
-            lower.contains("atake sa puso") -> "May inaatake sa puso, tumawag agad ng ambulansya!"
-            lower.contains("paghinga") -> "Nahihirapan akong huminga."
-            isSymptomWordFilipino(lower) -> "Mayroon akong ${formatFilipinoSymptomItem(lower)}."
-            isEmergencyEventFilipino(lower) && tone == SentenceTone.CONCERNED -> ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "!")
+            lower.contains("aksidente") -> if (tone == SentenceTone.CONCERNED) "May aksidente!" else "May aksidente."
+            lower.contains("emerhensya") -> if (tone == SentenceTone.CONCERNED) "Emerhensya ito!" else "Emerhensya ito."
+            lower.contains("ambulansya") -> if (tone == SentenceTone.CONCERNED) "Pakiusap tumawag ng ambulansya!" else "Pakiusap tumawag ng ambulansya."
+            lower.contains("atake sa puso") -> if (tone == SentenceTone.CONCERNED) "May inaatake sa puso, tumawag agad ng ambulansya!" else "May inaatake sa puso, tumawag agad ng ambulansya."
+            lower.contains("paghinga") -> if (tone == SentenceTone.CONCERNED) "Nahihirapan akong huminga!" else "Nahihirapan akong huminga."
+            isSymptomWordFilipino(lower) -> if (tone == SentenceTone.CONCERNED) "Mayroon akong ${formatFilipinoSymptomItem(lower)}!" else "Mayroon akong ${formatFilipinoSymptomItem(lower)}."
+            isEmergencyEventFilipino(lower) -> if (tone == SentenceTone.CONCERNED) ensurePunctuation(token.replaceFirstChar { it.uppercase() }, "!") else ensurePunctuation(token.replaceFirstChar { it.uppercase() }, ".")
             else -> ensurePunctuation(token.replaceFirstChar { it.uppercase() }, ".")
         }
+    }
+
+    private fun isEmergencyOrUrgentEnglish(text: String): Boolean {
+        val lower = text.lowercase(Locale.ENGLISH)
+        return listOf(
+            "emergency", "accident", "ambulance", "heart attack", "call 911", "hospitalized",
+            "difficulty breathing", "hurt", "sick", "giving birth", "dizziness", "feeling dizzy", "pain"
+        ).any { lower.contains(it) }
+    }
+
+    private fun isEmergencyOrUrgentFilipino(text: String): Boolean {
+        val lower = text.lowercase(Locale.ROOT)
+        return listOf(
+            "emerhensya", "aksidente", "ambulansya", "saklolo", "tulong", "atake sa puso", "maospital",
+            "ospital", "nahihirapang huminga", "paghinga", "nasasaktan", "masakit", "may sakit", "manganganak", "nahihilo"
+        ).any { lower.contains(it) }
     }
 
     private fun isStateWordEnglish(token: String): Boolean {

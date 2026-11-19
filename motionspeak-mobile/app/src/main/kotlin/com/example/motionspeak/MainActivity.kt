@@ -1032,11 +1032,13 @@ class MainActivity : AppCompatActivity() {
             }
             val t0 = composer.latestT0CaptureMs
 
+            val (isQ, isNeg) = emotionClassifier?.latestLinguisticMarkers ?: Pair(false, false)
             composer.triggerComposition(
                 fallbackTokens = tokensToCompose,
                 t0CaptureMs = t0,
                 detectedEmotion = latestEmotion,
-                targetPrompt = currentPrompt
+                targetPrompt = currentPrompt,
+                linguisticMarkers = LinguisticMarkers(isQuestion = isQ, isNegation = isNeg)
             )
         }
 
@@ -1516,11 +1518,13 @@ class MainActivity : AppCompatActivity() {
             val prompt = TestModeManager.FULL_SENTENCE_PROMPTS.getOrNull(TestModeManager.sentenceIndex)
             val tokens = if (signedWords.isNotEmpty()) signedWords.toList() else prompt?.glosses ?: listOf("HELLO")
             val t0 = sentenceComposer?.latestT0CaptureMs ?: 0L
+            val (isQ, isNeg) = emotionClassifier?.latestLinguisticMarkers ?: Pair(false, false)
             sentenceComposer?.triggerComposition(
                 fallbackTokens = tokens,
                 t0CaptureMs = t0,
                 detectedEmotion = latestEmotion,
-                targetPrompt = prompt
+                targetPrompt = prompt,
+                linguisticMarkers = LinguisticMarkers(isQuestion = isQ, isNegation = isNeg)
             )
             Haptics.confirm(it)
         }

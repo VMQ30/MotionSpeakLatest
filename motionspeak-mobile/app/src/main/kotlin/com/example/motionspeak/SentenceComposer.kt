@@ -135,11 +135,15 @@ class SentenceComposer(
         fallbackTokens: List<String>? = null,
         t0CaptureMs: Long = 0L,
         detectedEmotion: String? = null,
-        targetPrompt: SentencePrompt? = null
+        targetPrompt: SentencePrompt? = null,
+        linguisticMarkers: LinguisticMarkers? = null
     ) {
         val effectiveT0 = if (t0CaptureMs > 0L) t0CaptureMs else latestT0CaptureMs
         if (detectedEmotion != null) {
             currentTone = SentenceTone.fromToneString(ToneMapper.fromEmotion(detectedEmotion))
+        }
+        if (linguisticMarkers != null) {
+            currentMarkers = linguisticMarkers
         }
 
         scope.launch(dispatcher) {
@@ -190,9 +194,14 @@ class SentenceComposer(
                 latestLlmLatencyMs = durationMs.toDouble()
                 TestModeManager.latestLlmMs = durationMs.toDouble()
                 // If anything unexpected occurs, fall back to safe pass-through text
-                val fallbackText = tokensToCompose.joinToString(" ")
+                val rawFallback = tokensToCompose.joinToString(" ")
                     .replace('_', ' ')
-                    .replaceFirstChar { it.uppercase() } + "."
+                    .replaceFirstChar { it.uppercase() }
+                val fallbackText = when {
+                    markersSnapshot.isQuestion -> "$rawFallback?"
+                    toneSnapshot == SentenceTone.CONCERNED -> "$rawFallback!"
+                    else -> "$rawFallback."
+                }
                 val fallbackResult = SentenceResult(
                     text = fallbackText,
                     originalTokens = tokensToCompose,
@@ -200,6 +209,7 @@ class SentenceComposer(
                     tone = toneSnapshot,
                     isLlmGenerated = false,
                     latencyMs = durationMs,
+                    linguisticMarkers = markersSnapshot,
                     t0CaptureMs = effectiveT0,
                     targetPrompt = targetPrompt
                 )

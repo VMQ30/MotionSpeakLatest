@@ -75,15 +75,22 @@ class LlmSynthesizer(
         tokens: List<String>,
         tone: SentenceTone,
         language: SentenceLanguage
+    ): SentenceResult = compose(tokens, tone, language, LinguisticMarkers())
+
+    override suspend fun compose(
+        tokens: List<String>,
+        tone: SentenceTone,
+        language: SentenceLanguage,
+        markers: LinguisticMarkers
     ): SentenceResult = withContext(Dispatchers.Default) {
         if (tokens.isEmpty()) {
-            return@withContext fallbackSynthesizer.compose(tokens, tone, language)
+            return@withContext fallbackSynthesizer.compose(tokens, tone, language, markers)
         }
 
         val inference = llmInference
         if (!isReady || inference == null) {
             Log.w(TAG, "LLM not ready; delegating to deterministic fallback.")
-            return@withContext fallbackSynthesizer.compose(tokens, tone, language)
+            return@withContext fallbackSynthesizer.compose(tokens, tone, language, markers)
         }
 
         // Merge consecutive duplicated words before prompt generation & token validation
@@ -95,17 +102,17 @@ class LlmSynthesizer(
             }
         }
 
-        val prompt = LlmPromptBuilder.buildPrompt(mergedTokens, tone, language)
+        val prompt = LlmPromptBuilder.buildPrompt(mergedTokens, tone, language, markers)
         val startTime = SystemClock.elapsedRealtime()
 
         try {
             val rawOutput = inference.generateResponse(prompt)
             val duration = SystemClock.elapsedRealtime() - startTime
-            val sanitized = LlmPromptBuilder.sanitizeOutput(rawOutput)
+            val sanitized = LlmPromptBuilder.sanitizeOutput(rawOutput, markers, tone)
 
             if (sanitized.isBlank()) {
                 Log.w(TAG, "LLM returned blank output in ${duration}ms; falling back.")
-                return@withContext fallbackSynthesizer.compose(tokens, tone, language)
+                return@withContext fallbackSynthesizer.compose(tokens, tone, language, markers)
             }
 
             // Verify that NO signed tokens were dropped by the LLM
@@ -119,7 +126,8 @@ class LlmSynthesizer(
                     language = language,
                     tone = tone,
                     isLlmGenerated = true,
-                    latencyMs = duration
+                    latencyMs = duration,
+                    linguisticMarkers = markers
                 )
             }
 
@@ -128,15 +136,15 @@ class LlmSynthesizer(
             // If the LLM captured the bulk of the sentence, weave missing tokens into the output;
             // otherwise use fallbackSynthesizer to guarantee 100% token coverage with natural syntax.
             val finalSentence = if (sanitized.length >= 10 && missingTokens.size <= 2 && missingTokens.size < tokens.size) {
-                val recovered = fallbackSynthesizer.compose(missingTokens, tone, language).text
+                val recovered = fallbackSynthesizer.compose(missingTokens, tone, language, markers).text
                 if (recovered.isNotBlank()) {
                     val cleanBase = sanitized.trimEnd('.', '!', '?')
                     "$cleanBase. $recovered"
                 } else {
-                    fallbackSynthesizer.compose(tokens, tone, language).text
+                    fallbackSynthesizer.compose(tokens, tone, language, markers).text
                 }
             } else {
-                fallbackSynthesizer.compose(tokens, tone, language).text
+                fallbackSynthesizer.compose(tokens, tone, language, markers).text
             }
 
             Log.i(TAG, "Synthesized sentence with 100% token preservation in ${duration}ms: \"$finalSentence\"")
@@ -146,11 +154,12 @@ class LlmSynthesizer(
                 language = language,
                 tone = tone,
                 isLlmGenerated = true,
-                latencyMs = duration
+                latencyMs = duration,
+                linguisticMarkers = markers
             )
         } catch (e: Throwable) {
             Log.e(TAG, "Inference error: ${e.message}; falling back to deterministic synthesizer", e)
-            fallbackSynthesizer.compose(tokens, tone, language)
+            fallbackSynthesizer.compose(tokens, tone, language, markers)
         }
     }
 

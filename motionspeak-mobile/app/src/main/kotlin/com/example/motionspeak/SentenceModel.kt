@@ -23,6 +23,11 @@ enum class SentenceTone(val id: String) {
     CONCERNED("concerned"),
     NEGATIVE("negative");
 
+    val isUrgent: Boolean get() = this == CONCERNED
+    val isPositive: Boolean get() = this == POSITIVE
+    val isNegative: Boolean get() = this == NEGATIVE
+    val isNeutral: Boolean get() = this == NEUTRAL
+
     companion object {
         fun fromToneString(tone: String?): SentenceTone =
             values().firstOrNull { it.id.equals(tone, ignoreCase = true) } ?: NEUTRAL
@@ -35,7 +40,9 @@ enum class SentenceTone(val id: String) {
 data class LinguisticMarkers(
     val isQuestion: Boolean = false,
     val isNegation: Boolean = false
-)
+) {
+    val hasActiveMarkers: Boolean get() = isQuestion || isNegation
+}
 
 /**
  * Output of sentence synthesis.

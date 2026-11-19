@@ -58,6 +58,128 @@ class LlmSentenceSynthesisTest {
         assertEquals("Hindi ko maintindihan.", LlmPromptBuilder.sanitizeOutput(raw4))
     }
 
+    @Test
+    fun testPromptBuilderWithEmotionAndMarkers() {
+        val tokens = listOf("consult", "doctor")
+        val markers = LinguisticMarkers(isQuestion = true, isNegation = false)
+        val prompt = LlmPromptBuilder.buildPrompt(tokens, SentenceTone.CONCERNED, SentenceLanguage.ENGLISH, markers)
+
+        assertTrue(prompt.contains("Context tone: concerned."))
+        assertTrue(prompt.contains("Facial Non-Manual Marker: Question / Inquiry (Raised eyebrows detected)."))
+        assertTrue(prompt.contains("EMOTION & TONE SYNERGY:"))
+        assertTrue(prompt.contains("FACIAL GRAMMATICAL MARKERS & PUNCTUATION:"))
+    }
+
+    @Test
+    fun testPromptBuilderWithNegationMarker() {
+        val tokens = listOf("fever")
+        val markers = LinguisticMarkers(isQuestion = false, isNegation = true)
+        val prompt = LlmPromptBuilder.buildPrompt(tokens, SentenceTone.NEGATIVE, SentenceLanguage.FILIPINO, markers)
+
+        assertTrue(prompt.contains("Context tone: negative."))
+        assertTrue(prompt.contains("Facial Non-Manual Marker: Negation / Denial (Furrowed eyebrows detected)."))
+    }
+
+    @Test
+    fun testSanitizeOutputPunctuationSynergy() {
+        // Question marker forces ?
+        val statement = "I want to consult a doctor."
+        val questionResult = LlmPromptBuilder.sanitizeOutput(
+            raw = statement,
+            markers = LinguisticMarkers(isQuestion = true),
+            tone = SentenceTone.NEUTRAL
+        )
+        assertEquals("I want to consult a doctor?", questionResult)
+
+        // Concerned tone + emergency text forces !
+        val emergencyText = "There has been an accident."
+        val urgentResult = LlmPromptBuilder.sanitizeOutput(
+            raw = emergencyText,
+            markers = LinguisticMarkers(isQuestion = false),
+            tone = SentenceTone.CONCERNED
+        )
+        assertEquals("There has been an accident!", urgentResult)
+
+        // Filipino concerned tone + emergency forces !
+        val filipinoEmergency = "May naganap na aksidente."
+        val filUrgentResult = LlmPromptBuilder.sanitizeOutput(
+            raw = filipinoEmergency,
+            markers = LinguisticMarkers(isQuestion = false),
+            tone = SentenceTone.CONCERNED
+        )
+        assertEquals("May naganap na aksidente!", filUrgentResult)
+
+        // Neutral tone softens exclamation to a calm declarative period
+        val exclamationEmergency = "There has been an accident!"
+        val neutralResult = LlmPromptBuilder.sanitizeOutput(
+            raw = exclamationEmergency,
+            markers = LinguisticMarkers(isQuestion = false),
+            tone = SentenceTone.NEUTRAL
+        )
+        assertEquals("There has been an accident.", neutralResult)
+    }
+
+    @Test
+    fun testPromptBuilderFewShotContainsToneDirectives() {
+        val promptEnglish = LlmPromptBuilder.buildPrompt(
+            tokens = listOf("hurt", "broken_bone"),
+            tone = SentenceTone.CONCERNED,
+            language = SentenceLanguage.ENGLISH
+        )
+        assertTrue(promptEnglish.contains("Context tone: concerned"))
+        assertTrue(promptEnglish.contains("Context tone: positive"))
+        assertTrue(promptEnglish.contains("Context tone: neutral"))
+        assertTrue(promptEnglish.contains("Context tone: negative"))
+        // Confirms structural restructuring guidance is present
+        assertTrue(promptEnglish.contains("DYNAMIC SENTENCE STRUCTURE (NO FIXED TEMPLATES)"))
+        assertTrue(promptEnglish.contains("Sentence Restructuring"))
+        assertTrue(promptEnglish.contains("Please help, I am hurt and have a broken bone!"))
+        assertTrue(promptEnglish.contains("Please help, there has been an accident! I am hurt and have a broken bone!"))
+
+        val promptFilipino = LlmPromptBuilder.buildPrompt(
+            tokens = listOf("hurt", "broken_bone"),
+            tone = SentenceTone.CONCERNED,
+            language = SentenceLanguage.FILIPINO
+        )
+        assertTrue(promptFilipino.contains("Context tone: concerned"))
+        assertTrue(promptFilipino.contains("Context tone: positive"))
+        assertTrue(promptFilipino.contains("Context tone: neutral"))
+        assertTrue(promptFilipino.contains("Context tone: negative"))
+        assertTrue(promptFilipino.contains("Tulungan ninyo ako, nasasaktan ako at may bali sa buto!"))
+        assertTrue(promptFilipino.contains("Saklolo, may aksidente! Nasasaktan ako at may bali sa buto!"))
+    }
+
+    @Test
+    fun testFewShotExamplesPreserveFullTokenCoverage() {
+        // English few-shot structural sentences
+        val enHurtConcerned = "Please help, I am hurt and have a broken bone!"
+        assertTrue(WordTokenMatcher.isCovered("hurt", enHurtConcerned))
+        assertTrue(WordTokenMatcher.isCovered("broken_bone", enHurtConcerned))
+
+        val enAccidentHospitalConcerned = "There has been an accident with a broken bone! Call an ambulance immediately, I must be hospitalized!"
+        assertTrue(WordTokenMatcher.isCovered("accident", enAccidentHospitalConcerned))
+        assertTrue(WordTokenMatcher.isCovered("broken_bone", enAccidentHospitalConcerned))
+        assertTrue(WordTokenMatcher.isCovered("ambulance", enAccidentHospitalConcerned))
+        assertTrue(WordTokenMatcher.isCovered("hospitalized", enAccidentHospitalConcerned))
+
+        val enPositive = "Good morning! I am feeling sick and would appreciate consulting a doctor. Thank you so much!"
+        assertTrue(WordTokenMatcher.isCovered("good_morning", enPositive))
+        assertTrue(WordTokenMatcher.isCovered("sick", enPositive))
+        assertTrue(WordTokenMatcher.isCovered("consult", enPositive))
+        assertTrue(WordTokenMatcher.isCovered("thank_you", enPositive))
+
+        // Filipino few-shot structural sentences
+        val filHurtConcerned = "Tulungan ninyo ako, nasasaktan ako at may bali sa buto!"
+        assertTrue(WordTokenMatcher.isCovered("hurt", filHurtConcerned))
+        assertTrue(WordTokenMatcher.isCovered("broken_bone", filHurtConcerned))
+
+        val filAccidentHospitalConcerned = "May naganap na aksidente at may bali sa buto! Tumawag agad ng ambulansya, kailangang maospital kaagad!"
+        assertTrue(WordTokenMatcher.isCovered("accident", filAccidentHospitalConcerned))
+        assertTrue(WordTokenMatcher.isCovered("broken_bone", filAccidentHospitalConcerned))
+        assertTrue(WordTokenMatcher.isCovered("ambulance", filAccidentHospitalConcerned))
+        assertTrue(WordTokenMatcher.isCovered("hospitalized", filAccidentHospitalConcerned))
+    }
+
     // ── 2. Word Token Matcher & Zero-Word-Loss Tests ─────────────────────────
 
     @Test

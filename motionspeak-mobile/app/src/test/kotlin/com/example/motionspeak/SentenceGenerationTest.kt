@@ -7,6 +7,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -471,5 +472,314 @@ class SentenceGenerationTest {
         assertEquals(SentenceTone.CONCERNED, result?.tone)
         assertTrue("Latency should be recorded", (result?.latencyMs ?: 0L) >= 0L)
         composer.close()
+    }
+
+    // ── E. Emotion and Facial Linguistic Markers Synergy Tests ───────────────
+
+    @Test
+    fun testFacialMarkerQuestionSingleConceptEnglish() = runTest {
+        val result = synthesizer.compose(
+            tokens = listOf("consult"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH,
+            markers = LinguisticMarkers(isQuestion = true)
+        )
+        assertEquals("May I consult a doctor?", result.text)
+        assertTrue(result.linguisticMarkers.isQuestion)
+    }
+
+    @Test
+    fun testFacialMarkerQuestionMultiConceptEnglish() = runTest {
+        val result = synthesizer.compose(
+            tokens = listOf("headache", "fever", "medicines"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH,
+            markers = LinguisticMarkers(isQuestion = true)
+        )
+        assertTrue("Multi-token sentence with question marker must end with ?", result.text.endsWith("?"))
+        assertTrue(result.linguisticMarkers.isQuestion)
+    }
+
+    @Test
+    fun testFacialMarkerNegationSingleConceptEnglish() = runTest {
+        val result = synthesizer.compose(
+            tokens = listOf("fever"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH,
+            markers = LinguisticMarkers(isNegation = true)
+        )
+        assertEquals("I have no fever.", result.text)
+        assertTrue(result.linguisticMarkers.isNegation)
+    }
+
+    @Test
+    fun testFacialMarkerQuestionSingleConceptFilipino() = runTest {
+        val result = synthesizer.compose(
+            tokens = listOf("consult"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.FILIPINO,
+            markers = LinguisticMarkers(isQuestion = true)
+        )
+        assertEquals("Maaari ba akong kumonsulta sa doktor?", result.text)
+        assertTrue(result.linguisticMarkers.isQuestion)
+    }
+
+    @Test
+    fun testFacialMarkerNegationSingleConceptFilipino() = runTest {
+        val result = synthesizer.compose(
+            tokens = listOf("fever"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.FILIPINO,
+            markers = LinguisticMarkers(isNegation = true)
+        )
+        assertEquals("Wala akong lagnat.", result.text)
+        assertTrue(result.linguisticMarkers.isNegation)
+    }
+
+    @Test
+    fun testComposerPassesLinguisticMarkersExplicitly() = runTest {
+        val testDispatcher = StandardTestDispatcher(testScheduler)
+        val testScope = TestScope(testDispatcher)
+
+        var composedSentence: SentenceResult? = null
+        val composer = SentenceComposer(
+            synthesizer = synthesizer,
+            scope = testScope,
+            dispatcher = testDispatcher,
+            pauseDurationMs = 2000L,
+            dedupeWindowMs = 0L,
+            autoComposeEnabled = false
+        )
+        composer.onSentenceComposed = { result -> composedSentence = result }
+
+        composer.triggerComposition(
+            fallbackTokens = listOf("consult"),
+            t0CaptureMs = 12345L,
+            detectedEmotion = "sad",
+            linguisticMarkers = LinguisticMarkers(isQuestion = true)
+        )
+        testScheduler.advanceTimeBy(100)
+
+        val result = composedSentence
+        assertNotNull(result)
+        assertEquals(SentenceTone.CONCERNED, result?.tone)
+        assertTrue(result?.linguisticMarkers?.isQuestion == true)
+        assertEquals("May I consult a doctor?", result?.text)
+        composer.close()
+    }
+
+    // ── G. Emotion & Tone Synergy Differentiation Tests ─────────────────────────
+
+    @Test
+    fun testEmotionAffectsPunctuationOnEmergencyEnglish() = runTest {
+        val neutralResult = synthesizer.compose(
+            tokens = listOf("accident"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH
+        )
+        val concernedResult = synthesizer.compose(
+            tokens = listOf("accident"),
+            tone = SentenceTone.CONCERNED,
+            language = SentenceLanguage.ENGLISH
+        )
+        assertEquals("There has been an accident.", neutralResult.text)
+        assertEquals("There has been an accident!", concernedResult.text)
+        assertNotEquals(neutralResult.text, concernedResult.text)
+    }
+
+    @Test
+    fun testEmotionAffectsPunctuationOnDistressEnglish() = runTest {
+        val neutralHurt = synthesizer.compose(
+            tokens = listOf("hurt"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH
+        )
+        val concernedHurt = synthesizer.compose(
+            tokens = listOf("hurt"),
+            tone = SentenceTone.CONCERNED,
+            language = SentenceLanguage.ENGLISH
+        )
+        assertEquals("I am hurt.", neutralHurt.text)
+        assertEquals("I am hurt!", concernedHurt.text)
+        assertNotEquals(neutralHurt.text, concernedHurt.text)
+
+        val neutralSick = synthesizer.compose(
+            tokens = listOf("sick"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH
+        )
+        val concernedSick = synthesizer.compose(
+            tokens = listOf("sick"),
+            tone = SentenceTone.CONCERNED,
+            language = SentenceLanguage.ENGLISH
+        )
+        assertEquals("I am sick.", neutralSick.text)
+        assertEquals("I am sick!", concernedSick.text)
+        assertNotEquals(neutralSick.text, concernedSick.text)
+    }
+
+    @Test
+    fun testEmotionAffectsGreetingEnglish() = runTest {
+        val neutralHello = synthesizer.compose(
+            tokens = listOf("hello"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH
+        )
+        val positiveHello = synthesizer.compose(
+            tokens = listOf("hello"),
+            tone = SentenceTone.POSITIVE,
+            language = SentenceLanguage.ENGLISH
+        )
+        assertEquals("Hello.", neutralHello.text)
+        assertEquals("Hello!", positiveHello.text)
+        assertNotEquals(neutralHello.text, positiveHello.text)
+    }
+
+    @Test
+    fun testEmotionAffectsMultiTokenEmergencyEnglish() = runTest {
+        val neutralMulti = synthesizer.compose(
+            tokens = listOf("accident", "ambulance", "emergency"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH
+        )
+        val concernedMulti = synthesizer.compose(
+            tokens = listOf("accident", "ambulance", "emergency"),
+            tone = SentenceTone.CONCERNED,
+            language = SentenceLanguage.ENGLISH
+        )
+        assertEquals("There has been an accident. This is an emergency, please call an ambulance.", neutralMulti.text)
+        assertEquals("There has been an accident. This is an emergency, please call an ambulance!", concernedMulti.text)
+        assertNotEquals(neutralMulti.text, concernedMulti.text)
+    }
+
+    @Test
+    fun testEmotionAffectsPunctuationFilipino() = runTest {
+        val neutralAccident = synthesizer.compose(
+            tokens = listOf("accident"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.FILIPINO
+        )
+        val concernedAccident = synthesizer.compose(
+            tokens = listOf("accident"),
+            tone = SentenceTone.CONCERNED,
+            language = SentenceLanguage.FILIPINO
+        )
+        assertEquals("May aksidente.", neutralAccident.text)
+        assertEquals("May aksidente!", concernedAccident.text)
+        assertNotEquals(neutralAccident.text, concernedAccident.text)
+
+        val neutralHurt = synthesizer.compose(
+            tokens = listOf("hurt"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.FILIPINO
+        )
+        val concernedHurt = synthesizer.compose(
+            tokens = listOf("hurt"),
+            tone = SentenceTone.CONCERNED,
+            language = SentenceLanguage.FILIPINO
+        )
+        assertEquals("Nasasaktan ako.", neutralHurt.text)
+        assertEquals("Nasasaktan ako!", concernedHurt.text)
+        assertNotEquals(neutralHurt.text, concernedHurt.text)
+
+        val neutralHello = synthesizer.compose(
+            tokens = listOf("hello"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.FILIPINO
+        )
+        val positiveHello = synthesizer.compose(
+            tokens = listOf("hello"),
+            tone = SentenceTone.POSITIVE,
+            language = SentenceLanguage.FILIPINO
+        )
+        assertEquals("Kamusta.", neutralHello.text)
+        assertEquals("Kamusta!", positiveHello.text)
+        assertNotEquals(neutralHello.text, positiveHello.text)
+
+        val neutralMulti = synthesizer.compose(
+            tokens = listOf("accident", "ambulance", "emergency"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.FILIPINO
+        )
+        val concernedMulti = synthesizer.compose(
+            tokens = listOf("accident", "ambulance", "emergency"),
+            tone = SentenceTone.CONCERNED,
+            language = SentenceLanguage.FILIPINO
+        )
+        assertEquals("May aksidente. Emerhensya ito, tumawag ng ambulansya.", neutralMulti.text)
+        assertEquals("May aksidente. Emerhensya ito, tumawag ng ambulansya!", concernedMulti.text)
+        assertNotEquals(neutralMulti.text, concernedMulti.text)
+    }
+
+    // ── H. Exact user scenario: [accident, hurt, broken_bone] ────────────────
+
+    @Test
+    fun testEmotionAffectsAccidentHurtBrokenBoneEnglish() = runTest {
+        val neutralResult = synthesizer.compose(
+            tokens = listOf("accident", "hurt", "broken_bone"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.ENGLISH
+        )
+        val concernedResult = synthesizer.compose(
+            tokens = listOf("accident", "hurt", "broken_bone"),
+            tone = SentenceTone.CONCERNED,
+            language = SentenceLanguage.ENGLISH
+        )
+        // Neutral: calm separate declarative sentences
+        assertEquals("There has been an accident. I am hurt and have a broken bone.", neutralResult.text)
+        // Concerned: dynamically restructured into urgent compound call for aid
+        assertEquals("Please help! There has been an accident, I am hurt and have a broken bone!", concernedResult.text)
+        assertNotEquals(neutralResult.text, concernedResult.text)
+    }
+
+    @Test
+    fun testEmotionAffectsAccidentHurtBrokenBoneFilipino() = runTest {
+        val neutralResult = synthesizer.compose(
+            tokens = listOf("accident", "hurt", "broken_bone"),
+            tone = SentenceTone.NEUTRAL,
+            language = SentenceLanguage.FILIPINO
+        )
+        val concernedResult = synthesizer.compose(
+            tokens = listOf("accident", "hurt", "broken_bone"),
+            tone = SentenceTone.CONCERNED,
+            language = SentenceLanguage.FILIPINO
+        )
+        assertEquals("May aksidente. Nasasaktan ako at may bali sa buto.", neutralResult.text)
+        assertEquals("Saklolo! May aksidente, nasasaktan ako at may bali sa buto!", concernedResult.text)
+        assertNotEquals(neutralResult.text, concernedResult.text)
+    }
+
+    // ── I. ToneMapper routing ────────────────────────────────────────────────
+
+    @Test
+    fun testToneMapperAngryMapsToConcerned() {
+        assertEquals("concerned", ToneMapper.fromEmotion("angry"))
+    }
+
+    @Test
+    fun testToneMapperSadMapsToConcerned() {
+        assertEquals("concerned", ToneMapper.fromEmotion("sad"))
+    }
+
+    @Test
+    fun testToneMapperDisgustMapsToConcerned() {
+        assertEquals("concerned", ToneMapper.fromEmotion("disgust"))
+    }
+
+    @Test
+    fun testToneMapperHappyMapsToPositive() {
+        assertEquals("positive", ToneMapper.fromEmotion("happy"))
+    }
+
+    @Test
+    fun testToneMapperNeutralMapsToNeutral() {
+        assertEquals("neutral", ToneMapper.fromEmotion("neutral"))
+    }
+
+    @Test
+    fun testToneMapperLowConfidenceFallsBackToNeutral() {
+        // Confidence below threshold → always neutral regardless of emotion
+        assertEquals("neutral", ToneMapper.fromEmotion("angry", confidence = 0.3f))
+        assertEquals("neutral", ToneMapper.fromEmotion("sad", confidence = 0.49f))
     }
 }
